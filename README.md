@@ -82,7 +82,7 @@ You can test the API using Postman or cURL.
 
 ## 👤 Authors
 **Furkan** - [GitHub Profile](https://github.com/FurkanKCodes)
-**Berkay** - [Github Profile](https://github.com/)
-**Erdem** - [Github Profile](https://github.com/itu-itis23-ozsevene22)
+**Berkay** - [Github Profile](https://github.com/berkaykcodes)
+**Erdem** - [Github Profile](https://github.com/erdemoz7)
 
 ---
