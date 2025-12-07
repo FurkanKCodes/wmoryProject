@@ -10,6 +10,8 @@ CREATE TABLE groups_table (
     group_code VARCHAR(10) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by INT NOT NULL,
+    group_name VARCHAR(255) NOT NULL DEFAULT 'Adsız Grup',
+    picture VARCHAR(255) DEFAULT NULL,
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
 

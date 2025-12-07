@@ -1,30 +1,37 @@
 import os
 from flask import Flask
-from dotenv import load_dotenv
-
-# Import Blueprints
+from flask_cors import CORS
 from routes.auth import auth_bp
-from routes.groups import groups_bp
-from routes.photos import photos_bp
-
-# Load environment variables
-load_dotenv()
+from routes.groups import groups_bp   # Import Groups Blueprint
+from routes.photos import photos_bp   # Import Photos Blueprint
 
 app = Flask(__name__)
+CORS(app) # Allow mobile app connection
 
-# --- CONFIGURATION ---
-UPLOAD_FOLDER = 'uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# =====================================================
+# CONFIGURATION
+# =====================================================
+# Define the folder where uploaded photos will be stored
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
 
-# Create the upload folder if it doesn't exist
+# Create the folder if it doesn't exist
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# --- REGISTER BLUEPRINTS ---
-# Register the modular routes with the main application
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# =====================================================
+# REGISTER BLUEPRINTS
+# =====================================================
+# Connect all the separate route files to the main app
 app.register_blueprint(auth_bp)
 app.register_blueprint(groups_bp)
 app.register_blueprint(photos_bp)
 
+@app.route('/')
+def index():
+    return "Backend is running! Auth, Groups, and Photos are ready."
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Run the server accessible to the network
+    app.run(debug=True, host='0.0.0.0', port=5000)
