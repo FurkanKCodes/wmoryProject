@@ -2,60 +2,67 @@ import os
 from flask import Blueprint, request, jsonify, send_from_directory, current_app, url_for
 from werkzeug.utils import secure_filename
 from db import get_db_connection
+# IMPORT PILLOW & IMAGEOPS
+from PIL import Image, ImageOps
 
-# Define the Blueprint for photo operations
 photos_bp = Blueprint('photos', __name__)
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'avi', 'm4v'}
 
 def allowed_file(filename):
-    """Checks if the file has a valid extension."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def is_group_member(user_id, group_id):
-    """Helper function to check if a user is a member of a group."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id FROM groups_members WHERE user_id = %s AND group_id = %s", 
-        (user_id, group_id)
-    )
-    member = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    return member is not None
+# ==========================================
+# HELPER: CREATE THUMBNAIL (FIXED ROTATION)
+# ==========================================
+def create_thumbnail(image_path, filename):
+    """
+    Creates a 300x300 thumbnail for images.
+    Automatically fixes EXIF rotation issues.
+    """
+    try:
+        size = (300, 300)
+        with Image.open(image_path) as img:
+            # FIX: Rotate the image based on EXIF data (fixes sideways images)
+            img = ImageOps.exif_transpose(img)
 
+            # Convert to RGB (handles PNG transparency)
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+            
+            img.thumbnail(size)
+            
+            thumb_filename = f"thumb_{filename}"
+            thumb_path = os.path.join(os.path.dirname(image_path), thumb_filename)
+            img.save(thumb_path, "JPEG", quality=85)
+            print(f"Thumbnail created: {thumb_filename}")
+            return thumb_filename
+    except Exception as e:
+        print(f"Thumbnail creation failed: {e}")
+        return None
+
+# ==========================================
+# UPLOAD PHOTO
+# ==========================================
 @photos_bp.route('/upload-photo', methods=['POST'])
 def upload_photo():
-    # Check if the file part is in the request
     if 'photo' not in request.files:
         return jsonify({"error": "No file part"}), 400
     
     file = request.files['photo']
     user_id = request.form.get('user_id')
-    group_code = request.form.get('group_code')
+    group_id = request.form.get('group_id')
 
-    if file.filename == '' or not user_id or not group_code:
+    if not file or file.filename == '' or not user_id or not group_id:
         return jsonify({"error": "Missing data"}), 400
 
-    if file and allowed_file(file.filename):
+    if allowed_file(file.filename):
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
 
-            # 1. Verify group existence
-            cursor.execute("SELECT id FROM groups_table WHERE group_code = %s", (group_code,))
-            group_row = cursor.fetchone()
-            if not group_row:
-                cursor.close()
-                conn.close()
-                return jsonify({"error": "Group not found"}), 404
-            
-            group_id = group_row[0]
-
-            # 2. SECURITY CHECK: Verify if the user is a MEMBER
-            # We check manually here (or use the helper function)
+            # MEMBER CHECK
             cursor.execute(
                 "SELECT id FROM groups_members WHERE user_id = %s AND group_id = %s", 
                 (user_id, group_id)
@@ -65,12 +72,21 @@ def upload_photo():
                 conn.close()
                 return jsonify({"error": "You are not a member of this group"}), 403
 
-            # 3. Secure the filename and save
             filename = secure_filename(file.filename)
-            save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            save_path = os.path.join(upload_folder, filename)
+            
+            # 1. Save Original File
             file.save(save_path)
 
-            # 4. Insert metadata
+            # 2. Generate Thumbnail (Only if it's an image)
+            ext = filename.rsplit('.', 1)[1].lower()
+            is_video = ext in ['mp4', 'mov', 'avi', 'm4v']
+            
+            if not is_video:
+                create_thumbnail(save_path, filename)
+
+            # 3. Save Metadata to DB
             sql = "INSERT INTO photos (file_name, user_id, group_id) VALUES (%s, %s, %s)"
             cursor.execute(sql, (filename, user_id, group_id))
             conn.commit()
@@ -80,8 +96,7 @@ def upload_photo():
 
             return jsonify({
                 "message": "File uploaded successfully", 
-                "filename": filename,
-                "group_id": group_id
+                "filename": filename
             }), 201
 
         except Exception as e:
@@ -90,31 +105,22 @@ def upload_photo():
     else:
         return jsonify({"error": "File type not allowed"}), 400
 
+# ==========================================
+# GET GROUP PHOTOS
+# ==========================================
 @photos_bp.route('/group-photos', methods=['GET'])
 def get_group_photos():
-    # Now we require BOTH group_code AND user_id for security
-    group_code = request.args.get('group_code')
+    group_id = request.args.get('group_id')
     user_id = request.args.get('user_id')
 
-    if not group_code or not user_id:
-        return jsonify({"error": "group_code and user_id are required"}), 400
+    if not group_id or not user_id:
+        return jsonify({"error": "group_id and user_id are required"}), 400
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # 1. Get Group ID
-        cursor.execute("SELECT id FROM groups_table WHERE group_code = %s", (group_code,))
-        group_row = cursor.fetchone()
-
-        if not group_row:
-            cursor.close()
-            conn.close()
-            return jsonify({"error": "Group not found"}), 404
-        
-        group_id = group_row['id']
-        
-        # 2. SECURITY CHECK: Is the user requesting this list a member?
+        # MEMBER CHECK
         cursor.execute(
             "SELECT id FROM groups_members WHERE user_id = %s AND group_id = %s", 
             (user_id, group_id)
@@ -122,28 +128,48 @@ def get_group_photos():
         if not cursor.fetchone():
             cursor.close()
             conn.close()
-            # 403 Forbidden: You can't see these photos!
-            return jsonify({"error": "You are not authorized to view this group's photos"}), 403
+            return jsonify({"error": "Unauthorized"}), 403
 
-        # 3. Fetch Photos (Only if authorized)
+        # FETCH PHOTOS 
         sql = """
             SELECT photos.id, photos.file_name, photos.upload_date, 
+                   photos.user_id as uploader_id, 
                    users.username, users.profile_image
             FROM photos 
             JOIN users ON photos.user_id = users.id 
-            WHERE photos.group_id = %s
+            WHERE photos.group_id = %s 
+            AND photos.id NOT IN (
+                SELECT photo_id FROM hidden_photos WHERE user_id = %s
+            )
             ORDER BY photos.upload_date DESC
         """
-        cursor.execute(sql, (group_id,))
+        cursor.execute(sql, (group_id, user_id))
         photos = cursor.fetchall()
 
         photo_list = []
         for photo in photos:
-            photo_url = url_for('photos.uploaded_file', filename=photo['file_name'], _external=True)
+            filename = photo['file_name']
             
+            # Original URL
+            original_url = url_for('photos.uploaded_file', filename=filename, _external=True)
+            
+            # Determine Type
+            ext = filename.rsplit('.', 1)[1].lower()
+            media_type = 'video' if ext in ['mp4', 'mov', 'avi', 'm4v'] else 'image'
+            
+            # Construct Thumbnail URL
+            if media_type == 'image':
+                thumb_name = f"thumb_{filename}"
+                thumbnail_url = url_for('photos.uploaded_file', filename=thumb_name, _external=True)
+            else:
+                thumbnail_url = original_url 
+
             photo_list.append({
                 "id": photo['id'],
-                "url": photo_url,
+                "url": original_url,
+                "thumbnail": thumbnail_url,
+                "type": media_type,
+                "uploader_id": photo['uploader_id'],
                 "uploaded_by": photo['username'],
                 "user_avatar": photo['profile_image'],
                 "date": photo['upload_date']
@@ -157,7 +183,52 @@ def get_group_photos():
         print(f"Error: {e}")
         return jsonify({"error": "Internal Server Error"}), 500
 
+# ==========================================
+# HIDE & DELETE ROUTES (UNCHANGED)
+# ==========================================
+@photos_bp.route('/hide-photo', methods=['POST'])
+def hide_photo():
+    data = request.json
+    user_id = data.get('user_id')
+    photo_id = data.get('photo_id')
+    if not user_id or not photo_id: return jsonify({"error": "Missing fields"}), 400
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        sql = "INSERT IGNORE INTO hidden_photos (user_id, photo_id) VALUES (%s, %s)"
+        cursor.execute(sql, (user_id, photo_id))
+        conn.commit()
+        cursor.close(); conn.close()
+        return jsonify({"message": "Photo hidden successfully"}), 200
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
+@photos_bp.route('/delete-photo', methods=['DELETE'])
+def delete_photo():
+    user_id = request.args.get('user_id')
+    photo_id = request.args.get('photo_id')
+    if not user_id or not photo_id: return jsonify({"error": "Missing fields"}), 400
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT file_name, user_id FROM photos WHERE id = %s", (photo_id,))
+        photo = cursor.fetchone()
+        if not photo:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Photo not found"}), 404
+        if str(photo['user_id']) != str(user_id):
+            cursor.close(); conn.close()
+            return jsonify({"error": "Unauthorized"}), 403
+        cursor.execute("DELETE FROM photos WHERE id = %s", (photo_id,))
+        conn.commit()
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        file_path = os.path.join(upload_folder, photo['file_name'])
+        if os.path.exists(file_path): os.remove(file_path)
+        thumb_path = os.path.join(upload_folder, f"thumb_{photo['file_name']}")
+        if os.path.exists(thumb_path): os.remove(thumb_path)
+        cursor.close(); conn.close()
+        return jsonify({"message": "Photo deleted successfully"}), 200
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
 @photos_bp.route('/uploads/<filename>')
 def uploaded_file(filename):
-    """Serves the uploaded file to the client."""
     return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)

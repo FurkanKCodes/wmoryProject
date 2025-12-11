@@ -1,11 +1,11 @@
 import os
 import string
 import random
-from flask import Blueprint, request, jsonify, current_app, send_from_directory
+from flask import Blueprint, request, jsonify, current_app, send_from_directory, url_for
 from werkzeug.utils import secure_filename
 from db import get_db_connection
+from PIL import Image
 
-# Define the Blueprint for group operations
 groups_bp = Blueprint('groups', __name__)
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -14,57 +14,60 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def generate_group_code():
-    """Generates a random 8-character alphanumeric code."""
     characters = string.ascii_uppercase + string.digits
     return ''.join(random.choices(characters, k=8))
 
+# --- HELPER: THUMBNAIL ---
+def create_thumbnail(image_path, filename):
+    try:
+        size = (300, 300)
+        with Image.open(image_path) as img:
+            if img.mode in ('RGBA', 'P'): img = img.convert('RGB')
+            img.thumbnail(size)
+            thumb_path = os.path.join(os.path.dirname(image_path), f"thumb_{filename}")
+            img.save(thumb_path, "JPEG", quality=85)
+            return f"thumb_{filename}"
+    except Exception as e:
+        print(f"Thumbnail error: {e}")
+        return None
+
 # ==========================================
-# CREATE GROUP (UPDATED with Image Upload)
+# CREATE GROUP
 # ==========================================
 @groups_bp.route('/create-group', methods=['POST'])
 def create_group():
-    # NOT: Resim yükleme olduğu için artık request.json KULLANILMAZ.
-    # request.form ve request.files kullanılır.
-
     user_id = request.form.get('user_id')
     group_name = request.form.get('group_name')
 
-    # Validation
     if not user_id or not group_name:
-        return jsonify({"error": "user_id and group_name are required"}), 400
+        return jsonify({"error": "Missing data"}), 400
 
-    # Resim İşlemleri
     picture_filename = None
     if 'picture' in request.files:
         file = request.files['picture']
-        if file and file.filename != '' and allowed_file(file.filename):
+        if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            # Çakışmayı önlemek için ismin başına rastgele kod ekleyelim
             unique_name = f"{generate_group_code()}_{filename}"
-            
-            # app.py'de tanımlanan upload klasörüne kaydet
-            upload_path = current_app.config['UPLOAD_FOLDER']
-            file.save(os.path.join(upload_path, unique_name))
+            path = current_app.config['UPLOAD_FOLDER']
+            file.save(os.path.join(path, unique_name))
+            create_thumbnail(os.path.join(path, unique_name), unique_name)
             picture_filename = unique_name
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Generate Unique Code
         new_code = ""
         while True:
             new_code = generate_group_code()
             cursor.execute("SELECT id FROM groups_table WHERE group_code = %s", (new_code,))
-            if cursor.fetchone() is None:
-                break 
+            if not cursor.fetchone(): break 
 
-        # 1. Insert new group (Updated with picture)
-        sql_group = "INSERT INTO groups_table (group_code, created_by, group_name, picture) VALUES (%s, %s, %s, %s)"
+        # Default is_joining_active = 1
+        sql_group = "INSERT INTO groups_table (group_code, created_by, group_name, picture, is_joining_active) VALUES (%s, %s, %s, %s, 1)"
         cursor.execute(sql_group, (new_code, user_id, group_name, picture_filename))
         group_id = cursor.lastrowid 
 
-        # 2. Add creator as Admin Member
         sql_member = "INSERT INTO groups_members (user_id, group_id, is_admin) VALUES (%s, %s, %s)"
         cursor.execute(sql_member, (user_id, group_id, 1))
 
@@ -72,117 +75,354 @@ def create_group():
         cursor.close()
         conn.close()
 
-        return jsonify({
-            "status": "success",
-            "message": "Grup başarıyla oluşturuldu",
-            "group_code": new_code,
-            "group_id": group_id,
-            "group_name": group_name,
-            "picture": picture_filename
-        }), 201
-
+        return jsonify({"message": "Group created", "group_code": new_code}), 201
     except Exception as e:
-        print(f"Error creating group: {e}") 
-        return jsonify({"status": "error", "message": "Sunucu hatası: " + str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 # ==========================================
-# JOIN GROUP (UNCHANGED)
+# EDIT GROUP
+# ==========================================
+@groups_bp.route('/edit-group', methods=['POST'])
+def edit_group():
+    user_id = request.form.get('user_id')
+    group_id = request.form.get('group_id')
+    group_name = request.form.get('group_name')
+
+    if not user_id or not group_id: return jsonify({"error": "Missing data"}), 400
+
+    picture_filename = None
+    if 'picture' in request.files:
+        file = request.files['picture']
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            unique_name = f"{generate_group_code()}_{filename}"
+            path = current_app.config['UPLOAD_FOLDER']
+            file.save(os.path.join(path, unique_name))
+            create_thumbnail(os.path.join(path, unique_name), unique_name)
+            picture_filename = unique_name
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        cursor.execute("SELECT is_admin FROM groups_members WHERE user_id=%s AND group_id=%s", (user_id, group_id))
+        if not cursor.fetchone() or cursor.fetchone()['is_admin'] != 1:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Unauthorized"}), 403
+
+        sql = "UPDATE groups_table SET group_name=%s"
+        params = [group_name]
+        if picture_filename:
+            sql += ", picture=%s"
+            params.append(picture_filename)
+        sql += " WHERE id=%s"
+        params.append(group_id)
+
+        cursor.execute(sql, tuple(params))
+        conn.commit()
+        cursor.close(); conn.close()
+        return jsonify({"message": "Updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# JOIN GROUP
 # ==========================================
 @groups_bp.route('/join-group', methods=['POST'])
 def join_group():
-    if not request.is_json:
-        return jsonify({"error": "Content-Type must be application/json"}), 415
-        
     data = request.json
     user_id = data.get('user_id')
-    code = data.get('group_code') # Frontend 'group_code' göndermeli
-
-    if not user_id or not code:
-        return jsonify({"error": "user_id and group_code are required"}), 400
+    code = data.get('group_code')
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # 1. Find group
-        cursor.execute("SELECT id, group_name FROM groups_table WHERE group_code = %s", (code,))
-        group_row = cursor.fetchone()
+        # 1. Find Group & Check Status
+        cursor.execute("SELECT id, group_name, is_joining_active FROM groups_table WHERE group_code = %s", (code,))
+        group = cursor.fetchone()
 
-        if not group_row:
-            cursor.close()
-            conn.close()
-            return jsonify({"error": "Grup bulunamadı"}), 404
+        if not group:
+            cursor.close(); conn.close()
+            return jsonify({"status": "error", "message": "Grup bulunamadı"}), 404
         
-        group_id = group_row['id']
-        group_name = group_row['group_name']
+        # 2. Check if joining is closed
+        if group['is_joining_active'] == 0:
+            cursor.close(); conn.close()
+            return jsonify({"status": "error", "message": "Gruba alımlar kapalı"}), 403
 
-        # 2. Check existing membership
-        cursor.execute(
-            "SELECT id FROM groups_members WHERE user_id = %s AND group_id = %s", 
-            (user_id, group_id)
-        )
+        group_id = group['id']
+
+        # 3. Check if already member
+        cursor.execute("SELECT id FROM groups_members WHERE user_id = %s AND group_id = %s", (user_id, group_id))
         if cursor.fetchone():
-            cursor.close()
-            conn.close()
-            return jsonify({"message": "Zaten bu grubun üyesisiniz"}), 409
+            cursor.close(); conn.close()
+            return jsonify({"status": "error", "message": "Zaten bu grubun üyesisiniz"}), 409
 
-        # 3. Add member
-        sql = "INSERT INTO groups_members (user_id, group_id) VALUES (%s, %s)"
-        cursor.execute(sql, (user_id, group_id))
+        # 4. Check if request already exists
+        cursor.execute("SELECT id FROM group_requests WHERE user_id = %s AND group_id = %s", (user_id, group_id))
+        if cursor.fetchone():
+            cursor.close(); conn.close()
+            return jsonify({"status": "error", "message": "Zaten bir istek gönderdiniz"}), 409
+
+        # 5. Create Request
+        cursor.execute("INSERT INTO group_requests (user_id, group_id) VALUES (%s, %s)", (user_id, group_id))
         conn.commit()
-        
-        cursor.close()
-        conn.close()
+        cursor.close(); conn.close()
 
-        return jsonify({
-            "status": "success", 
-            "message": "Gruba başarıyla katıldınız",
-            "group_id": group_id,
-            "group_name": group_name
-        }), 200
+        return jsonify({"status": "success", "message": "Katılma isteğiniz iletilmiştir."}), 200
 
     except Exception as e:
-        print(f"Error joining group: {e}")
-        return jsonify({"status": "error", "message": "Sunucu hatası"}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================
-# GET USER GROUPS (Updated SELECT)
+# TOGGLE JOINING STATUS
 # ==========================================
-@groups_bp.route('/my-groups', methods=['GET'])
-def get_user_groups():
-    user_id = request.args.get('user_id')
+@groups_bp.route('/toggle-joining', methods=['POST'])
+def toggle_joining():
+    data = request.json
+    user_id = data.get('user_id')
+    group_id = data.get('group_id')
+    status = data.get('status') # 1 (Open) or 0 (Closed)
 
-    if not user_id:
-        return jsonify({"error": "user_id is required"}), 400
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check Admin
+        cursor.execute("SELECT is_admin FROM groups_members WHERE user_id=%s AND group_id=%s", (user_id, group_id))
+        row = cursor.fetchone()
+        if not row or row[0] != 1:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Sadece yöneticiler değiştirebilir"}), 403
+
+        cursor.execute("UPDATE groups_table SET is_joining_active = %s WHERE id = %s", (status, group_id))
+        conn.commit()
+        cursor.close(); conn.close()
+        return jsonify({"message": "Updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# GET GROUP REQUESTS
+# ==========================================
+@groups_bp.route('/get-group-requests', methods=['GET'])
+def get_group_requests():
+    group_id = request.args.get('group_id')
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        sql = """
+            SELECT r.id as request_id, u.id as user_id, u.username, u.profile_image 
+            FROM group_requests r
+            JOIN users u ON r.user_id = u.id
+            WHERE r.group_id = %s
+        """
+        cursor.execute(sql, (group_id,))
+        requests = cursor.fetchall()
+
+        for r in requests:
+            if r['profile_image']:
+                r['thumbnail_url'] = url_for('groups.uploaded_file', filename=f"thumb_{r['profile_image']}", _external=True)
+            else:
+                r['thumbnail_url'] = None
+
+        cursor.close(); conn.close()
+        return jsonify(requests), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# MANAGE REQUEST 
+# ==========================================
+@groups_bp.route('/manage-request', methods=['POST'])
+def manage_request():
+    data = request.json
+    admin_id = data.get('admin_id')
+    group_id = data.get('group_id')
+    target_user_id = data.get('target_user_id')
+    action = data.get('action') # 'accept' or 'decline'
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check Admin
+        cursor.execute("SELECT is_admin FROM groups_members WHERE user_id=%s AND group_id=%s", (admin_id, group_id))
+        row = cursor.fetchone()
+        if not row or row[0] != 1:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Sadece yöneticiler isteklere cevap verebilir"}), 403
+
+        # Delete Request
+        cursor.execute("DELETE FROM group_requests WHERE user_id=%s AND group_id=%s", (target_user_id, group_id))
+
+        if action == 'accept':
+            cursor.execute("INSERT INTO groups_members (user_id, group_id) VALUES (%s, %s)", (target_user_id, group_id))
+        
+        conn.commit()
+        cursor.close(); conn.close()
+        return jsonify({"message": "Success"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# MANAGE MEMBER
+# ==========================================
+@groups_bp.route('/manage-member', methods=['POST'])
+def manage_member():
+    data = request.json
+    admin_id = data.get('admin_id')
+    group_id = data.get('group_id')
+    target_user_id = data.get('target_user_id')
+    action = data.get('action') # 'kick' or 'promote'
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check Admin
+        cursor.execute("SELECT is_admin FROM groups_members WHERE user_id=%s AND group_id=%s", (admin_id, group_id))
+        row = cursor.fetchone()
+        if not row or row[0] != 1:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Unauthorized"}), 403
+
+        if action == 'kick':
+            cursor.execute("DELETE FROM groups_members WHERE user_id=%s AND group_id=%s", (target_user_id, group_id))
+        
+        elif action == 'promote':
+            # Swap Logic: Old admin -> 0, New admin -> 1
+            cursor.execute("UPDATE groups_members SET is_admin = 0 WHERE user_id=%s AND group_id=%s", (admin_id, group_id))
+            cursor.execute("UPDATE groups_members SET is_admin = 1 WHERE user_id=%s AND group_id=%s", (target_user_id, group_id))
+
+        conn.commit()
+        cursor.close(); conn.close()
+        return jsonify({"message": "Success"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# LEAVE GROUP
+# ==========================================
+@groups_bp.route('/leave-group', methods=['POST'])
+def leave_group():
+    data = request.json
+    user_id = data.get('user_id')
+    group_id = data.get('group_id')
+
+    if not user_id or not group_id:
+        return jsonify({"error": "Missing fields"}), 400
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # picture sütununu da çekiyoruz
-        sql = """
-            SELECT g.id, g.group_name, g.group_code, g.picture, gm.is_admin
-            FROM groups_table g
-            JOIN groups_members gm ON g.id = gm.group_id
-            WHERE gm.user_id = %s
-            ORDER BY gm.joined_at DESC
-        """
-        cursor.execute(sql, (user_id,))
-        groups = cursor.fetchall()
+        # 1. Check if user is admin
+        cursor.execute("SELECT is_admin FROM groups_members WHERE user_id=%s AND group_id=%s", (user_id, group_id))
+        member_row = cursor.fetchone()
 
+        if not member_row:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Member not found"}), 404
+        
+        was_admin = (member_row['is_admin'] == 1)
+
+        # 2. Delete member (Leave group)
+        cursor.execute("DELETE FROM groups_members WHERE user_id=%s AND group_id=%s", (user_id, group_id))
+
+        # 3. If admin left, assign heir
+        if was_admin:
+            # Check if any admin remains
+            cursor.execute("SELECT user_id FROM groups_members WHERE group_id=%s AND is_admin=1", (group_id,))
+            remaining_admin = cursor.fetchone()
+
+            if not remaining_admin:
+                # No admin left, find oldest member (lowest ID)
+                cursor.execute("SELECT user_id FROM groups_members WHERE group_id=%s ORDER BY id ASC LIMIT 1", (group_id,))
+                heir = cursor.fetchone()
+                
+                if heir:
+                    # Promote heir
+                    cursor.execute("UPDATE groups_members SET is_admin=1 WHERE user_id=%s AND group_id=%s", (heir['user_id'], group_id))
+                    print(f"User {heir['user_id']} promoted to admin automatically.")
+
+        conn.commit()
         cursor.close()
         conn.close()
-
-        return jsonify(groups), 200
+        return jsonify({"message": "Left group successfully"}), 200
 
     except Exception as e:
-        print(f"Error fetching groups: {e}")
-        return jsonify({"error": "Sunucu hatası"}), 500
+        print(f"Leave group error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 # ==========================================
-# SERVE UPLOADED IMAGES
+# GET GROUP DETAILS
+# ==========================================
+@groups_bp.route('/get-group-details', methods=['GET'])
+def get_group_details():
+    group_id = request.args.get('group_id')
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        cursor.execute("SELECT id, group_name, picture, group_code, is_joining_active FROM groups_table WHERE id = %s", (group_id,))
+        group = cursor.fetchone()
+        
+        if group:
+            if group['picture']:
+                group['picture_url'] = url_for('groups.uploaded_file', filename=group['picture'], _external=True)
+                group['thumbnail_url'] = url_for('groups.uploaded_file', filename=f"thumb_{group['picture']}", _external=True)
+            else:
+                group['picture_url'] = None; group['thumbnail_url'] = None
+        
+        cursor.close(); conn.close()
+        return jsonify(group) if group else (jsonify({"error": "Not found"}), 404)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# OTHER ROUTES 
 # ==========================================
 @groups_bp.route('/uploads/<filename>')
 def uploaded_file(filename):
-    upload_folder = current_app.config['UPLOAD_FOLDER']
-    return send_from_directory(upload_folder, filename)
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+
+@groups_bp.route('/my-groups', methods=['GET'])
+def get_user_groups():
+    user_id = request.args.get('user_id')
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        sql = "SELECT g.id, g.group_name, g.group_code, g.picture, gm.is_admin FROM groups_table g JOIN groups_members gm ON g.id = gm.group_id WHERE gm.user_id = %s ORDER BY gm.joined_at DESC"
+        cursor.execute(sql, (user_id,))
+        groups = cursor.fetchall()
+        for g in groups:
+            if g['picture']:
+                g['picture_url'] = url_for('groups.uploaded_file', filename=g['picture'], _external=True)
+                g['thumbnail_url'] = url_for('groups.uploaded_file', filename=f"thumb_{g['picture']}", _external=True)
+            else: g['picture_url'] = None; g['thumbnail_url'] = None
+        cursor.close(); conn.close()
+        return jsonify(groups), 200
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
+@groups_bp.route('/get-group-members', methods=['GET'])
+def get_group_members():
+    group_id = request.args.get('group_id')
+    current_user_id = request.args.get('current_user_id')
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        sql = "SELECT u.id, u.username, u.profile_image, gm.is_admin, CASE WHEN u.id = %s THEN 0 ELSE 1 END as sort_order FROM groups_members gm JOIN users u ON gm.user_id = u.id WHERE gm.group_id = %s ORDER BY sort_order ASC, u.username ASC"
+        cursor.execute(sql, (current_user_id, group_id))
+        members = cursor.fetchall()
+        for m in members:
+            if m['profile_image']:
+                m['profile_url'] = url_for('groups.uploaded_file', filename=m['profile_image'], _external=True)
+                m['thumbnail_url'] = url_for('groups.uploaded_file', filename=f"thumb_{m['profile_image']}", _external=True)
+            else: m['profile_url'] = None; m['thumbnail_url'] = None
+        cursor.close(); conn.close()
+        return jsonify(members), 200
+    except Exception as e: return jsonify({"error": str(e)}), 500

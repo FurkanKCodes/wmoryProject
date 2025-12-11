@@ -12,6 +12,7 @@ CREATE TABLE groups_table (
     created_by INT NOT NULL,
     group_name VARCHAR(255) NOT NULL DEFAULT 'Adsız Grup',
     picture VARCHAR(255) DEFAULT NULL,
+    is_joining_active TINYINT(1) DEFAULT 1,
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
@@ -43,4 +44,24 @@ CREATE TABLE photos (
     upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (group_id) REFERENCES groups_table(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE hidden_photos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    photo_id INT NOT NULL,
+    hidden_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (photo_id) REFERENCES photos(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_hide (user_id, photo_id)
+);
+
+CREATE TABLE group_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    group_id INT NOT NULL,
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (group_id) REFERENCES groups_table(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_request (user_id, group_id)
 );

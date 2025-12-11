@@ -1,12 +1,13 @@
 import os
 import string
 import random
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, url_for
 from db import get_db_connection
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+# IMPORT PILLOW
+from PIL import Image
 
-# Define the Blueprint for authentication routes
 auth_bp = Blueprint('auth', __name__)
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -14,8 +15,23 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# --- THUMBNAIL HELPER (Local to auth or imported) ---
+def create_thumbnail(image_path, filename):
+    try:
+        size = (300, 300)
+        with Image.open(image_path) as img:
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+            img.thumbnail(size)
+            thumb_path = os.path.join(os.path.dirname(image_path), f"thumb_{filename}")
+            img.save(thumb_path, "JPEG", quality=85)
+            print(f"Profile thumbnail created: thumb_{filename}")
+    except Exception as e:
+        print(f"Thumbnail error: {e}")
+
 @auth_bp.route('/register', methods=['POST'])
 def register():
+    # ... (Register logic remains unchanged) ...
     if not request.is_json:
         return jsonify({"error": "Content-Type must be application/json"}), 415
 
@@ -81,10 +97,21 @@ def login():
         conn.close()
 
         if user and check_password_hash(user['password_hash'], password):
+            # Generate URLs
+            profile_url = None
+            thumb_url = None
+            if user['profile_image']:
+                # Using 'groups.uploaded_file' to serve (shared upload folder)
+                profile_url = url_for('groups.uploaded_file', filename=user['profile_image'], _external=True)
+                thumb_url = url_for('groups.uploaded_file', filename=f"thumb_{user['profile_image']}", _external=True)
+
             return jsonify({
                 "message": "Login successful",
                 "user_id": user['id'],
-                "username": user['username']
+                "username": user['username'],
+                "profile_image": user['profile_image'],
+                "profile_url": profile_url,
+                "thumbnail_url": thumb_url
             }), 200
         else:
             return jsonify({"error": "Invalid email or password"}), 401
@@ -94,7 +121,7 @@ def login():
         return jsonify({"error": str(e)}), 500
 
 # ==========================================
-# GET USER DETAILS (UPDATED: profile_image)
+# GET USER DETAILS (Return Thumbnails)
 # ==========================================
 @auth_bp.route('/get-user', methods=['GET'])
 def get_user():
@@ -105,9 +132,17 @@ def get_user():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        # UPDATED: Using 'profile_image' column
         cursor.execute("SELECT id, username, email, phone_number, profile_image FROM users WHERE id = %s", (user_id,))
         user = cursor.fetchone()
+        
+        # Add URLs
+        if user and user['profile_image']:
+            user['profile_url'] = url_for('groups.uploaded_file', filename=user['profile_image'], _external=True)
+            user['thumbnail_url'] = url_for('groups.uploaded_file', filename=f"thumb_{user['profile_image']}", _external=True)
+        else:
+            user['profile_url'] = None
+            user['thumbnail_url'] = None
+
         cursor.close()
         conn.close()
 
@@ -121,7 +156,7 @@ def get_user():
         return jsonify({"error": str(e)}), 500
 
 # ==========================================
-# UPDATE PROFILE (UPDATED: profile_image)
+# UPDATE PROFILE (With Thumbnail Gen)
 # ==========================================
 @auth_bp.route('/update-profile', methods=['POST'])
 def update_profile():
@@ -134,17 +169,22 @@ def update_profile():
         if not user_id:
             return jsonify({"error": "User ID required"}), 400
 
-        # Image Handling
         picture_filename = None
-        # UPDATED: checking for 'profile_image' in files
         if 'profile_image' in request.files:
             file = request.files['profile_image']
             if file and file.filename != '' and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
-                # Unique name
                 unique_name = f"user_{user_id}_{random.randint(1000,9999)}_{filename}"
+                
                 upload_path = current_app.config['UPLOAD_FOLDER']
-                file.save(os.path.join(upload_path, unique_name))
+                save_path = os.path.join(upload_path, unique_name)
+                
+                # 1. Save Original
+                file.save(save_path)
+                
+                # 2. Generate Thumbnail
+                create_thumbnail(save_path, unique_name)
+                
                 picture_filename = unique_name
 
         conn = get_db_connection()
@@ -153,7 +193,6 @@ def update_profile():
         query = "UPDATE users SET username=%s, email=%s, phone_number=%s"
         params = [username, email, phone_number]
 
-        # UPDATED: updating 'profile_image' column
         if picture_filename:
             query += ", profile_image=%s"
             params.append(picture_filename)
@@ -172,9 +211,7 @@ def update_profile():
         print(f"Error updating profile: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ==========================================
-# DELETE ACCOUNT
-# ==========================================
+# ... (Delete Account and Change Password methods - UNCHANGED) ...
 @auth_bp.route('/delete-account', methods=['DELETE'])
 def delete_account():
     user_id = request.args.get('user_id')
@@ -184,19 +221,52 @@ def delete_account():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-
-        # 1. Delete from groups_members
         cursor.execute("DELETE FROM groups_members WHERE user_id = %s", (user_id,))
-        
-        # 2. Delete the user
         cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
-        
         conn.commit()
         cursor.close()
         conn.close()
-
         return jsonify({"message": "Account deleted successfully"}), 200
-
     except Exception as e:
         print(f"Error deleting account: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@auth_bp.route('/change-password', methods=['POST'])
+def change_password():
+    if not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 415
+    data = request.json
+    user_id = data.get('user_id')
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+
+    if not user_id or not current_password or not new_password:
+        return jsonify({"error": "Missing fields"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT password_hash FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+
+        if not user:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "User not found"}), 404
+
+        if not check_password_hash(user['password_hash'], current_password):
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Mevcut şifre hatalı"}), 401 
+
+        new_hashed_password = generate_password_hash(new_password)
+        cursor.close()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_hashed_password, user_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"message": "Password updated successfully"}), 200
+    except Exception as e:
+        print(f"Error changing password: {e}")
         return jsonify({"error": str(e)}), 500
