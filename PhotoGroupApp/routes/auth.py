@@ -5,7 +5,6 @@ from flask import Blueprint, request, jsonify, current_app, url_for
 from db import get_db_connection
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-# IMPORT PILLOW
 from PIL import Image
 
 auth_bp = Blueprint('auth', __name__)
@@ -15,7 +14,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# --- THUMBNAIL HELPER (Local to auth or imported) ---
+# --- THUMBNAIL HELPER ---
 def create_thumbnail(image_path, filename):
     try:
         size = (300, 300)
@@ -31,7 +30,6 @@ def create_thumbnail(image_path, filename):
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    # ... (Register logic remains unchanged) ...
     if not request.is_json:
         return jsonify({"error": "Content-Type must be application/json"}), 415
 
@@ -48,19 +46,29 @@ def register():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute("SELECT id FROM users WHERE email = %s OR username = %s", (email, username))
+        # 1. CHECK IF PHONE NUMBER IS BANNED
+        cursor.execute("SELECT id FROM banned_users WHERE phone_number = %s", (phone_number,))
+        banned_user = cursor.fetchone()
+        
+        if banned_user:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "This phone number has been banned from the system."}), 403
+
+        # 2. CHECK IF USER EXISTS
+        cursor.execute("SELECT id FROM users WHERE email = %s OR username = %s OR phone_number = %s", (email, username, phone_number))
         existing_user = cursor.fetchone()
         
         if existing_user:
             cursor.close()
             conn.close()
-            return jsonify({"message": "User with this email or username already exists"}), 409
+            return jsonify({"message": "User with this email, username, or phone already exists"}), 409
 
         hashed_password = generate_password_hash(password)
 
         sql = """
-            INSERT INTO users (username, email, password_hash, phone_number) 
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO users (username, email, password_hash, phone_number, is_super_admin) 
+            VALUES (%s, %s, %s, %s, 0)
         """
         cursor.execute(sql, (username, email, hashed_password, phone_number))
         conn.commit()
@@ -101,7 +109,6 @@ def login():
             profile_url = None
             thumb_url = None
             if user['profile_image']:
-                # Using 'groups.uploaded_file' to serve (shared upload folder)
                 profile_url = url_for('groups.uploaded_file', filename=user['profile_image'], _external=True)
                 thumb_url = url_for('groups.uploaded_file', filename=f"thumb_{user['profile_image']}", _external=True)
 
@@ -109,6 +116,7 @@ def login():
                 "message": "Login successful",
                 "user_id": user['id'],
                 "username": user['username'],
+                "is_super_admin": user['is_super_admin'], # <--- ADDED
                 "profile_image": user['profile_image'],
                 "profile_url": profile_url,
                 "thumbnail_url": thumb_url
@@ -120,9 +128,6 @@ def login():
         print(f"Error during login: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ==========================================
-# GET USER DETAILS (Return Thumbnails)
-# ==========================================
 @auth_bp.route('/get-user', methods=['GET'])
 def get_user():
     user_id = request.args.get('user_id')
@@ -132,7 +137,8 @@ def get_user():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, username, email, phone_number, profile_image FROM users WHERE id = %s", (user_id,))
+        # ADDED is_super_admin to SELECT
+        cursor.execute("SELECT id, username, email, phone_number, profile_image, is_super_admin FROM users WHERE id = %s", (user_id,))
         user = cursor.fetchone()
         
         # Add URLs
@@ -155,9 +161,6 @@ def get_user():
         print(f"Error fetching user: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ==========================================
-# UPDATE PROFILE (With Thumbnail Gen)
-# ==========================================
 @auth_bp.route('/update-profile', methods=['POST'])
 def update_profile():
     try:
@@ -211,7 +214,6 @@ def update_profile():
         print(f"Error updating profile: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ... (Delete Account and Change Password methods - UNCHANGED) ...
 @auth_bp.route('/delete-account', methods=['DELETE'])
 def delete_account():
     user_id = request.args.get('user_id')
@@ -257,7 +259,7 @@ def change_password():
         if not check_password_hash(user['password_hash'], current_password):
             cursor.close()
             conn.close()
-            return jsonify({"error": "Mevcut şifre hatalı"}), 401 
+            return jsonify({"error": "Current password incorrect"}), 401 
 
         new_hashed_password = generate_password_hash(new_password)
         cursor.close()

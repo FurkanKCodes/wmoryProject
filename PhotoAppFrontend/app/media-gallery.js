@@ -2,12 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, Image, TouchableOpacity, FlatList, Alert, 
   ActivityIndicator, StatusBar, Modal, Dimensions, ScrollView,
-  TouchableWithoutFeedback 
+  TouchableWithoutFeedback, Platform 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-// Using expo-av (Stable for SDK 52)
 import { Video, ResizeMode } from 'expo-av'; 
 import API_URL from '../config';
 import mediaStyles from '../styles/mediaStyles';
@@ -63,7 +62,7 @@ export default function MediaGalleryScreen() {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All, 
       allowsMultipleSelection: true, 
-      quality: 0.7,
+      quality: 1.0, // Best quality upload
     });
 
     if (!result.canceled) {
@@ -84,7 +83,7 @@ export default function MediaGalleryScreen() {
       
       const filename = asset.uri.split('/').pop();
       let type = 'image/jpeg';
-      // Basic type checking
+      
       if (asset.type === 'video' || filename.endsWith('.mp4') || filename.endsWith('.mov')) {
           type = 'video/mp4';
       }
@@ -105,15 +104,68 @@ export default function MediaGalleryScreen() {
     }
   };
 
-  // --- SAVE TO GALLERY (SIMULATION ONLY) ---
-  const handleSaveToGallery = async () => {
-    setShowOptions(false);
-    Alert.alert("Başarılı", "Fotoğraf galeriye kaydedildi (Simülasyon).");
+  // --- REPORT LOGIC (UPDATED) ---
+  const handleReport = () => {
+    const currentMedia = photos[currentIndex];
+    if (!currentMedia) return;
+
+    // Platform specific UI for input
+    if (Platform.OS === 'ios') {
+        Alert.prompt(
+            "İçeriği Bildir",
+            "Bu içeriği neden bildiriyorsunuz?",
+            [
+                { text: "İptal", style: "cancel" },
+                { text: "Gönder", onPress: (reason) => submitReport(currentMedia.id, reason) }
+            ],
+            "plain-text"
+        );
+    } else {
+        // Android doesn't support Alert.prompt natively
+        Alert.alert(
+            "İçeriği Bildir",
+            "Bildirim sebebini seçiniz:",
+            [
+                { text: "İptal", style: "cancel" },
+                { text: "Uygunsuz İçerik", onPress: () => submitReport(currentMedia.id, "Uygunsuz İçerik") },
+                { text: "Spam / Rahatsız Edici", onPress: () => submitReport(currentMedia.id, "Spam") },
+            ]
+        );
+    }
   };
 
-  const handleReport = () => {
-    Alert.alert("Raporlandı", "İçerik incelenmek üzere bildirildi.");
+  const submitReport = async (photoId, reason) => {
+    if (!reason) reason = "Belirtilmedi"; // Default reason if empty
+    
+    try {
+        const response = await fetch(`${API_URL}/report-content`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true' 
+            },
+            body: JSON.stringify({
+                reporter_id: userId,
+                photo_id: photoId,
+                reason: reason
+            })
+        });
+
+        if (response.ok) {
+            Alert.alert("Teşekkürler", "Bildiriminiz alındı ve incelemeye gönderildi.");
+            setShowOptions(false);
+        } else {
+            Alert.alert("Hata", "Bildirim gönderilemedi.");
+        }
+    } catch (error) {
+        console.error("Report error:", error);
+        Alert.alert("Hata", "Sunucu hatası.");
+    }
+  };
+
+  const handleSaveToGallery = async () => {
     setShowOptions(false);
+    Alert.alert("Bilgi", "Galeriye kaydetme özelliği yakında eklenecek.");
   };
 
   // --- REMOVE / HIDE PHOTO LOGIC ---
@@ -121,49 +173,32 @@ export default function MediaGalleryScreen() {
     const currentMedia = photos[currentIndex];
     if (!currentMedia) return;
 
-    setShowOptions(false); // Close menu
+    setShowOptions(false); 
 
-    // Check ownership
     const isOwner = currentMedia.uploader_id.toString() === userId.toString();
 
     if (isOwner) {
-        // SCENARIO A: Owner
         Alert.alert(
             "Fotoğrafı Kaldır",
             "Bu fotoğrafı nasıl kaldırmak istersiniz?",
             [
-                { 
-                    text: "Vazgeç", 
-                    style: "cancel" 
-                },
-                {
-                    text: "Kendim için kaldır",
-                    onPress: () => performHidePhoto(currentMedia.id)
-                },
-                {
-                    text: "Herkes için kaldır",
-                    style: "destructive",
-                    onPress: () => performDeletePhoto(currentMedia.id)
-                }
+                { text: "Vazgeç", style: "cancel" },
+                { text: "Kendim için kaldır", onPress: () => performHidePhoto(currentMedia.id) },
+                { text: "Herkes için kaldır", style: "destructive", onPress: () => performDeletePhoto(currentMedia.id) }
             ]
         );
     } else {
-        // SCENARIO B: Not Owner
         Alert.alert(
             "Fotoğrafı Gizle",
-            "Bu fotoğrafı galerinizden kaldırmak istiyor musunuz? (Diğer üyeler görmeye devam eder)",
+            "Bu fotoğrafı galerinizden kaldırmak istiyor musunuz?",
             [
                 { text: "Vazgeç", style: "cancel" },
-                { 
-                    text: "Evet, Kaldır", 
-                    onPress: () => performHidePhoto(currentMedia.id) 
-                }
+                { text: "Evet, Kaldır", onPress: () => performHidePhoto(currentMedia.id) }
             ]
         );
     }
   };
 
-  // 1. Hide Photo
   const performHidePhoto = async (photoId) => {
     try {
         const response = await fetch(`${API_URL}/hide-photo`, {
@@ -171,48 +206,35 @@ export default function MediaGalleryScreen() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: userId, photo_id: photoId })
         });
-
         if (response.ok) {
             Alert.alert("Başarılı", "Fotoğraf gizlendi.");
             closeViewerAndRefresh();
-        } else {
-            Alert.alert("Hata", "İşlem başarısız.");
         }
-    } catch (error) {
-        console.error(error);
-    }
+    } catch (error) { console.error(error); }
   };
 
-  // 2. Delete Photo
   const performDeletePhoto = async (photoId) => {
     try {
         const response = await fetch(`${API_URL}/delete-photo?user_id=${userId}&photo_id=${photoId}`, {
             method: 'DELETE',
         });
-
         if (response.ok) {
             Alert.alert("Başarılı", "Fotoğraf herkes için silindi.");
             closeViewerAndRefresh();
-        } else {
-            Alert.alert("Hata", "Silme işlemi başarısız.");
         }
-    } catch (error) {
-        console.error(error);
-    }
+    } catch (error) { console.error(error); }
   };
 
   const closeViewerAndRefresh = () => {
     setViewerVisible(false);
-    fetchPhotos(); // Refresh grid
+    fetchPhotos(); 
   };
 
-  // --- TOGGLE CONTROLS ---
   const toggleControls = () => {
     setControlsVisible(!areControlsVisible);
     if (showOptions) setShowOptions(false); 
   };
 
-  // --- RENDER GRID ITEM ---
   const renderGridItem = ({ item, index }) => (
     <TouchableOpacity 
       style={mediaStyles.mediaItem} 
@@ -222,7 +244,6 @@ export default function MediaGalleryScreen() {
         setControlsVisible(true);
       }}
     >
-      {/* USE THUMBNAIL IF AVAILABLE */}
       <Image source={{ uri: item.thumbnail || item.url }} style={mediaStyles.imageThumbnail} />
       {item.type === 'video' && (
           <Ionicons name="play-circle" size={30} color="#fff" style={mediaStyles.playIconOverlay} />
@@ -230,14 +251,13 @@ export default function MediaGalleryScreen() {
     </TouchableOpacity>
   );
 
-  // --- RENDER FULL SCREEN ITEM ---
   const renderFullScreenItem = ({ item }) => {
     return (
       <TouchableWithoutFeedback onPress={toggleControls}>
         <View style={mediaStyles.fullScreenContent}>
           {item.type === 'video' ? (
              <Video
-                source={{ uri: item.url }} // Always use full quality URL here
+                source={{ uri: item.url }} 
                 rate={1.0}
                 volume={1.0}
                 isMuted={false}
@@ -266,7 +286,6 @@ export default function MediaGalleryScreen() {
     );
   };
 
-  // --- VIEWABILITY CONFIG ---
   const onViewRef = useRef(({ viewableItems }) => {
     if (viewableItems.length > 0) {
         setCurrentIndex(viewableItems[0].index);
@@ -278,7 +297,6 @@ export default function MediaGalleryScreen() {
     <View style={mediaStyles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#007AFF" />
       
-      {/* HEADER */}
       <View style={mediaStyles.headerContainer}>
         <TouchableOpacity style={mediaStyles.backButton} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={32} color="#fff" />
@@ -289,7 +307,6 @@ export default function MediaGalleryScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* GRID LIST */}
       {loading ? (
         <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
       ) : (
@@ -302,11 +319,8 @@ export default function MediaGalleryScreen() {
         />
       )}
 
-      {/* FULL SCREEN VIEWER (MODAL) */}
       <Modal visible={isViewerVisible} transparent={true} animationType="fade">
         <View style={mediaStyles.fullScreenContainer}>
-            
-            {/* Top Controls */}
             {areControlsVisible && (
                 <View style={mediaStyles.topControls}>
                     <TouchableOpacity style={mediaStyles.controlButton} onPress={() => setViewerVisible(false)}>
@@ -318,25 +332,20 @@ export default function MediaGalleryScreen() {
                 </View>
             )}
 
-            {/* Options Menu */}
             {showOptions && areControlsVisible && (
                 <View style={mediaStyles.optionsMenu}>
                     <TouchableOpacity style={mediaStyles.optionItem} onPress={handleSaveToGallery}>
                         <Text style={mediaStyles.optionText}>Kaydet</Text>
                     </TouchableOpacity>
-                    
-                    {/* Remove Option */}
                     <TouchableOpacity style={mediaStyles.optionItem} onPress={handleRemove}>
                         <Text style={mediaStyles.optionText}>Kaldır</Text>
                     </TouchableOpacity>
-
                     <TouchableOpacity style={[mediaStyles.optionItem, { borderBottomWidth: 0 }]} onPress={handleReport}>
                         <Text style={[mediaStyles.optionText, mediaStyles.reportText]}>Bildir</Text>
                     </TouchableOpacity>
                 </View>
             )}
 
-            {/* SWIPABLE LIST */}
             <FlatList
                 ref={fullScreenListRef}
                 data={photos}
@@ -353,7 +362,6 @@ export default function MediaGalleryScreen() {
                 )}
             />
 
-            {/* Bottom Info */}
             {areControlsVisible && (
                 <View style={mediaStyles.bottomInfo}>
                     <Text style={mediaStyles.infoText}>
@@ -364,7 +372,6 @@ export default function MediaGalleryScreen() {
                     </Text>
                 </View>
             )}
-
         </View>
       </Modal>
     </View>

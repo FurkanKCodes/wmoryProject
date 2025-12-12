@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Image, TouchableOpacity, StatusBar, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-// Import AsyncStorage for Logout logic
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_URL from '../config'; 
 import profileStyles from '../styles/profileStyles';
@@ -17,6 +16,7 @@ export default function ProfileScreen() {
   const [username, setUsername] = useState("Yükleniyor..."); 
   const [profilePic, setProfilePic] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(0); // STATE FOR ADMIN
 
   // --- FETCH USER DATA ---
   useFocusEffect(
@@ -30,7 +30,9 @@ export default function ProfileScreen() {
 
           if (response.ok) {
             setUsername(data.username);
-            // Use thumbnail if available for performance, else original
+            // Set Admin Status
+            setIsSuperAdmin(data.is_super_admin); 
+
             if (data.thumbnail_url) {
                 setProfilePic(data.thumbnail_url); 
             } else if (data.profile_image) {
@@ -61,11 +63,10 @@ export default function ProfileScreen() {
     router.push({ pathname: '/change-password', params: { userId: userId } });
   };
 
-  // --- LOGOUT ACTION (NEW) ---
   const handleLogout = () => {
     Alert.alert(
-        "Oturumu Kapat",
-        "Oturumunuzu kapatmak istediğinize emin misiniz?",
+        "Çıkış Yap",
+        "Çıkış yapmak istediğinize emin misiniz?",
         [
             { text: "Hayır", style: "cancel" },
             { 
@@ -73,10 +74,8 @@ export default function ProfileScreen() {
                 style: "destructive",
                 onPress: async () => {
                     try {
-                        // Clear the persistent session
                         await AsyncStorage.removeItem('user_session');
-                        Alert.alert("Bilgi", "Oturumunuz kapatılmıştır.");
-                        // Redirect to Login Screen
+                        Alert.alert("Bilgi", "Başarıyla çıkış yapıldı.");
                         router.replace('/'); 
                     } catch (e) {
                         console.error("Logout Error:", e);
@@ -90,11 +89,11 @@ export default function ProfileScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
         "Hesabı Sil",
-        "Hesabınızı silmek istediğinize emin misiniz?",
+        "Emin misiniz? Bu işlem geri alınamaz.",
         [
             { text: "Hayır", style: "cancel" },
             { 
-                text: "Evet", 
+                text: "Evet, Sil", 
                 style: "destructive",
                 onPress: confirmDeleteAccount
             }
@@ -110,18 +109,8 @@ export default function ProfileScreen() {
         });
         
         if (response.ok) {
-            // Clear session on account deletion too
             await AsyncStorage.removeItem('user_session');
-            Alert.alert(
-                "Başarılı", 
-                "Hesabınız başarıyla silinmiştir.",
-                [
-                    { 
-                        text: "Tamam", 
-                        onPress: () => router.replace('/') 
-                    }
-                ]
-            );
+            Alert.alert("Başarılı", "Hesabınız silindi.", [{ text: "Tamam", onPress: () => router.replace('/') }]);
         } else {
             Alert.alert("Hata", "Hesap silinemedi.");
         }
@@ -175,11 +164,10 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </TouchableOpacity>
 
-          {/* LOGOUT BUTTON (ADDED) */}
           <TouchableOpacity style={profileStyles.settingItem} onPress={handleLogout}>
             <View style={profileStyles.settingLeft}>
               <Ionicons name="log-out-outline" size={24} color="#007AFF" style={profileStyles.settingIcon} />
-              <Text style={[profileStyles.settingText, {color: '#007AFF'}]}>Oturumu Kapat</Text>
+              <Text style={[profileStyles.settingText, {color: '#007AFF'}]}>Çıkış Yap</Text>
             </View>
           </TouchableOpacity>
 
@@ -189,6 +177,22 @@ export default function ProfileScreen() {
               <Text style={[profileStyles.settingText, profileStyles.deleteAccountText]}>Hesabı Sil</Text>
             </View>
           </TouchableOpacity>
+
+          {/* --- ADMIN PANEL BUTTON (Visible only to Super Admin) --- */}
+          {isSuperAdmin === 1 && (
+             <TouchableOpacity 
+                style={[profileStyles.settingItem, { borderTopWidth: 1, borderColor: '#eee', marginTop: 20 }]}
+                onPress={() => router.push({ pathname: '/admin-panel', params: { userId } })}
+             >
+                <View style={profileStyles.settingLeft}>
+                    <Ionicons name="shield-checkmark-outline" size={24} color="#FF3B30" style={profileStyles.settingIcon} />
+                    <Text style={[profileStyles.settingText, { color: '#FF3B30', fontWeight: 'bold' }]}>
+                        Yönetici Paneli
+                    </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#ccc" />
+             </TouchableOpacity>
+          )}
 
         </View>
       </ScrollView>

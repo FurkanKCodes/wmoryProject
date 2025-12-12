@@ -22,7 +22,6 @@ export default function LoginScreen() {
         const userSession = await AsyncStorage.getItem('user_session');
         if (userSession) {
           const user = JSON.parse(userSession);
-          // Redirect to home if user exists
           router.replace({ pathname: '/home', params: { userId: user.id } });
         }
       } catch (error) {
@@ -36,7 +35,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      Alert.alert('Hata', 'Lütfen tüm alanları doldurun.');
       return;
     }
 
@@ -62,14 +61,14 @@ export default function LoginScreen() {
         };
         await AsyncStorage.setItem('user_session', JSON.stringify(userData));
 
-        Alert.alert('Success', 'Login successful!');
+        Alert.alert('Başarılı', 'Giriş yapıldı!');
         router.replace({ pathname: '/home', params: { userId: data.user_id } });
       } else {
-        Alert.alert('Error', data.error || 'Login failed.');
+        Alert.alert('Hata', data.error || 'Giriş başarısız.');
       }
     } catch (error) {
       console.error("Login Error:", error);
-      Alert.alert('Error', 'Connection failed.');
+      Alert.alert('Hata', 'Bağlantı hatası.');
     } finally {
       setLoading(false);
     }
@@ -103,7 +102,7 @@ export default function LoginScreen() {
         <View style={styles.formContainer}>
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder="E-posta"
             placeholderTextColor="#999"
             value={email}
             onChangeText={setEmail}
@@ -112,7 +111,7 @@ export default function LoginScreen() {
           />
           <TextInput
             style={styles.input}
-            placeholder="Password"
+            placeholder="Şifre"
             placeholderTextColor="#999"
             value={password}
             onChangeText={setPassword}
@@ -120,11 +119,11 @@ export default function LoginScreen() {
           />
 
           <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Login</Text>}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Giriş Yap</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.push('/register')}>
-            <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
+            <Text style={styles.linkText}>Hesabın yok mu? Kayıt Ol</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

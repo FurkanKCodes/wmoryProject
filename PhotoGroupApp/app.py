@@ -2,8 +2,9 @@ import os
 from flask import Flask
 from flask_cors import CORS
 from routes.auth import auth_bp
-from routes.groups import groups_bp   # Import Groups Blueprint
-from routes.photos import photos_bp   # Import Photos Blueprint
+from routes.groups import groups_bp
+from routes.photos import photos_bp
+from routes.admin import admin_bp   # <--- ADDED IMPORT
 
 app = Flask(__name__)
 CORS(app) # Allow mobile app connection
@@ -27,10 +28,11 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.register_blueprint(auth_bp)
 app.register_blueprint(groups_bp)
 app.register_blueprint(photos_bp)
+app.register_blueprint(admin_bp)
 
 @app.route('/')
 def index():
-    return "Backend is running! Auth, Groups, and Photos are ready."
+    return "Backend is running! Auth, Groups, Photos and Admin are ready."
 
 if __name__ == '__main__':
     # Run the server accessible to the network

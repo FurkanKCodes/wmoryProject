@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Platform, Dimensions } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,121 +7,134 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import API_URL from '../config'; 
 import cameraStyles from '../styles/cameraStyles';
 
+const { width } = Dimensions.get('window');
+
+// ZOOM YAPILANDIRMASI
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 5.0;
+const START_ZOOM = 1.2; 
+
 export default function CameraScreen() {
   const router = useRouter();
   const { groupId, userId } = useLocalSearchParams();
 
-  // --- PERMISSIONS ---
+  // --- İZİNLER ---
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
 
-  // --- STATE ---
+  // --- DURUM (STATE) ---
   const [mode, setMode] = useState('photo'); // 'photo' | 'video'
   const [facing, setFacing] = useState('back');
   const [flash, setFlash] = useState('off');
   
-  // Video Recording State
+  // --- ZOOM HESAPLAMASI ---
+  // Expo zoom (0-1) değerini hesapla
+  const initialExpoZoom = (START_ZOOM - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
+  
+  const [zoom, setZoom] = useState(initialExpoZoom); 
+  
+  // SADECE BURASI DEĞİŞTİ: Başlangıçta ekrana yazan değerden 0.2 çıkarıldı.
+  const [currentZoomLabel, setCurrentZoomLabel] = useState(START_ZOOM - 0.2);
+
+  // Pinch (Kıstırma) Hareketi Değişkenleri
+  const baseZoom = useRef(initialExpoZoom);
+  const initialPinchDistance = useRef(0);
+  
+  // Video Kayıt Durumu
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const timerRef = useRef(null);
 
-  // Safety Check
+  // Güvenlik Kontrolü
   useEffect(() => {
     if (!groupId || !userId) {
       console.warn("Camera Warning: Missing groupId or userId params.");
     }
   }, [groupId, userId]);
 
-  // --- BACKGROUND UPLOAD LOGIC ---
+  // --- PINCH TO ZOOM (YAKINLAŞTIRMA) MANTIĞI ---
+  const onTouchStart = (e) => {
+    if (e.nativeEvent.touches.length === 2) {
+      const touch1 = e.nativeEvent.touches[0];
+      const touch2 = e.nativeEvent.touches[1];
+      const distance = Math.hypot(touch1.pageX - touch2.pageX, touch1.pageY - touch2.pageY);
+      
+      initialPinchDistance.current = distance;
+      baseZoom.current = zoom; // Mevcut zoom seviyesini sakla
+    }
+  };
+
+  const onTouchMove = (e) => {
+    if (e.nativeEvent.touches.length === 2) {
+      const touch1 = e.nativeEvent.touches[0];
+      const touch2 = e.nativeEvent.touches[1];
+      const distance = Math.hypot(touch1.pageX - touch2.pageX, touch1.pageY - touch2.pageY);
+      
+      // Hassasiyet ayarı (500'e bölerek yumuşatıyoruz)
+      const scaleFactor = (distance - initialPinchDistance.current) / 500; 
+      
+      let newExpoZoom = baseZoom.current + scaleFactor;
+
+      // Expo Zoom değerini 0 ile 1 arasına sabitle
+      if (newExpoZoom < 0) newExpoZoom = 0;
+      if (newExpoZoom > 1) newExpoZoom = 1;
+      
+      setZoom(newExpoZoom);
+
+      // Ekranda görünecek değeri güncelle
+      // Önce gerçek değeri buluyoruz
+      const realZoomValue = (newExpoZoom * (MAX_ZOOM - MIN_ZOOM)) + MIN_ZOOM;
+      
+      // SADECE BURASI DEĞİŞTİ: UI'da göstermeden önce 0.2 çıkarıyoruz.
+      setCurrentZoomLabel(realZoomValue - 0.2);
+    }
+  };
+
+  // --- ÇEKİM & YÜKLEME ---
   const uploadMediaBackground = async (uri, type) => {
     if (!uri) return;
-
     console.log(`[Upload] Starting background upload for ${type}...`);
-
     const formData = new FormData();
     const filename = uri.split('/').pop();
     const mimeType = type === 'video' ? 'video/mp4' : 'image/jpeg';
-
     formData.append('user_id', userId);
     formData.append('group_id', groupId);
-    
-    // Backend expects 'photo' key
     formData.append('photo', {
       uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
       name: filename,
       type: mimeType,
     });
-
     try {
-      const response = await fetch(`${API_URL}/upload-photo`, {
+      await fetch(`${API_URL}/upload-photo`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'ngrok-skip-browser-warning': 'true'
-        },
+        headers: { 'ngrok-skip-browser-warning': 'true' },
         body: formData,
       });
-
-      const responseText = await response.text();
-
-      try {
-        const data = JSON.parse(responseText);
-        if (response.ok) {
-          console.log("✅ [Upload] Success:", data);
-        } else {
-          console.error("❌ [Upload] Server Error:", data);
-        }
-      } catch (jsonError) {
-        console.error("❌ [Upload] Invalid Response:", responseText);
-      }
-      
-    } catch (e) {
-      console.error("❌ [Upload] Network Error:", e);
-    }
+    } catch (e) { console.error(e); }
   };
 
-  // --- CAPTURE HANDLERS ---
   const handleCapture = async () => {
     if (!cameraRef.current) return;
-
     if (mode === 'photo') {
       try {
-        // 1. Take Picture
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.7,
-          skipProcessing: true,
-          // Mirror only if front camera
+          quality: 1.0, 
+          skipProcessing: false,
           mirror: facing === 'front', 
         });
-        
         let finalUri = photo.uri;
-
-        // 2. FIX ORIENTATION (Android Specific)
-        // If the photo is Landscape (width > height) but likely intended as Portrait,
-        // OR simply to bake in the EXIF data so it displays correctly everywhere.
         if (Platform.OS === 'android') {
-            // "Dummy" manipulation forces Android to bake the EXIF rotation into the pixel data
             const manipulatedImage = await ImageManipulator.manipulateAsync(
                 photo.uri,
-                [{ resize: { width: photo.width } }], // Resizing to same width forces orientation fix
-                { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
+                [{ resize: { width: photo.width } }], 
+                { compress: 1, format: ImageManipulator.SaveFormat.JPEG } 
             );
             finalUri = manipulatedImage.uri;
         }
-        
-        // 3. Upload
         uploadMediaBackground(finalUri, 'photo');
-
-      } catch (error) {
-        console.error("Photo Capture Error:", error);
-      }
+      } catch (error) { console.error(error); }
     } else {
-      // VIDEO MODE
-      if (isRecording) {
-        stopVideo();
-      } else {
-        startVideo();
-      }
+      if (isRecording) stopVideo(); else startVideo();
     }
   };
 
@@ -133,10 +146,7 @@ export default function CameraScreen() {
       try {
         const video = await cameraRef.current.recordAsync();
         uploadMediaBackground(video.uri, 'video');
-      } catch (e) {
-        console.error("Video Capture Error:", e);
-        stopVideo();
-      }
+      } catch (e) { stopVideo(); }
     }
   };
 
@@ -158,39 +168,39 @@ export default function CameraScreen() {
   if (!permission.granted) {
     return (
       <View style={cameraStyles.permissionContainer}>
-        <Text style={cameraStyles.message}>Camera permission is required.</Text>
+        <Text style={cameraStyles.message}>Kamera izni gerekiyor.</Text>
         <TouchableOpacity style={cameraStyles.permButton} onPress={requestPermission}>
-          <Text style={cameraStyles.permText}>Grant Permission</Text>
+          <Text style={cameraStyles.permText}>İzin Ver</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={cameraStyles.container}>
+    <View 
+        style={cameraStyles.container}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+    >
       <CameraView
         ref={cameraRef}
         style={cameraStyles.camera}
         facing={facing}
         flash={flash}
         mode={mode}
+        zoom={zoom} 
       >
-        {/* --- TOP CONTROLS --- */}
+        {/* --- ÜST KONTROLLER --- */}
         <View style={cameraStyles.topControls}>
           <TouchableOpacity onPress={() => router.back()} style={cameraStyles.iconButton}>
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
-          
           <TouchableOpacity onPress={() => setFlash(f => f === 'off' ? 'on' : 'off')} style={cameraStyles.iconButton}>
-            <Ionicons 
-              name={flash === 'on' ? "flash" : "flash-off"} 
-              size={24} 
-              color={flash === 'on' ? "#FFD700" : "#fff"} 
-            />
+            <Ionicons name={flash === 'on' ? "flash" : "flash-off"} size={24} color={flash === 'on' ? "#FFD700" : "#fff"} />
           </TouchableOpacity>
         </View>
 
-        {/* --- VIDEO TIMER OVERLAY --- */}
+        {/* --- SAYAÇ (Video) --- */}
         {isRecording && (
           <View style={cameraStyles.timerOverlay}>
             <View style={cameraStyles.redDot} />
@@ -198,34 +208,29 @@ export default function CameraScreen() {
           </View>
         )}
 
-        {/* --- BOTTOM CONTROLS --- */}
+        {/* --- ZOOM GÖSTERGESİ --- */}
+        <View style={cameraStyles.zoomIndicatorContainer}>
+            <Text style={cameraStyles.zoomText}>{currentZoomLabel.toFixed(1)}x</Text>
+        </View>
+
+        {/* --- ALT KONTROLLER --- */}
         <View style={cameraStyles.bottomControls}>
           <View style={{ width: 50 }} />
-
-          <TouchableOpacity 
-            style={cameraStyles.shutterContainer} 
-            onPress={handleCapture}
-            onLongPress={mode === 'photo' ? startVideo : null}
-          >
-            <View style={[
-              cameraStyles.shutterInner,
-              mode === 'video' && cameraStyles.videoShutterInner,
-              isRecording && cameraStyles.recordingInner
-            ]} />
+          <TouchableOpacity style={cameraStyles.shutterContainer} onPress={handleCapture} onLongPress={mode === 'photo' ? startVideo : null}>
+            <View style={[cameraStyles.shutterInner, mode === 'video' && cameraStyles.videoShutterInner, isRecording && cameraStyles.recordingInner]} />
           </TouchableOpacity>
-
           <TouchableOpacity onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')} style={cameraStyles.flipButton}>
             <Ionicons name="camera-reverse" size={28} color="#fff" />
           </TouchableOpacity>
         </View>
 
-        {/* --- MODE SELECTOR --- */}
+        {/* --- MOD SEÇİCİ --- */}
         <View style={cameraStyles.modeContainer}>
           <TouchableOpacity onPress={() => setMode('photo')}>
-            <Text style={[cameraStyles.modeText, mode === 'photo' && cameraStyles.activeMode]}>PHOTO</Text>
+            <Text style={[cameraStyles.modeText, mode === 'photo' && cameraStyles.activeMode]}>FOTOĞRAF</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setMode('video')}>
-            <Text style={[cameraStyles.modeText, mode === 'video' && cameraStyles.activeMode]}>VIDEO</Text>
+            <Text style={[cameraStyles.modeText, mode === 'video' && cameraStyles.activeMode]}>VİDEO</Text>
           </TouchableOpacity>
         </View>
 

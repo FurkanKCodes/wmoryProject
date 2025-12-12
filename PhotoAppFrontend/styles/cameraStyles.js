@@ -82,6 +82,23 @@ const cameraStyles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
+  // --- ZOOM INDICATOR (New) ---
+  zoomIndicatorContainer: {
+    position: 'absolute',
+    bottom: BOTTOM_PADDING + 130, // Just above mode selector
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    zIndex: 15,
+  },
+  zoomText: {
+    color: '#FFD700', // Gold color for visibility
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+
   // --- BOTTOM CONTROLS ---
   bottomControls: {
     position: 'absolute',

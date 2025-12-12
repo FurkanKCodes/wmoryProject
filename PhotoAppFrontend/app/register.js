@@ -8,35 +8,21 @@ import API_URL from '../config';
 import authStyles from '../styles/authStyles'; 
 
 export default function RegisterScreen() {
-  // State for form fields
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phoneNumber, setPhoneNumber] = useState(''); 
   const [loading, setLoading] = useState(false);
   
-  // Validation States
   const [isPhoneValid, setIsPhoneValid] = useState(true);
   const [isPasswordValid, setIsPasswordValid] = useState(true);
-  const [isEmailValid, setIsEmailValid] = useState(true); // NEW: Email Validation State
+  const [isEmailValid, setIsEmailValid] = useState(true);
   
   const router = useRouter();
 
-  // --- HANDLERS ---
-
-  // 1. Email Validation (Format: %@%.com)
   const handleEmailChange = (text) => {
     setEmail(text);
-    
-    // Regex logic: 
-    // ^      : Start of string
-    // .+     : At least one character
-    // @      : Literal @ symbol
-    // .+     : At least one character
-    // \.com$ : Ends exactly with .com
     const emailRegex = /^.+@.+\.com$/;
-
-    // Check if not empty AND does not match regex
     if (text.length > 0 && !emailRegex.test(text)) {
         setIsEmailValid(false);
     } else {
@@ -44,10 +30,8 @@ export default function RegisterScreen() {
     }
   };
 
-  // 2. Phone Validation
   const handlePhoneChange = (text) => {
     const numericText = text.replace(/[^0-9]/g, '');
-    
     if (numericText.length <= 10) {
       setPhoneNumber(numericText);
       if (numericText.length > 0 && numericText.length < 10) {
@@ -58,7 +42,6 @@ export default function RegisterScreen() {
     }
   };
 
-  // 3. Password Validation
   const handlePasswordChange = (text) => {
     setPassword(text);
     if (text.length > 0 && text.length < 6) {
@@ -68,16 +51,15 @@ export default function RegisterScreen() {
     }
   };
 
-  // Check if Register Button should be enabled
   const isRegisterEnabled = 
     username.length > 0 && 
-    email.length > 0 && isEmailValid && // Check Email
+    email.length > 0 && isEmailValid && 
     password.length >= 6 && 
     phoneNumber.length === 10;
 
   const handleRegister = async () => {
     if (!isRegisterEnabled) {
-      Alert.alert('Eksik Bilgi', 'Lütfen tüm alanları doğru şekilde doldurun.');
+      Alert.alert('Eksik Bilgi', 'Lütfen tüm alanları doğru doldurun.');
       return;
     }
 
@@ -101,15 +83,16 @@ export default function RegisterScreen() {
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert('Tebrikler!', 'Kayıt başarıyla oluşturuldu. Giriş yapabilirsiniz.', [
+        Alert.alert('Başarılı', 'Kayıt başarılı. Şimdi giriş yapabilirsiniz.', [
           { text: 'Tamam', onPress: () => router.back() } 
         ]);
       } else {
+        // Backend returns "This phone number has been banned..."
         Alert.alert('Kayıt Başarısız', data.message || data.error || 'Bir hata oluştu.');
       }
     } catch (error) {
       console.error("Register Error:", error);
-      Alert.alert('Bağlantı Hatası', 'Sunucuya ulaşılamadı. İnternetinizi kontrol edin.');
+      Alert.alert('Bağlantı Hatası', 'Sunucuya ulaşılamadı.');
     } finally {
       setLoading(false);
     }
@@ -128,7 +111,6 @@ export default function RegisterScreen() {
         <Text style={authStyles.title}>Aramıza Katıl</Text>
         
         <View style={authStyles.inputContainer}>
-          {/* Username Input */}
           <TextInput
             style={authStyles.input}
             placeholder="Kullanıcı Adı"
@@ -138,22 +120,19 @@ export default function RegisterScreen() {
             autoCapitalize="none"
           />
 
-          {/* Email Input (Updated) */}
           <TextInput
             style={authStyles.input}
             placeholder="E-posta Adresi"
             placeholderTextColor="#aaa"
             value={email}
-            onChangeText={handleEmailChange} // Using Handler
+            onChangeText={handleEmailChange}
             keyboardType="email-address"
             autoCapitalize="none"
           />
-          {/* Email Error Message */}
           {!isEmailValid && (
-             <Text style={authStyles.errorText}>Lütfen geçerli bir mail giriniz</Text>
+             <Text style={authStyles.errorText}>Geçerli bir e-posta girin (.com)</Text>
           )}
 
-          {/* Phone Number Input */}
           <View style={authStyles.phoneContainer}>
              <Text style={authStyles.phonePrefix}>+90</Text>
              <TextInput
@@ -167,10 +146,9 @@ export default function RegisterScreen() {
              />
           </View>
           {!isPhoneValid && (
-             <Text style={authStyles.errorText}>Lütfen geçerli bir telefon numarası giriniz</Text>
+             <Text style={authStyles.errorText}>Lütfen 10 haneli numarayı girin</Text>
           )}
 
-          {/* Password Input */}
           <TextInput
             style={authStyles.input}
             placeholder="Şifre"
@@ -180,11 +158,10 @@ export default function RegisterScreen() {
             secureTextEntry
           />
           {!isPasswordValid && (
-             <Text style={authStyles.errorText}>Minimum 6 karakter</Text>
+             <Text style={authStyles.errorText}>En az 6 karakter olmalı</Text>
           )}
         </View>
 
-        {/* Register Button */}
         <TouchableOpacity 
             style={[authStyles.button, (!isRegisterEnabled || loading) && authStyles.buttonDisabled]} 
             onPress={handleRegister} 
@@ -197,9 +174,8 @@ export default function RegisterScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Back to Login Link */}
         <TouchableOpacity onPress={() => router.back()} style={authStyles.linkContainer}>
-          <Text style={authStyles.linkText}>Zaten hesabınız var mı? Giriş yapın</Text>
+          <Text style={authStyles.linkText}>Zaten hesabın var mı? Giriş Yap</Text>
         </TouchableOpacity>
 
       </ScrollView>

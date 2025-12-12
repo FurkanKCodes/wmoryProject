@@ -23,6 +23,7 @@ CREATE TABLE users(
     password_hash VARCHAR(255) NOT NULL AFTER email,
     profile_image VARCHAR(255) DEFAULT NULL,
     phone_number VARCHAR(15) UNIQUE NOT NULL,
+    is_super_admin TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -64,4 +65,25 @@ CREATE TABLE group_requests (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (group_id) REFERENCES groups_table(id) ON DELETE CASCADE,
     UNIQUE KEY unique_request (user_id, group_id)
+);
+
+CREATE TABLE content_reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    reporter_id INT NOT NULL,
+    photo_id INT NOT NULL,
+    uploader_id INT NOT NULL,
+    reason VARCHAR(255) NOT NULL,
+    status ENUM('pending', 'reviewed', 'deleted') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (photo_id) REFERENCES photos(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploader_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE banned_users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    phone_number VARCHAR(15) UNIQUE NOT NULL,
+    banned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reason VARCHAR(255),
+    username VARCHAR(50)
 );

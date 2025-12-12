@@ -35,29 +35,28 @@ export default function GroupDetailsScreen() {
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Admin Action Modal States (White Popup)
+  // Admin Action Modal States
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
 
   // --- FETCH DATA ---
   const fetchData = async () => {
     try {
-      // 1. Group Details
+      // 1. Get Group Details
       const groupRes = await fetch(`${API_URL}/get-group-details?group_id=${groupId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }});
       const groupData = await groupRes.json();
       if (groupRes.ok) setGroupDetails(groupData);
 
-      // 2. Members
+      // 2. Get Members & Check Admin Status
       const membersRes = await fetch(`${API_URL}/get-group-members?group_id=${groupId}&current_user_id=${userId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }});
       const membersData = await membersRes.json();
       if (membersRes.ok) {
         setMembers(membersData);
-        // Check Admin Status
         const currentUser = membersData.find(m => m.id.toString() === userId.toString());
         setIsAdmin(currentUser?.is_admin === 1);
       }
 
-      // 3. Requests
+      // 3. Get Requests
       const reqRes = await fetch(`${API_URL}/get-group-requests?group_id=${groupId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }});
       if (reqRes.ok) setRequests(await reqRes.json());
 
@@ -72,22 +71,10 @@ export default function GroupDetailsScreen() {
     if (groupId) fetchData();
   }, [groupId, userId]);
 
-  // --- HANDLERS: ADMIN ACTIONS (CUSTOM WHITE POPUP) ---
-  const handleMemberPress = (member) => {
-    // Logic: If user clicks themselves OR is not admin -> Just show image
-    if (member.id.toString() === userId.toString() || !isAdmin) {
-       if(member.profile_url) handleImagePress(member.profile_url);
-       return;
-    }
-
-    // Logic: Admin clicks another member -> Open White Popup
-    setSelectedMember(member);
-    setActionModalVisible(true);
-  };
-
+  // --- HANDLERS: ADMIN ACTIONS ---
+  
   const onPromotePress = () => {
-      setActionModalVisible(false); // Close menu
-      // Confirmation Alert (Black system alert)
+      setActionModalVisible(false); 
       Alert.alert(
           "Onay",
           "Yönetici yapmak istediğinizden emin misiniz?",
@@ -99,8 +86,7 @@ export default function GroupDetailsScreen() {
   };
 
   const onKickPress = () => {
-      setActionModalVisible(false); // Close menu
-      // Confirmation Alert
+      setActionModalVisible(false);
       Alert.alert(
           "Onay",
           "Gruptan atmak istediğinize emin misiniz?",
@@ -206,28 +192,59 @@ export default function GroupDetailsScreen() {
       } catch (error) { Alert.alert("Hata", "Sunucu hatası."); } finally { setSaving(false); } 
   };
 
-  // Full Screen Image
-  const handleImagePress = (imageUrl) => { if (imageUrl) { setSelectedImage({ uri: imageUrl }); setImageModalVisible(true); } };
+  // --- FULL SCREEN IMAGE HANDLER ---
+  const handleImagePress = (imageUrl) => { 
+    if (imageUrl) { 
+        setSelectedImage({ uri: imageUrl }); 
+        setImageModalVisible(true); 
+    } 
+  };
 
-  // --- RENDER HELPERS ---
+  // --- RENDER MEMBER ITEM (Updated Logic) ---
   const renderMemberItem = ({ item }) => {
     const thumbUrl = item.thumbnail_url || item.profile_url;
+    // We need the full resolution image for the modal, fallback to thumb if missing
+    const fullImageUrl = item.profile_url || item.thumbnail_url;
     const memberPic = thumbUrl ? { uri: thumbUrl } : defaultUserImage;
     const isCurrentUser = item.id.toString() === userId.toString();
 
+    // HANDLER 1: Profile Picture Click
+    const onProfilePicPress = () => {
+        // Logic: Only zoom if it's NOT the current user
+        if (!isCurrentUser && fullImageUrl) {
+            handleImagePress(fullImageUrl);
+        }
+    };
+
+    // HANDLER 2: Name/Row Click
+    const onNamePress = () => {
+        // Logic: Only Admin can open menu AND cannot open menu for themselves
+        if (isAdmin && !isCurrentUser) {
+            setSelectedMember(item);
+            setActionModalVisible(true);
+        }
+    };
+
     return (
-      <TouchableOpacity 
-        style={groupDetailsStyles.memberItem} 
-        onPress={() => handleMemberPress(item)} 
-      >
-        <Image source={memberPic} style={groupDetailsStyles.memberImage} />
-        <View style={groupDetailsStyles.memberInfo}>
+      <View style={groupDetailsStyles.memberItem}>
+        {/* 1. Profile Picture Area */}
+        <TouchableOpacity onPress={onProfilePicPress}>
+            <Image source={memberPic} style={groupDetailsStyles.memberImage} />
+        </TouchableOpacity>
+
+        {/* 2. Name & Info Area */}
+        <TouchableOpacity 
+            style={groupDetailsStyles.memberInfo} 
+            onPress={onNamePress}
+            // Visual Feedback: Show touch opacity only if action is available
+            activeOpacity={isAdmin && !isCurrentUser ? 0.2 : 1} 
+        >
           <Text style={groupDetailsStyles.memberName}>
             {item.username} {isCurrentUser && <Text style={groupDetailsStyles.youTag}>(Sen)</Text>}
           </Text>
           {item.is_admin === 1 && <Text style={groupDetailsStyles.adminTag}>Yönetici</Text>}
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
     );
   };
 
