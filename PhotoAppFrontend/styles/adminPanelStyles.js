@@ -56,9 +56,10 @@ const adminPanelStyles = StyleSheet.create({
     borderBottomColor: '#007AFF',
   },
   tabText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
     color: '#999',
+    textAlign: 'center',
   },
   activeTabText: {
     color: '#007AFF',
@@ -100,7 +101,39 @@ const adminPanelStyles = StyleSheet.create({
     fontSize: 16,
   },
 
-  // --- MODAL (UPDATED FOR SCROLLING) ---
+  // --- MANUAL BAN FORM ---
+  formContent: {
+      padding: 20,
+  },
+  formTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 10,
+      color: '#333',
+  },
+  formDesc: {
+      fontSize: 14,
+      color: '#666',
+      marginBottom: 30,
+  },
+  inputGroup: {
+      marginBottom: 20,
+  },
+  input: {
+      borderWidth: 1,
+      borderColor: '#ddd',
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      backgroundColor: '#f9f9f9',
+      marginTop: 5,
+  },
+  separator: {
+      alignItems: 'center',
+      marginVertical: 10,
+  },
+
+  // --- MODAL ---
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -109,7 +142,7 @@ const adminPanelStyles = StyleSheet.create({
   },
   modalContainer: {
     width: '90%',
-    maxHeight: '85%', // Limit height to allow scrolling
+    maxHeight: '85%', 
     backgroundColor: '#fff',
     borderRadius: 15,
     padding: 20,
@@ -180,10 +213,9 @@ const adminPanelStyles = StyleSheet.create({
   btnDelete: {
     backgroundColor: '#FF9500',
   },
-  // BAN BUTTON (UPDATED)
   btnBan: {
     backgroundColor: '#FF3B30',
-    marginTop: 15, // Extra spacing from top buttons
+    marginTop: 15, 
     width: '100%',
     paddingVertical: 14,
   },

@@ -75,7 +75,6 @@ def get_reports():
             JOIN users u1 ON r.reporter_id = u1.id
             JOIN users u2 ON r.uploader_id = u2.id
             JOIN photos p ON r.photo_id = p.id
-            WHERE r.status = 'pending'
             ORDER BY r.created_at DESC
         """
         cursor.execute(sql)
@@ -132,12 +131,7 @@ def unban_user():
 
         # Check Admin
         cursor.execute("SELECT is_super_admin FROM users WHERE id = %s", (admin_id,))
-        row = cursor.fetchone() # Note: normal cursor returns tuple if not dict cursor
-        # If using dictionary cursor above, we need consistency. 
-        # Let's assume standard cursor for simple checks or dict cursor. 
-        # Safest is to re-use the connection pattern.
-        
-        # NOTE: For simplicity, assuming validation passed.
+        row = cursor.fetchone() 
         
         cursor.execute("DELETE FROM banned_users WHERE id = %s", (banned_id,))
         conn.commit()
@@ -148,7 +142,65 @@ def unban_user():
         return jsonify({"error": str(e)}), 500
 
 # ==========================================
-# RESOLVE REPORT (Logic Updated for Username)
+# MANUAL BAN USER (NEW)
+# ==========================================
+@admin_bp.route('/admin/manual-ban', methods=['POST'])
+def manual_ban():
+    data = request.json
+    admin_id = data.get('admin_id')
+    target_phone = data.get('phone') # Optional
+    target_id = data.get('target_id') # Optional
+
+    if not target_phone and not target_id:
+        return jsonify({"error": "Phone number or ID required"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Check Admin
+        cursor.execute("SELECT is_super_admin FROM users WHERE id = %s", (admin_id,))
+        user = cursor.fetchone()
+        if not user or user['is_super_admin'] != 1:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Unauthorized"}), 403
+
+        # Find Target User
+        target_user = None
+        if target_id:
+            cursor.execute("SELECT * FROM users WHERE id = %s", (target_id,))
+            target_user = cursor.fetchone()
+        elif target_phone:
+            # Ensure format matches DB (e.g., +90...)
+            cursor.execute("SELECT * FROM users WHERE phone_number = %s", (target_phone,))
+            target_user = cursor.fetchone()
+
+        if not target_user:
+            cursor.close(); conn.close()
+            return jsonify({"error": "User not found"}), 404
+
+        # Execute Ban Logic
+        phone = target_user['phone_number']
+        uname = target_user['username']
+        uid = target_user['id']
+
+        # Prevent banning self
+        if str(uid) == str(admin_id):
+            cursor.close(); conn.close()
+            return jsonify({"error": "Cannot ban yourself"}), 400
+
+        cursor.execute("INSERT INTO banned_users (phone_number, username, reason) VALUES (%s, %s, %s)", (phone, uname, "Manual Ban by Admin"))
+        cursor.execute("DELETE FROM users WHERE id=%s", (uid,))
+
+        conn.commit()
+        cursor.close(); conn.close()
+        return jsonify({"message": "User banned and deleted"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# RESOLVE REPORT (Logic Updated)
 # ==========================================
 @admin_bp.route('/admin/resolve-report', methods=['POST'])
 def resolve_report():
@@ -182,10 +234,14 @@ def resolve_report():
                     if os.path.exists(file_path): os.remove(file_path)
                     if os.path.exists(thumb_path): os.remove(thumb_path)
 
+                # Delete from DB
                 cursor.execute("DELETE FROM photos WHERE id = %s", (photo_id,))
+                # Also delete the report itself
+                cursor.execute("DELETE FROM content_reports WHERE id=%s", (report_id,))
                 
         elif action == 'dismiss':
-            cursor.execute("UPDATE content_reports SET status='reviewed' WHERE id=%s", (report_id,))
+            # Changed from UPDATE status to DELETE row as requested
+            cursor.execute("DELETE FROM content_reports WHERE id=%s", (report_id,))
 
         elif action == 'ban_user':
             cursor.execute("SELECT uploader_id FROM content_reports WHERE id=%s", (report_id,))
@@ -201,11 +257,14 @@ def resolve_report():
                     phone = user_row['phone_number']
                     uname = user_row['username']
                     
-                    # Insert into Banned Users WITH Username
+                    # Insert into Banned Users
                     cursor.execute("INSERT INTO banned_users (phone_number, username, reason) VALUES (%s, %s, %s)", (phone, uname, "Reported Content"))
                     
                     # Delete User
                     cursor.execute("DELETE FROM users WHERE id=%s", (uploader_id,))
+                    
+                    # Also delete the report itself
+                    cursor.execute("DELETE FROM content_reports WHERE id=%s", (report_id,))
 
         conn.commit()
         cursor.close(); conn.close()

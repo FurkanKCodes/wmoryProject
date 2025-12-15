@@ -146,12 +146,6 @@ def get_group_photos():
             ext = filename.rsplit('.', 1)[1].lower()
             media_type = 'video' if ext in ['mp4', 'mov', 'avi', 'm4v'] else 'image'
             
-            # Construct Thumbnail URL (Same logic for Image and Video now)
-            # Backend creates thumb_filename.ext (e.g. thumb_video.mp4 -> it is actually a jpg but filename might differ based on impl)
-            # In our create_thumbnail implementation above, we save it as thumb_{filename}.
-            # Example: video.mp4 -> thumb_video.mp4 (content is jpeg).
-            # Pillow save() keeps content as JPEG but filename depends on path.
-            
             thumb_name = f"thumb_{filename}"
             thumbnail_url = url_for('photos.uploaded_file', filename=thumb_name, _external=True)
 
@@ -237,13 +231,8 @@ def hide_photo():
 
 @photos_bp.route('/delete-photo', methods=['DELETE'])
 def delete_photo():
-    # Mapping delete single to bulk logic for cleaner code
-    # But since frontend sends query params for single delete, we keep this wrapper
     user_id = request.args.get('user_id')
     photo_id = request.args.get('photo_id')
-    
-    # Create dummy request-like object or call logic directly? 
-    # For safety, let's just keep original logic here to match frontend exactly
     if not user_id or not photo_id: return jsonify({"error": "Missing fields"}), 400
     try:
         conn = get_db_connection()
@@ -265,9 +254,42 @@ def delete_photo():
         return jsonify({"message": "Deleted"}), 200
     except Exception as e: return jsonify({"error": str(e)}), 500
 
+# ==========================================
+# REPORT CONTENT (FIXED: GETS UPLOADER_ID)
+# ==========================================
 @photos_bp.route('/report-content', methods=['POST'])
 def report_content():
-    return jsonify({"message": "Reported"}), 200
+    data = request.json
+    reporter_id = data.get('reporter_id')
+    photo_id = data.get('photo_id')
+    reason = data.get('reason')
+
+    if not reporter_id or not photo_id or not reason:
+        return jsonify({"error": "Missing fields"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT user_id FROM photos WHERE id = %s", (photo_id,))
+        result = cursor.fetchone()
+        
+        if not result:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Photo not found"}), 404
+            
+        uploader_id = result[0]
+
+        sql = "INSERT INTO content_reports (reporter_id, uploader_id, photo_id, reason) VALUES (%s, %s, %s, %s)"
+        cursor.execute(sql, (reporter_id, uploader_id, photo_id, reason))
+        conn.commit()
+        
+        cursor.close()
+        conn.close()
+        return jsonify({"message": "Reported successfully"}), 201
+    except Exception as e:
+        print(f"Report error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @photos_bp.route('/uploads/<filename>')
 def uploaded_file(filename):

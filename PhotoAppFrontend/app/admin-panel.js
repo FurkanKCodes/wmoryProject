@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, FlatList, TouchableOpacity, Modal, Image, Alert, 
-  ActivityIndicator, StatusBar, TouchableWithoutFeedback, ScrollView 
+  ActivityIndicator, StatusBar, TouchableWithoutFeedback, ScrollView, TextInput, KeyboardAvoidingView, Platform 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +18,11 @@ export default function AdminPanel() {
   const [bannedUsers, setBannedUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   
+  // States for Manual Ban
+  const [manualBanId, setManualBanId] = useState('');
+  const [manualBanPhone, setManualBanPhone] = useState('');
+  const [manualLoading, setManualLoading] = useState(false);
+
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
 
@@ -27,7 +32,8 @@ export default function AdminPanel() {
   useEffect(() => {
     if(currentUserId) {
         if (activeTab === 'reports') fetchReports();
-        else fetchBannedUsers();
+        else if (activeTab === 'banned') fetchBannedUsers();
+        // 'manual_ban' tab needs no initial fetch
     }
   }, [currentUserId, activeTab]);
 
@@ -106,6 +112,36 @@ export default function AdminPanel() {
       } catch (e) { console.error(e); }
   };
 
+  const handleManualBan = async () => {
+      if (!manualBanId && !manualBanPhone) {
+          Alert.alert("Hata", "Lütfen ID veya Telefon numarası girin.");
+          return;
+      }
+
+      setManualLoading(true);
+      try {
+          const res = await fetch(`${API_URL}/admin/manual-ban`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+              body: JSON.stringify({
+                  admin_id: currentUserId,
+                  target_id: manualBanId,
+                  phone: manualBanPhone
+              })
+          });
+          
+          const data = await res.json();
+          if (res.ok) {
+              Alert.alert("Başarılı", "Kullanıcı banlandı ve silindi.");
+              setManualBanId('');
+              setManualBanPhone('');
+          } else {
+              Alert.alert("Hata", data.error || "İşlem başarısız.");
+          }
+      } catch (e) { console.error(e); }
+      finally { setManualLoading(false); }
+  };
+
   const renderReportItem = ({ item }) => (
     <TouchableOpacity 
         style={adminPanelStyles.row} 
@@ -157,25 +193,70 @@ export default function AdminPanel() {
             style={[adminPanelStyles.tabButton, activeTab === 'banned' && adminPanelStyles.activeTab]}
             onPress={() => setActiveTab('banned')}
           >
-              <Text style={[adminPanelStyles.tabText, activeTab === 'banned' && adminPanelStyles.activeTabText]}>Banlanan Kullanıcılar</Text>
+              <Text style={[adminPanelStyles.tabText, activeTab === 'banned' && adminPanelStyles.activeTabText]}>Banlananlar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[adminPanelStyles.tabButton, activeTab === 'manual_ban' && adminPanelStyles.activeTab]}
+            onPress={() => setActiveTab('manual_ban')}
+          >
+              <Text style={[adminPanelStyles.tabText, activeTab === 'manual_ban' && adminPanelStyles.activeTabText]}>Kullanıcı Banla</Text>
           </TouchableOpacity>
       </View>
 
-      {loading ? <ActivityIndicator size="large" color="#007AFF" style={{marginTop: 50}} /> : (
-          <FlatList
-            data={activeTab === 'reports' ? reports : bannedUsers}
-            keyExtractor={item => (activeTab === 'reports' ? `rep_${item.report_id}` : `ban_${item.id}`)}
-            renderItem={activeTab === 'reports' ? renderReportItem : renderBannedUserItem}
-            contentContainerStyle={adminPanelStyles.listContent}
-            ListEmptyComponent={<Text style={adminPanelStyles.emptyText}>{activeTab === 'reports' ? 'Bekleyen rapor yok.' : 'Banlanan kullanıcı yok.'}</Text>}
-          />
-      )}
+      {/* CONTENT AREA */}
+      <View style={{ flex: 1 }}>
+          {activeTab === 'manual_ban' ? (
+              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+                  <ScrollView contentContainerStyle={adminPanelStyles.formContent}>
+                      <Text style={adminPanelStyles.formTitle}>Manuel Kullanıcı Banlama</Text>
+                      <Text style={adminPanelStyles.formDesc}>Kullanıcıyı ID veya Telefon numarası ile banlayıp silebilirsiniz.</Text>
+                      
+                      <View style={adminPanelStyles.inputGroup}>
+                          <Text style={adminPanelStyles.label}>Kullanıcı ID:</Text>
+                          <TextInput 
+                              style={adminPanelStyles.input} 
+                              placeholder="Örn: 15" 
+                              value={manualBanId}
+                              onChangeText={setManualBanId}
+                              keyboardType="numeric"
+                          />
+                      </View>
 
-      {/* --- REPORT DETAIL MODAL (With ScrollView for small screens) --- */}
+                      <View style={adminPanelStyles.separator}><Text style={{color:'#999'}}>VEYA</Text></View>
+
+                      <View style={adminPanelStyles.inputGroup}>
+                          <Text style={adminPanelStyles.label}>Telefon Numarası:</Text>
+                          <TextInput 
+                              style={adminPanelStyles.input} 
+                              placeholder="Örn: +905..." 
+                              value={manualBanPhone}
+                              onChangeText={setManualBanPhone}
+                              keyboardType="phone-pad"
+                          />
+                      </View>
+
+                      <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnBan, { marginTop: 30 }]} onPress={handleManualBan}>
+                          {manualLoading ? <ActivityIndicator color="#fff" /> : <Text style={adminPanelStyles.btnText}>Kullanıcıyı Banla ve Sil</Text>}
+                      </TouchableOpacity>
+                  </ScrollView>
+              </KeyboardAvoidingView>
+          ) : (
+              loading ? <ActivityIndicator size="large" color="#007AFF" style={{marginTop: 50}} /> : (
+                  <FlatList
+                    data={activeTab === 'reports' ? reports : bannedUsers}
+                    keyExtractor={item => (activeTab === 'reports' ? `rep_${item.report_id}` : `ban_${item.id}`)}
+                    renderItem={activeTab === 'reports' ? renderReportItem : renderBannedUserItem}
+                    contentContainerStyle={adminPanelStyles.listContent}
+                    ListEmptyComponent={<Text style={adminPanelStyles.emptyText}>{activeTab === 'reports' ? 'Bekleyen rapor yok.' : 'Banlanan kullanıcı yok.'}</Text>}
+                  />
+              )
+          )}
+      </View>
+
+      {/* --- REPORT DETAIL MODAL --- */}
       <Modal visible={reportModalVisible} animationType="slide" transparent={true} onRequestClose={() => setReportModalVisible(false)}>
         <View style={adminPanelStyles.modalOverlay}>
             <View style={adminPanelStyles.modalContainer}>
-                {/* ScrollView added here to fix content overflow */}
                 <ScrollView contentContainerStyle={{flexGrow: 1}}>
                     {selectedReport && (
                         <>
@@ -206,7 +287,6 @@ export default function AdminPanel() {
                                 </TouchableOpacity>
                             </View>
                             
-                            {/* Ban Button visible and functional */}
                             <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnBan]} onPress={() => handleResolveReport('ban_user')}>
                                 <Text style={adminPanelStyles.btnText}>KULLANICIYI BANLA VE SİL</Text>
                             </TouchableOpacity>
@@ -217,41 +297,44 @@ export default function AdminPanel() {
         </View>
       </Modal>
 
-      {/* --- BANNED USER POPUP --- */}
+      {/* --- BANNED USER POPUP (SCROLL ADDED) --- */}
       <Modal visible={banModalVisible} animationType="fade" transparent={true} onRequestClose={() => setBanModalVisible(false)}>
         <TouchableWithoutFeedback onPress={() => setBanModalVisible(false)}>
             <View style={adminPanelStyles.modalOverlay}>
                 <TouchableWithoutFeedback>
                     <View style={adminPanelStyles.modalContainer}>
-                        {selectedBannedUser && (
-                            <>
-                                <View style={adminPanelStyles.modalHeader}>
-                                    <Text style={adminPanelStyles.modalTitle}>Ban Detayı</Text>
-                                    <TouchableOpacity onPress={() => setBanModalVisible(false)}>
-                                        <Ionicons name="close" size={24} color="#333" />
+                        {/* ScrollView Added Here for Scrolling Content */}
+                        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+                            {selectedBannedUser && (
+                                <>
+                                    <View style={adminPanelStyles.modalHeader}>
+                                        <Text style={adminPanelStyles.modalTitle}>Ban Detayı</Text>
+                                        <TouchableOpacity onPress={() => setBanModalVisible(false)}>
+                                            <Ionicons name="close" size={24} color="#333" />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={adminPanelStyles.detailRow}>
+                                        <Text style={adminPanelStyles.label}>Kullanıcı Adı:</Text>
+                                        <Text style={adminPanelStyles.value}>{selectedBannedUser.username || "-"}</Text>
+                                    </View>
+                                    
+                                    <View style={adminPanelStyles.detailRow}>
+                                        <Text style={adminPanelStyles.label}>Telefon:</Text>
+                                        <Text style={adminPanelStyles.value}>{selectedBannedUser.phone_number}</Text>
+                                    </View>
+
+                                    <View style={adminPanelStyles.detailRow}>
+                                        <Text style={adminPanelStyles.label}>Ban Sebebi:</Text>
+                                        <Text style={adminPanelStyles.value}>{selectedBannedUser.reason}</Text>
+                                    </View>
+
+                                    <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnUnban]} onPress={handleUnbanUser}>
+                                        <Text style={adminPanelStyles.btnText}>Banı Kaldır</Text>
                                     </TouchableOpacity>
-                                </View>
-
-                                <View style={adminPanelStyles.detailRow}>
-                                    <Text style={adminPanelStyles.label}>Kullanıcı Adı:</Text>
-                                    <Text style={adminPanelStyles.value}>{selectedBannedUser.username || "-"}</Text>
-                                </View>
-                                
-                                <View style={adminPanelStyles.detailRow}>
-                                    <Text style={adminPanelStyles.label}>Telefon:</Text>
-                                    <Text style={adminPanelStyles.value}>{selectedBannedUser.phone_number}</Text>
-                                </View>
-
-                                <View style={adminPanelStyles.detailRow}>
-                                    <Text style={adminPanelStyles.label}>Ban Sebebi:</Text>
-                                    <Text style={adminPanelStyles.value}>{selectedBannedUser.reason}</Text>
-                                </View>
-
-                                <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnUnban]} onPress={handleUnbanUser}>
-                                    <Text style={adminPanelStyles.btnText}>Banı Kaldır</Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
+                                </>
+                            )}
+                        </ScrollView>
                     </View>
                 </TouchableWithoutFeedback>
             </View>
