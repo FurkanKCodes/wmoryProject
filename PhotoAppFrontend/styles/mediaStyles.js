@@ -1,8 +1,6 @@
 import { StyleSheet, Platform, StatusBar, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
-const COLUMN_COUNT = 4;
-const ITEM_SIZE = width / COLUMN_COUNT;
 
 const mediaStyles = StyleSheet.create({
   container: {
@@ -39,18 +37,54 @@ const mediaStyles = StyleSheet.create({
     padding: 5,
   },
 
+  // --- SECTION HEADERS ---
+  sectionHeaderContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)', // Slightly translucent
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  sectionHeaderText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+
+  // --- SCROLL BUBBLE ---
+  scrollBubble: {
+    position: 'absolute',
+    top: 50, 
+    right: 20, // Sağ tarafa yaslı
+    backgroundColor: '#007AFF',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    zIndex: 999,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  scrollBubbleText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+
   // --- GRID LIST ---
-  gridContainer: {
-    paddingTop: 2,
+  rowContainer: {
+      flexDirection: 'row',
+      justifyContent: 'flex-start', // Items align left
   },
   mediaItem: {
-    width: ITEM_SIZE,
-    height: ITEM_SIZE,
+    // Width and height are set dynamically in JS via inline styles
     borderWidth: 1,
     borderColor: '#fff', 
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000', 
+    backgroundColor: '#f0f0f0', 
   },
   mediaItemSelected: {
       opacity: 0.7, 
@@ -73,6 +107,91 @@ const mediaStyles = StyleSheet.create({
       zIndex: 5,
       backgroundColor: 'rgba(0,0,0,0.3)', 
       borderRadius: 4,
+  },
+
+  // --- FILTER MODAL STYLES (YENİ EKLENDİ) ---
+  filterModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-start', // Üstten başlasın (Pop-down hissi için)
+      paddingTop: 100, // Header'ın altında kalsın
+  },
+  filterModalContainer: {
+      backgroundColor: '#fff',
+      marginHorizontal: 20,
+      borderRadius: 15,
+      maxHeight: height * 0.6,
+      elevation: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      overflow: 'hidden',
+  },
+  filterHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: '#eee',
+      backgroundColor: '#f9f9f9',
+  },
+  filterTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#333',
+  },
+  filterContent: {
+      padding: 10,
+  },
+  filterRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      paddingHorizontal: 10,
+  },
+  filterAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      marginRight: 10,
+      backgroundColor: '#eee',
+  },
+  filterAvatarPlaceholder: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      marginRight: 10,
+      backgroundColor: '#007AFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+  },
+  filterName: {
+      fontSize: 16,
+      color: '#333',
+  },
+  filterSeparator: {
+      height: 1,
+      backgroundColor: '#eee',
+      marginVertical: 5,
+  },
+  filterFooter: {
+      padding: 15,
+      borderTopWidth: 1,
+      borderTopColor: '#eee',
+  },
+  applyButton: {
+      backgroundColor: '#007AFF',
+      paddingVertical: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+  },
+  applyButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: 'bold',
   },
 
   // --- FULL SCREEN MODAL ---

@@ -1,19 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   View, Text, Image, TouchableOpacity, FlatList, Alert, 
   ActivityIndicator, StatusBar, Modal, Dimensions, ScrollView,
-  TouchableWithoutFeedback, Platform, ActionSheetIOS 
+  TouchableWithoutFeedback, Platform, ActionSheetIOS, SectionList 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av'; 
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'; 
+
 import API_URL from '../config';
 import mediaStyles from '../styles/mediaStyles';
-// EKLENDİ: İnternet kontrolü için kütüphane
 import NetInfo from '@react-native-community/netinfo';
 
 const { width, height } = Dimensions.get('window');
+const defaultUserImage = require('../assets/no-pic.jpg'); // Profil resmi yoksa
+
+// İzin verilen sütun seçenekleri
+const COLUMN_OPTIONS = [2, 3, 4, 6, 8];
 
 export default function MediaGalleryScreen() {
   const router = useRouter();
@@ -23,6 +28,20 @@ export default function MediaGalleryScreen() {
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+
+  // --- FILTER STATES ---
+  const [members, setMembers] = useState([]);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [selectedMemberIds, setSelectedMemberIds] = useState([]); // Aktif filtre
+  const [tempSelectedMemberIds, setTempSelectedMemberIds] = useState([]); // Modal içindeki geçici seçim
+
+  // --- DYNAMIC COLUMNS STATE ---
+  const [numColumns, setNumColumns] = useState(4); // Varsayılan 4
+
+  // --- SCROLL BUBBLE STATES ---
+  const [scrollDate, setScrollDate] = useState('');
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimeout = useRef(null);
 
   // Full Screen Viewer State
   const [isViewerVisible, setViewerVisible] = useState(false);
@@ -38,9 +57,40 @@ export default function MediaGalleryScreen() {
   
   const fullScreenListRef = useRef(null);
 
+  // --- PINCH GESTURE LOGIC ---
+  const isZoomProcessed = useRef(false);
+  
+  const pinchGesture = Gesture.Pinch()
+    .onStart(() => {
+      isZoomProcessed.current = false;
+    })
+    .onUpdate((e) => {
+      if (isZoomProcessed.current) return;
+
+      const scale = e.scale;
+      const currentIndex = COLUMN_OPTIONS.indexOf(numColumns);
+
+      // ZOOM IN (Büyütme -> Sütun Sayısı Azalır)
+      if (scale > 1.5 && currentIndex > 0) {
+         try {
+             setNumColumns(COLUMN_OPTIONS[currentIndex - 1]);
+             isZoomProcessed.current = true;
+         } catch(err) {}
+      }
+
+      // ZOOM OUT (Küçültme -> Sütun Sayısı Artar)
+      if (scale < 0.6 && currentIndex < COLUMN_OPTIONS.length - 1) {
+         try {
+             setNumColumns(COLUMN_OPTIONS[currentIndex + 1]);
+             isZoomProcessed.current = true;
+         } catch(err) {}
+      }
+    })
+    .runOnJS(true);
+
   // --- INTERNET CHECK LOGIC ---
   useEffect(() => {
-    NetInfo.fetch(); // Kütüphaneyi uyandır
+    NetInfo.fetch(); 
   }, []);
 
   const checkInternetConnection = async () => {
@@ -52,28 +102,173 @@ export default function MediaGalleryScreen() {
       return true;
   };
 
-  // --- FETCH PHOTOS ---
-  const fetchPhotos = async () => {
+  // --- FETCH DATA ---
+  const fetchData = async () => {
     try {
-      const response = await fetch(`${API_URL}/group-photos?group_id=${groupId}&user_id=${userId}`);
-      if (response.ok) {
-        const data = await response.json();
+      // 1. Fotoları Çek
+      const photoRes = await fetch(`${API_URL}/group-photos?group_id=${groupId}&user_id=${userId}`);
+      if (photoRes.ok) {
+        const data = await photoRes.json();
         setPhotos(data);
       }
+
+      // 2. Üyeleri Çek (Filtreleme için)
+      const memberRes = await fetch(`${API_URL}/get-group-members?group_id=${groupId}&current_user_id=${userId}`);
+      if (memberRes.ok) {
+          const memberData = await memberRes.json();
+          memberData.sort((a, b) => a.username.localeCompare(b.username));
+          setMembers(memberData);
+          
+          // Varsayılan: Herkes seçili
+          const allIds = memberData.map(m => m.id.toString());
+          setSelectedMemberIds(allIds);
+          setTempSelectedMemberIds(allIds);
+      }
+
     } catch (error) {
-      console.error("Error fetching photos:", error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPhotos();
+    fetchData();
   }, []);
 
-  // --- UPLOAD HANDLER (GÜNCELLENDİ: İNTERNET KONTROLÜ) ---
+  // --- TIMELINE GROUPING LOGIC (FİLTRELİ) ---
+  const groupedPhotos = useMemo(() => {
+    // 1. ADIM: Filtreleme
+    const filteredPhotos = photos.filter(p => selectedMemberIds.includes(p.uploader_id.toString()));
+
+    if (!filteredPhotos || filteredPhotos.length === 0) return [];
+
+    const sections = [];
+    const now = new Date();
+    
+    const buckets = {
+        today: [],
+        thisWeek: [],
+        thisMonth: [],
+        thisYear: [],
+        older: {} 
+    };
+
+    filteredPhotos.forEach(photo => {
+        const date = new Date(photo.date);
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+
+        if (date.toDateString() === now.toDateString()) {
+            buckets.today.push(photo);
+        } else if (diffDays <= 7) {
+            buckets.thisWeek.push(photo);
+        } else if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
+            buckets.thisMonth.push(photo);
+        } else if (date.getFullYear() === now.getFullYear()) {
+            buckets.thisYear.push(photo);
+        } else {
+            const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+            const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+            if (!buckets.older[key]) buckets.older[key] = [];
+            buckets.older[key].push(photo);
+        }
+    });
+
+    // Chunk array based on CURRENT numColumns state
+    const chunkArray = (array, size) => {
+        const results = [];
+        for (let i = 0; i < array.length; i += size) {
+            results.push(array.slice(i, i + size));
+        }
+        return results;
+    };
+
+    if (buckets.today.length > 0) {
+        sections.push({ title: 'Bugün', data: chunkArray(buckets.today, numColumns) });
+    }
+    if (buckets.thisWeek.length > 0) {
+        sections.push({ title: 'Bu Hafta', data: chunkArray(buckets.thisWeek, numColumns) });
+    }
+    if (buckets.thisMonth.length > 0) {
+        sections.push({ title: 'Bu Ay', data: chunkArray(buckets.thisMonth, numColumns) });
+    }
+    if (buckets.thisYear.length > 0) {
+        sections.push({ title: 'Bu Yıl', data: chunkArray(buckets.thisYear, numColumns) });
+    }
+    
+    Object.keys(buckets.older).forEach(key => {
+        sections.push({ title: key, data: chunkArray(buckets.older[key], numColumns) });
+    });
+
+    return sections;
+  }, [photos, numColumns, selectedMemberIds]);
+
+  // --- FILTER LOGIC ---
+  const handleOpenFilter = () => {
+      setTempSelectedMemberIds(selectedMemberIds); 
+      setFilterModalVisible(true);
+  };
+
+  const toggleMemberFilter = (id) => {
+      const idStr = id.toString();
+      
+      // "Herkes" seçeneği
+      if (id === 'all') {
+          const allIds = members.map(m => m.id.toString());
+          if (tempSelectedMemberIds.length === members.length) {
+              return; 
+          } else {
+              setTempSelectedMemberIds(allIds);
+          }
+          return;
+      }
+
+      // Tekil Seçim
+      if (tempSelectedMemberIds.includes(idStr)) {
+          if (tempSelectedMemberIds.length === 1) {
+              Alert.alert("Uyarı", "En az bir kişi seçili olmalıdır.");
+              return;
+          }
+          setTempSelectedMemberIds(tempSelectedMemberIds.filter(mid => mid !== idStr));
+      } else {
+          setTempSelectedMemberIds([...tempSelectedMemberIds, idStr]);
+      }
+  };
+
+  const applyFilter = () => {
+      setSelectedMemberIds(tempSelectedMemberIds);
+      setFilterModalVisible(false);
+  };
+
+  const isAllSelected = tempSelectedMemberIds.length === members.length;
+
+  // --- SCROLL HANDLERS ---
+  const handleScroll = () => {
+      setIsScrolling(true);
+      if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+  };
+
+  const handleScrollEnd = () => {
+      scrollTimeout.current = setTimeout(() => {
+          setIsScrolling(false);
+      }, 1000); 
+  };
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
+
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+      if (viewableItems.length > 0) {
+          const firstItem = viewableItems[0];
+          if (firstItem.section && firstItem.section.title) {
+              setScrollDate(firstItem.section.title);
+          }
+      }
+  }).current;
+
+
+  // --- UPLOAD HANDLER ---
   const handleUpload = async () => {
-    // 1. İNTERNET KONTROLÜ
     const hasInternet = await checkInternetConnection();
     if (!hasInternet) return;
 
@@ -95,7 +290,8 @@ export default function MediaGalleryScreen() {
         await uploadSingleFile(asset);
       }
       setUploading(false);
-      fetchPhotos(); 
+      // DÜZELTİLDİ: fetchPhotos() -> fetchData()
+      fetchData(); 
     }
   };
 
@@ -167,7 +363,6 @@ export default function MediaGalleryScreen() {
   };
 
   const handleBulkRemoveConfirmation = () => {
-      // Check ownership of ALL selected photos
       const selectedMedia = photos.filter(p => selectedIds.includes(p.id));
       const allMine = selectedMedia.every(p => p.uploader_id.toString() === userId.toString());
 
@@ -185,15 +380,12 @@ export default function MediaGalleryScreen() {
       }
   };
 
-  // --- BULK ACTION VIA BACKEND ---
   const processBulkRemove = async (type) => {
-      // BULK İŞLEMDE DE İNTERNET KONTROLÜ
       const hasInternet = await checkInternetConnection();
       if (!hasInternet) return;
 
       setLoading(true);
       try {
-          // Optimized: Single Request to Backend
           const response = await fetch(`${API_URL}/bulk-action`, {
               method: 'POST',
               headers: { 
@@ -203,13 +395,14 @@ export default function MediaGalleryScreen() {
               body: JSON.stringify({
                   user_id: userId,
                   photo_ids: selectedIds,
-                  action_type: type // 'delete' or 'hide'
+                  action_type: type 
               })
           });
 
           if (response.ok) {
               Alert.alert("Başarılı", "İşlem tamamlandı.");
-              fetchPhotos();
+              // DÜZELTİLDİ: fetchPhotos() -> fetchData()
+              fetchData();
           } else {
               const err = await response.json();
               Alert.alert("Hata", err.error || "İşlem başarısız.");
@@ -223,7 +416,7 @@ export default function MediaGalleryScreen() {
       }
   };
 
-  // --- REPORT LOGIC (Standardized) ---
+  // --- REPORT & SINGLE ACTIONS ---
   const handleReport = () => {
     const currentMedia = photos[currentIndex];
     if (!currentMedia) return;
@@ -291,7 +484,6 @@ export default function MediaGalleryScreen() {
     Alert.alert("Bilgi", "Galeriye kaydetme simülasyonu başarılı.");
   };
 
-  // --- REMOVE / HIDE PHOTO LOGIC (UPDATED NAV) ---
   const handleRemove = () => {
     const currentMedia = photos[currentIndex];
     if (!currentMedia) return;
@@ -321,21 +513,15 @@ export default function MediaGalleryScreen() {
     }
   };
 
-  // --- IMPROVED NAVIGATION AFTER DELETE ---
   const handlePostDeleteNavigation = (deletedId) => {
-      // 1. Remove from local list immediately
       const updatedPhotos = photos.filter(p => p.id !== deletedId);
       setPhotos(updatedPhotos);
-
-      // 2. Navigation logic
       if (updatedPhotos.length === 0) {
-          setViewerVisible(false); // Close if empty
+          setViewerVisible(false);
       } else {
-          // Adjust index if needed (if last item was deleted, go back one)
           if (currentIndex >= updatedPhotos.length) {
               setCurrentIndex(updatedPhotos.length - 1);
           }
-          // If middle item deleted, currentIndex now points to the next item automatically
       }
   };
 
@@ -374,39 +560,54 @@ export default function MediaGalleryScreen() {
     if (showOptions) setShowOptions(false); 
   };
 
-  const renderGridItem = ({ item, index }) => {
-    const isSelected = selectedIds.includes(item.id);
+  // --- RENDERERS ---
+  
+  const renderSectionHeader = ({ section: { title } }) => (
+    <View style={mediaStyles.sectionHeaderContainer}>
+        <Text style={mediaStyles.sectionHeaderText}>{title}</Text>
+    </View>
+  );
 
-    return (
-        <TouchableOpacity 
-          style={[mediaStyles.mediaItem, isSelected && mediaStyles.mediaItemSelected]} 
-          onPress={() => {
-            if (isSelectionMode) {
-                toggleSelection(item.id);
-            } else {
-                setCurrentIndex(index);
-                setViewerVisible(true);
-                setControlsVisible(true);
-            }
-          }}
-        >
-          <Image source={{ uri: item.thumbnail || item.url }} style={mediaStyles.imageThumbnail} />
-          {item.type === 'video' && (
-              <Ionicons name="play-circle" size={30} color="#fff" style={mediaStyles.playIconOverlay} />
-          )}
-          
-          {/* SELECTION OVERLAY */}
-          {isSelectionMode && (
-              <View style={mediaStyles.selectionOverlay}>
-                  <Ionicons 
-                    name={isSelected ? "checkbox" : "square-outline"} 
-                    size={24} 
-                    color={isSelected ? "#007AFF" : "#fff"} 
-                  />
-              </View>
-          )}
-        </TouchableOpacity>
-    );
+  const renderRow = ({ item }) => {
+      return (
+          <View style={mediaStyles.rowContainer}>
+              {item.map((photo) => {
+                  const isSelected = selectedIds.includes(photo.id);
+                  const itemWidth = width / numColumns;
+                  
+                  return (
+                    <TouchableOpacity 
+                        key={photo.id}
+                        style={[mediaStyles.mediaItem, isSelected && mediaStyles.mediaItemSelected, { width: itemWidth, height: itemWidth }]} 
+                        onPress={() => {
+                            if (isSelectionMode) {
+                                toggleSelection(photo.id);
+                            } else {
+                                const globalIndex = photos.findIndex(p => p.id === photo.id);
+                                setCurrentIndex(globalIndex !== -1 ? globalIndex : 0);
+                                setViewerVisible(true);
+                                setControlsVisible(true);
+                            }
+                        }}
+                    >
+                        <Image source={{ uri: photo.thumbnail || photo.url }} style={mediaStyles.imageThumbnail} />
+                        {photo.type === 'video' && (
+                            <Ionicons name="play-circle" size={30} color="#fff" style={mediaStyles.playIconOverlay} />
+                        )}
+                        {isSelectionMode && (
+                            <View style={mediaStyles.selectionOverlay}>
+                                <Ionicons 
+                                    name={isSelected ? "checkbox" : "square-outline"} 
+                                    size={24} 
+                                    color={isSelected ? "#007AFF" : "#fff"} 
+                                />
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                  );
+              })}
+          </View>
+      );
   };
 
   const renderFullScreenItem = ({ item }) => {
@@ -452,117 +653,210 @@ export default function MediaGalleryScreen() {
   const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 50 });
 
   return (
-    <View style={mediaStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#007AFF" />
-      
-      {/* HEADER */}
-      <View style={mediaStyles.headerContainer}>
-        {isSelectionMode ? (
-            // SELECTION MODE HEADER
-            <>
-                <TouchableOpacity onPress={toggleSelectionMode}>
-                    <Text style={{color:'#fff', fontSize:16, fontWeight:'600'}}>İptal</Text>
-                </TouchableOpacity>
-                <Text style={mediaStyles.headerTitle}>{selectedIds.length} Seçildi</Text>
-                <TouchableOpacity onPress={handleBulkActionPress}>
-                    <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
-                </TouchableOpacity>
-            </>
-        ) : (
-            // NORMAL HEADER
-            <>
-                <TouchableOpacity style={mediaStyles.backButton} onPress={() => router.back()}>
-                    <Ionicons name="chevron-back" size={32} color="#fff" />
-                </TouchableOpacity>
-                <Text style={mediaStyles.headerTitle}>Medya</Text>
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <TouchableOpacity style={{marginRight: 15}} onPress={toggleSelectionMode}>
-                        <Text style={{color:'#fff', fontWeight: '600', fontSize: 16}}>Seç</Text>
+    // Gesture Handler Root is required for gestures to work
+    <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={mediaStyles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#007AFF" />
+        
+        {/* HEADER */}
+        <View style={mediaStyles.headerContainer}>
+            {isSelectionMode ? (
+                <>
+                    <TouchableOpacity onPress={toggleSelectionMode}>
+                        <Text style={{color:'#fff', fontSize:16, fontWeight:'600'}}>İptal</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={mediaStyles.addButton} onPress={handleUpload}>
-                        {uploading ? <ActivityIndicator color="#fff" /> : <Ionicons name="add" size={32} color="#fff" />}
+                    <Text style={mediaStyles.headerTitle}>{selectedIds.length} Seçildi</Text>
+                    <TouchableOpacity onPress={handleBulkActionPress}>
+                        <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
                     </TouchableOpacity>
-                </View>
-            </>
-        )}
-      </View>
+                </>
+            ) : (
+                <>
+                    <TouchableOpacity style={mediaStyles.backButton} onPress={() => router.back()}>
+                        <Ionicons name="chevron-back" size={32} color="#fff" />
+                    </TouchableOpacity>
+                    <Text style={mediaStyles.headerTitle}>Medya</Text>
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        {/* YENİ: FİLTRE BUTONU */}
+                        <TouchableOpacity style={{marginRight: 15}} onPress={handleOpenFilter}>
+                            <Ionicons name="filter" size={24} color="#fff" />
+                        </TouchableOpacity>
 
-      {/* GRID LIST */}
-      <View style={{ flex: 1 }}> 
-        {loading ? (
-            <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
-        ) : (
-            <FlatList
-                data={photos}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={renderGridItem}
-                numColumns={4}
-                contentContainerStyle={{ paddingBottom: 100 }} 
-            />
-        )}
-      </View>
+                        <TouchableOpacity style={{marginRight: 15}} onPress={toggleSelectionMode}>
+                            <Text style={{color:'#fff', fontWeight: '600', fontSize: 16}}>Seç</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={mediaStyles.addButton} onPress={handleUpload}>
+                            {uploading ? <ActivityIndicator color="#fff" /> : <Ionicons name="add" size={32} color="#fff" />}
+                        </TouchableOpacity>
+                    </View>
+                </>
+            )}
+        </View>
 
-      {/* FULL SCREEN VIEWER */}
-      <Modal 
-        visible={isViewerVisible} 
-        transparent={true} 
-        animationType="fade"
-        onRequestClose={() => setViewerVisible(false)} // FIX: Android Back Button Logic
-      >
-        <View style={mediaStyles.fullScreenContainer}>
-            {areControlsVisible && (
-                <View style={mediaStyles.topControls}>
-                    <TouchableOpacity style={mediaStyles.controlButton} onPress={() => setViewerVisible(false)}>
-                        <Ionicons name="chevron-back" size={28} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={mediaStyles.controlButton} onPress={() => setShowOptions(!showOptions)}>
-                        <Ionicons name="ellipsis-vertical" size={28} color="#fff" />
-                    </TouchableOpacity>
-                </View>
+        {/* TIMELINE LIST (SectionList with Pinch Gesture) */}
+        <View style={{ flex: 1 }}> 
+            {loading ? (
+                <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
+            ) : (
+                <GestureDetector gesture={pinchGesture}>
+                    <SectionList
+                        sections={groupedPhotos}
+                        keyExtractor={(item, index) => index.toString()}
+                        renderItem={renderRow}
+                        renderSectionHeader={renderSectionHeader}
+                        stickySectionHeadersEnabled={true}
+                        
+                        // SCROLL EVENTS FOR BUBBLE
+                        onScroll={handleScroll}
+                        onScrollBeginDrag={handleScroll}
+                        onScrollEndDrag={handleScrollEnd}
+                        onMomentumScrollEnd={handleScrollEnd}
+                        onViewableItemsChanged={onViewableItemsChanged}
+                        viewabilityConfig={viewabilityConfig}
+
+                        contentContainerStyle={{ paddingBottom: 100 }}
+                        ListEmptyComponent={
+                            <View style={{alignItems:'center', marginTop: 50}}>
+                                <Text style={{color:'#999'}}>Henüz medya yok.</Text>
+                            </View>
+                        }
+                    />
+                </GestureDetector>
             )}
 
-            {showOptions && areControlsVisible && (
-                <View style={mediaStyles.optionsMenu}>
-                    <TouchableOpacity style={mediaStyles.optionItem} onPress={handleSaveToGallery}>
-                        <Text style={mediaStyles.optionText}>Kaydet</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={mediaStyles.optionItem} onPress={handleRemove}>
-                        <Text style={mediaStyles.optionText}>Kaldır</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[mediaStyles.optionItem, { borderBottomWidth: 0 }]} onPress={handleReport}>
-                        <Text style={[mediaStyles.optionText, mediaStyles.reportText]}>Bildir</Text>
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            <FlatList
-                ref={fullScreenListRef}
-                data={photos}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={renderFullScreenItem}
-                horizontal
-                pagingEnabled 
-                showsHorizontalScrollIndicator={false}
-                initialScrollIndex={currentIndex} 
-                onViewableItemsChanged={onViewRef.current}
-                viewabilityConfig={viewConfigRef.current}
-                getItemLayout={(data, index) => (
-                    {length: width, offset: width * index, index}
-                )}
-            />
-
-            {areControlsVisible && (
-                <View style={mediaStyles.bottomInfo}>
-                    <Text style={mediaStyles.infoText}>
-                        {photos[currentIndex]?.uploaded_by}
-                    </Text>
-                    <Text style={mediaStyles.dateText}>
-                        {photos[currentIndex] ? new Date(photos[currentIndex].date).toLocaleDateString() : ''}
-                    </Text>
+            {/* --- DYNAMIC SCROLL DATE BUBBLE --- */}
+            {isScrolling && scrollDate !== '' && (
+                <View style={mediaStyles.scrollBubble}>
+                    <Text style={mediaStyles.scrollBubbleText}>{scrollDate}</Text>
                 </View>
             )}
         </View>
-      </Modal>
-    </View>
+
+        {/* --- FILTER MODAL (YENİ EKLENDİ) --- */}
+        <Modal 
+            visible={filterModalVisible} 
+            transparent={true} 
+            animationType="slide"
+            onRequestClose={() => setFilterModalVisible(false)}
+        >
+            <View style={mediaStyles.filterModalOverlay}>
+                <View style={mediaStyles.filterModalContainer}>
+                    <View style={mediaStyles.filterHeader}>
+                        <Text style={mediaStyles.filterTitle}>Yükleyen Kişi Filtresi</Text>
+                        <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                            <Ionicons name="close" size={24} color="#333" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView contentContainerStyle={mediaStyles.filterContent}>
+                        {/* Everyone Option */}
+                        <TouchableOpacity style={mediaStyles.filterRow} onPress={() => toggleMemberFilter('all')}>
+                            <View style={{flexDirection:'row', alignItems:'center'}}>
+                                <View style={mediaStyles.filterAvatarPlaceholder}>
+                                    <Ionicons name="people" size={20} color="#fff" />
+                                </View>
+                                <Text style={mediaStyles.filterName}>Herkes</Text>
+                            </View>
+                            <Ionicons 
+                                name={isAllSelected ? "checkbox" : "square-outline"} 
+                                size={24} 
+                                color={isAllSelected ? "#007AFF" : "#ccc"} 
+                            />
+                        </TouchableOpacity>
+
+                        <View style={mediaStyles.filterSeparator} />
+
+                        {/* Members List */}
+                        {members.map(member => {
+                            const isSelected = tempSelectedMemberIds.includes(member.id.toString());
+                            const thumb = member.thumbnail_url || member.profile_url;
+                            return (
+                                <TouchableOpacity key={member.id} style={mediaStyles.filterRow} onPress={() => toggleMemberFilter(member.id)}>
+                                    <View style={{flexDirection:'row', alignItems:'center'}}>
+                                        <Image source={thumb ? {uri: thumb} : defaultUserImage} style={mediaStyles.filterAvatar} />
+                                        <Text style={mediaStyles.filterName}>{member.username}</Text>
+                                    </View>
+                                    <Ionicons 
+                                        name={isSelected ? "checkbox" : "square-outline"} 
+                                        size={24} 
+                                        color={isSelected ? "#007AFF" : "#ccc"} 
+                                    />
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+
+                    <View style={mediaStyles.filterFooter}>
+                        <TouchableOpacity style={mediaStyles.applyButton} onPress={applyFilter}>
+                            <Text style={mediaStyles.applyButtonText}>Uygula</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+
+        {/* FULL SCREEN VIEWER */}
+        <Modal 
+            visible={isViewerVisible} 
+            transparent={true} 
+            animationType="fade"
+            onRequestClose={() => setViewerVisible(false)} 
+        >
+            <View style={mediaStyles.fullScreenContainer}>
+                {areControlsVisible && (
+                    <View style={mediaStyles.topControls}>
+                        <TouchableOpacity style={mediaStyles.controlButton} onPress={() => setViewerVisible(false)}>
+                            <Ionicons name="chevron-back" size={28} color="#fff" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={mediaStyles.controlButton} onPress={() => setShowOptions(!showOptions)}>
+                            <Ionicons name="ellipsis-vertical" size={28} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {showOptions && areControlsVisible && (
+                    <View style={mediaStyles.optionsMenu}>
+                        <TouchableOpacity style={mediaStyles.optionItem} onPress={handleSaveToGallery}>
+                            <Text style={mediaStyles.optionText}>Kaydet</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={mediaStyles.optionItem} onPress={handleRemove}>
+                            <Text style={mediaStyles.optionText}>Kaldır</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[mediaStyles.optionItem, { borderBottomWidth: 0 }]} onPress={handleReport}>
+                            <Text style={[mediaStyles.optionText, mediaStyles.reportText]}>Bildir</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                <FlatList
+                    ref={fullScreenListRef}
+                    data={photos}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={renderFullScreenItem}
+                    horizontal
+                    pagingEnabled 
+                    showsHorizontalScrollIndicator={false}
+                    initialScrollIndex={currentIndex} 
+                    onViewableItemsChanged={onViewRef.current}
+                    viewabilityConfig={viewConfigRef.current}
+                    getItemLayout={(data, index) => (
+                        {length: width, offset: width * index, index}
+                    )}
+                />
+
+                {areControlsVisible && (
+                    <View style={mediaStyles.bottomInfo}>
+                        <Text style={mediaStyles.infoText}>
+                            {photos[currentIndex]?.uploaded_by}
+                        </Text>
+                        <Text style={mediaStyles.dateText}>
+                            {photos[currentIndex] ? new Date(photos[currentIndex].date).toLocaleDateString() : ''}
+                        </Text>
+                    </View>
+                )}
+            </View>
+        </Modal>
+        </View>
+    </GestureHandlerRootView>
   );
 }
