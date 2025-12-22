@@ -272,3 +272,28 @@ def change_password():
     except Exception as e:
         print(f"Error changing password: {e}")
         return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# UPDATE PUSH TOKEN
+# ==========================================
+@auth_bp.route('/update-push-token', methods=['POST'])
+def update_push_token():
+    data = request.json
+    user_id = data.get('user_id')
+    push_token = data.get('push_token')
+
+    if not user_id or not push_token:
+        return jsonify({"error": "Missing fields"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # Save the token to the database
+        cursor.execute("UPDATE users SET push_token = %s WHERE id = %s", (push_token, user_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"message": "Token updated"}), 200
+    except Exception as e:
+        print(f"Token update error: {e}")
+        return jsonify({"error": str(e)}), 500

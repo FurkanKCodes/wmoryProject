@@ -33,7 +33,52 @@ const adminPanelStyles = StyleSheet.create({
     fontWeight: 'bold',
     flex: 1,
     textAlign: 'center',
-    marginRight: 30,
+    marginRight: 30, // Dengelemek için
+  },
+
+  // --- 2FA AUTH SCREEN STYLES (YENİ) ---
+  authContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 30,
+  },
+  authTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#333',
+      marginBottom: 10,
+  },
+  authDesc: {
+      fontSize: 16,
+      color: '#666',
+      textAlign: 'center',
+      marginBottom: 30,
+      lineHeight: 22,
+  },
+  authInput: {
+      width: '100%',
+      borderWidth: 1,
+      borderColor: '#ddd',
+      borderRadius: 10,
+      padding: 15,
+      fontSize: 24,
+      textAlign: 'center',
+      letterSpacing: 5,
+      marginBottom: 20,
+      backgroundColor: '#f9f9f9',
+  },
+  authButton: {
+      width: '100%',
+      backgroundColor: '#007AFF',
+      paddingVertical: 15,
+      borderRadius: 10,
+      alignItems: 'center',
+  },
+  authButtonText: {
+      color: '#fff',
+      fontSize: 18,
+      fontWeight: 'bold',
   },
 
   // --- TABS ---
@@ -177,7 +222,7 @@ const adminPanelStyles = StyleSheet.create({
     resizeMode: 'contain'
   },
 
-  // Evidence Video (NEW)
+  // Evidence Video
   evidenceVideo: {
     width: '100%',
     height: 300,

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "PhotoAppFrontend",
-    "slug": "PhotoAppFrontend",
+    "slug": "photoapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -43,6 +43,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2f568aac-fb08-49cd-ad8c-3006c61902e5"
+      }
+    },
+    "owner": "furkankcodes"
   }
 }

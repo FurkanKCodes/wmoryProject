@@ -6,7 +6,19 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants'; // Constants eklendi
 import API_URL from '../config';
+
+// Bildirim ayarları
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -32,6 +44,76 @@ export default function LoginScreen() {
     };
     checkLogin();
   }, []);
+
+  // --- REGISTER FOR PUSH NOTIFICATIONS ---
+  const registerForPushNotificationsAsync = async () => {
+    let token;
+    
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') {
+        console.log('Bildirim izni verilmedi!');
+        return;
+      }
+
+      // --- DÜZELTME BURADA ---
+      try {
+          // Expo Project ID'nizi buraya yazmanız gerekebilir.
+          // Eğer app.json içinde "eas": {"projectId": "..."} tanımlıysa otomatik alır.
+          // Tanımlı değilse manuel yazmalısınız:
+          // const projectId = "SENIN-GERCEK-PROJECT-ID-BURAYA";
+          
+          // Şimdilik Constants'tan çekmeyi deniyoruz, yoksa hata vermemesi için catch'e düşecek.
+          const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+
+          token = (await Notifications.getExpoPushTokenAsync({
+            projectId: projectId // Eğer projectId null ise ve app.json'da yoksa yine hata verebilir, aşağıda yakalıyoruz.
+          })).data;
+          
+          console.log("Push Token Alındı:", token);
+      } catch (error) {
+          // Giriş işlemini engellememesi için hatayı sadece logluyoruz
+          console.log("Bildirim Token Hatası (Login Engellenmedi):", error.message);
+          // Kullanıcıya hissettirmeden null dönüyoruz
+          token = null; 
+      }
+      // -----------------------
+    } else {
+      console.log('Must use physical device for Push Notifications');
+    }
+
+    return token;
+  };
+
+  const updatePushToken = async (userId, token) => {
+      if (!token) return;
+      try {
+          await fetch(`${API_URL}/update-push-token`, {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  'ngrok-skip-browser-warning': 'true'
+              },
+              body: JSON.stringify({ user_id: userId, push_token: token })
+          });
+      } catch (e) {
+          console.error("Token update failed:", e);
+      }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -60,6 +142,16 @@ export default function LoginScreen() {
             profile_image: data.profile_image 
         };
         await AsyncStorage.setItem('user_session', JSON.stringify(userData));
+
+        // --- BİLDİRİM TOKEN AL VE KAYDET (HATA OLSA BİLE DEVAM ET) ---
+        try {
+            const token = await registerForPushNotificationsAsync();
+            if (token) {
+                await updatePushToken(data.user_id, token);
+            }
+        } catch (tokenErr) {
+            console.log("Token süreci hatası:", tokenErr);
+        }
 
         Alert.alert('Başarılı', 'Giriş yapıldı!');
         router.replace({ pathname: '/home', params: { userId: data.user_id } });

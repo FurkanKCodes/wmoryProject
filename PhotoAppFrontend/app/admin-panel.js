@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av'; // VIDEO IMPORT EKLENDI
+import { Video, ResizeMode } from 'expo-av'; 
 import API_URL from '../config';
 import adminPanelStyles from '../styles/adminPanelStyles';
 
@@ -14,6 +14,14 @@ export default function AdminPanel() {
   const params = useLocalSearchParams();
   const currentUserId = params.userId;
 
+  // --- 2FA STATES (YENİ) ---
+  const [isVerified, setIsVerified] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [initLoading, setInitLoading] = useState(true);
+
+  // --- EXISTING STATES ---
   const [activeTab, setActiveTab] = useState('reports');
   const [reports, setReports] = useState([]);
   const [bannedUsers, setBannedUsers] = useState([]);
@@ -30,12 +38,79 @@ export default function AdminPanel() {
   const [banModalVisible, setBanModalVisible] = useState(false);
   const [selectedBannedUser, setSelectedBannedUser] = useState(null);
 
+  // --- 2FA INITIATION (Sayfa Yüklenince) ---
   useEffect(() => {
-    if(currentUserId) {
+    if (currentUserId) {
+        initiate2FA();
+    }
+  }, [currentUserId]);
+
+  const initiate2FA = async () => {
+      setInitLoading(true);
+      try {
+          const response = await fetch(`${API_URL}/admin/initiate-2fa`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+              body: JSON.stringify({ admin_id: currentUserId })
+          });
+          const data = await response.json();
+          if (response.ok) {
+              // E-postayı maskeleyerek göster (örn: mus****@gmail.com)
+              setUserEmail(data.email); 
+          } else {
+              Alert.alert("Hata", data.error || "Kod gönderilemedi. Lütfen tekrar deneyin.", [
+                  { text: "Geri Dön", onPress: () => router.back() }
+              ]);
+          }
+      } catch (e) {
+          Alert.alert("Bağlantı Hatası", "Sunucuya erişilemedi.", [{ text: "Geri Dön", onPress: () => router.back() }]);
+      } finally {
+          setInitLoading(false);
+      }
+  };
+
+  const handleVerifyCode = async () => {
+      if (!verificationCode || verificationCode.length < 6) {
+          Alert.alert("Hata", "Lütfen 6 haneli kodu girin.");
+          return;
+      }
+      setVerifying(true);
+      try {
+          const response = await fetch(`${API_URL}/admin/verify-2fa`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+              body: JSON.stringify({ admin_id: currentUserId, code: verificationCode })
+          });
+          if (response.ok) {
+              setIsVerified(true); // GİRİŞ BAŞARILI
+              // Verileri çekmeye başla
+              if (activeTab === 'reports') fetchReports();
+              else if (activeTab === 'banned') fetchBannedUsers();
+          } else {
+              const data = await response.json();
+              Alert.alert("Hata", data.error || "Doğrulama başarısız.");
+          }
+      } catch (e) {
+          Alert.alert("Hata", "Sunucu hatası.");
+      } finally {
+          setVerifying(false);
+      }
+  };
+
+  const handleResendCode = () => {
+      setVerificationCode('');
+      initiate2FA();
+      Alert.alert("Bilgi", "Kod yeniden gönderiliyor...");
+  };
+
+  // --- EXISTING EFFECT FOR TABS ---
+  // Sadece isVerified True ise çalışır
+  useEffect(() => {
+    if(currentUserId && isVerified) {
         if (activeTab === 'reports') fetchReports();
         else if (activeTab === 'banned') fetchBannedUsers();
     }
-  }, [currentUserId, activeTab]);
+  }, [activeTab, isVerified]);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -59,7 +134,6 @@ export default function AdminPanel() {
 
   const handleResolveReport = async (action) => {
       if (!selectedReport) return;
-      
       if (action === 'ban_user') {
           Alert.alert("DİKKAT", "Kullanıcı tamamen silinecek ve numarası engellenecek. Emin misiniz?", [
               { text: "İptal", style: "cancel" },
@@ -81,7 +155,6 @@ export default function AdminPanel() {
                 action: action
             })
         });
-        
         if (res.ok) {
             setReportModalVisible(false);
             fetchReports();
@@ -103,7 +176,6 @@ export default function AdminPanel() {
                   banned_id: selectedBannedUser.id
               })
           });
-          
           if (res.ok) {
               setBanModalVisible(false);
               fetchBannedUsers();
@@ -117,7 +189,6 @@ export default function AdminPanel() {
           Alert.alert("Hata", "Lütfen ID veya Telefon numarası girin.");
           return;
       }
-
       setManualLoading(true);
       try {
           const res = await fetch(`${API_URL}/admin/manual-ban`, {
@@ -129,7 +200,6 @@ export default function AdminPanel() {
                   phone: manualBanPhone
               })
           });
-          
           const data = await res.json();
           if (res.ok) {
               Alert.alert("Başarılı", "Kullanıcı banlandı ve silindi.");
@@ -143,10 +213,7 @@ export default function AdminPanel() {
   };
 
   const renderReportItem = ({ item }) => (
-    <TouchableOpacity 
-        style={adminPanelStyles.row} 
-        onPress={() => { setSelectedReport(item); setReportModalVisible(true); }}
-    >
+    <TouchableOpacity style={adminPanelStyles.row} onPress={() => { setSelectedReport(item); setReportModalVisible(true); }}>
         <Ionicons name="alert-circle" size={24} color="#FF9500" style={{ marginRight: 10 }} />
         <View style={adminPanelStyles.rowInfo}>
             <Text style={adminPanelStyles.mainText} numberOfLines={1}>{item.reason}</Text>
@@ -158,10 +225,7 @@ export default function AdminPanel() {
   );
 
   const renderBannedUserItem = ({ item }) => (
-    <TouchableOpacity 
-        style={adminPanelStyles.row} 
-        onPress={() => { setSelectedBannedUser(item); setBanModalVisible(true); }}
-    >
+    <TouchableOpacity style={adminPanelStyles.row} onPress={() => { setSelectedBannedUser(item); setBanModalVisible(true); }}>
         <Ionicons name="ban" size={24} color="#FF3B30" style={{ marginRight: 10 }} />
         <View style={adminPanelStyles.rowInfo}>
             <Text style={adminPanelStyles.mainText}>{item.username || "Bilinmeyen Kullanıcı"}</Text>
@@ -171,6 +235,59 @@ export default function AdminPanel() {
     </TouchableOpacity>
   );
 
+  // --- 2FA INTERCEPTION SCREEN ---
+  // Eğer doğrulama yapılmadıysa (isVerified = false), bu ekranı göster
+  if (!isVerified) {
+      return (
+        <View style={adminPanelStyles.container}>
+            <StatusBar backgroundColor="#007AFF" barStyle="light-content" />
+            
+            {/* Simple Header */}
+            <View style={adminPanelStyles.headerContainer}>
+                <TouchableOpacity style={adminPanelStyles.backButton} onPress={() => router.back()}>
+                    <Ionicons name="chevron-back" size={32} color="#fff" />
+                </TouchableOpacity>
+                <Text style={adminPanelStyles.headerTitle}>Güvenlik Kontrolü</Text>
+                <View style={{width:40}} /> 
+            </View>
+
+            {initLoading ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color="#007AFF" />
+                    <Text style={{ marginTop: 20, color: '#666' }}>Kod oluşturuluyor...</Text>
+                </View>
+            ) : (
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={adminPanelStyles.authContainer}>
+                    <Ionicons name="shield-checkmark" size={80} color="#007AFF" style={{ marginBottom: 20 }} />
+                    <Text style={adminPanelStyles.authTitle}>Kimlik Doğrulama</Text>
+                    <Text style={adminPanelStyles.authDesc}>
+                        Lütfen {userEmail ? <Text style={{fontWeight:'bold'}}>{userEmail}</Text> : "mail"} adresinize gönderilen 6 haneli kodu giriniz.
+                    </Text>
+
+                    <TextInput 
+                        style={adminPanelStyles.authInput}
+                        placeholder="Kod (Örn: 123456)"
+                        keyboardType="numeric"
+                        maxLength={6}
+                        value={verificationCode}
+                        onChangeText={setVerificationCode}
+                        autoFocus
+                    />
+
+                    <TouchableOpacity style={adminPanelStyles.authButton} onPress={handleVerifyCode} disabled={verifying}>
+                        {verifying ? <ActivityIndicator color="#fff" /> : <Text style={adminPanelStyles.authButtonText}>Onayla</Text>}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={{ marginTop: 20 }} onPress={handleResendCode}>
+                        <Text style={{ color: '#007AFF', fontWeight: '600' }}>Kodu Yeniden Gönder</Text>
+                    </TouchableOpacity>
+                </KeyboardAvoidingView>
+            )}
+        </View>
+      );
+  }
+
+  // --- MAIN ADMIN PANEL CONTENT (SADECE DOĞRULANINCA GÖRÜNÜR) ---
   return (
     <View style={adminPanelStyles.container}>
       <StatusBar backgroundColor="#007AFF" barStyle="light-content" />
@@ -180,6 +297,7 @@ export default function AdminPanel() {
               <Ionicons name="chevron-back" size={32} color="#fff" />
           </TouchableOpacity>
           <Text style={adminPanelStyles.headerTitle}>Admin Sayfası</Text>
+          <View style={{width: 32}} />
       </View>
 
       <View style={adminPanelStyles.tabContainer}>
@@ -203,7 +321,6 @@ export default function AdminPanel() {
           </TouchableOpacity>
       </View>
 
-      {/* CONTENT AREA */}
       <View style={{ flex: 1 }}>
           {activeTab === 'manual_ban' ? (
               <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -213,26 +330,14 @@ export default function AdminPanel() {
                       
                       <View style={adminPanelStyles.inputGroup}>
                           <Text style={adminPanelStyles.label}>Kullanıcı ID:</Text>
-                          <TextInput 
-                              style={adminPanelStyles.input} 
-                              placeholder="Örn: 15" 
-                              value={manualBanId}
-                              onChangeText={setManualBanId}
-                              keyboardType="numeric"
-                          />
+                          <TextInput style={adminPanelStyles.input} placeholder="Örn: 15" value={manualBanId} onChangeText={setManualBanId} keyboardType="numeric" />
                       </View>
 
                       <View style={adminPanelStyles.separator}><Text style={{color:'#999'}}>VEYA</Text></View>
 
                       <View style={adminPanelStyles.inputGroup}>
                           <Text style={adminPanelStyles.label}>Telefon Numarası:</Text>
-                          <TextInput 
-                              style={adminPanelStyles.input} 
-                              placeholder="Örn: +905..." 
-                              value={manualBanPhone}
-                              onChangeText={setManualBanPhone}
-                              keyboardType="phone-pad"
-                          />
+                          <TextInput style={adminPanelStyles.input} placeholder="Örn: +905..." value={manualBanPhone} onChangeText={setManualBanPhone} keyboardType="phone-pad" />
                       </View>
 
                       <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnBan, { marginTop: 30 }]} onPress={handleManualBan}>
@@ -262,45 +367,20 @@ export default function AdminPanel() {
                         <>
                             <View style={adminPanelStyles.modalHeader}>
                                 <Text style={adminPanelStyles.modalTitle}>Rapor Detayı</Text>
-                                <TouchableOpacity onPress={() => setReportModalVisible(false)}>
-                                    <Ionicons name="close" size={24} color="#333" />
-                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setReportModalVisible(false)}><Ionicons name="close" size={24} color="#333" /></TouchableOpacity>
                             </View>
-
-                            {/* --- MEDIA DISPLAY LOGIC (VIDEO OR IMAGE) --- */}
                             {selectedReport.media_type === 'video' ? (
-                                <Video
-                                    source={{ uri: selectedReport.photo_url }}
-                                    style={adminPanelStyles.evidenceVideo}
-                                    useNativeControls
-                                    resizeMode={ResizeMode.CONTAIN}
-                                    isLooping
-                                />
+                                <Video source={{ uri: selectedReport.photo_url }} style={adminPanelStyles.evidenceVideo} useNativeControls resizeMode={ResizeMode.CONTAIN} isLooping />
                             ) : (
                                 <Image source={{ uri: selectedReport.photo_url }} style={adminPanelStyles.evidenceImage} resizeMode="contain" />
                             )}
-
-                            <View style={adminPanelStyles.detailRow}>
-                                <Text style={adminPanelStyles.label}>Sebep:</Text>
-                                <Text style={adminPanelStyles.value}>{selectedReport.reason}</Text>
-                            </View>
-                            <View style={adminPanelStyles.detailRow}>
-                                <Text style={adminPanelStyles.label}>Şüpheli:</Text>
-                                <Text style={[adminPanelStyles.value, {color:'red'}]}>{selectedReport.uploader_username}</Text>
-                            </View>
-
+                            <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Sebep:</Text><Text style={adminPanelStyles.value}>{selectedReport.reason}</Text></View>
+                            <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Şüpheli:</Text><Text style={[adminPanelStyles.value, {color:'red'}]}>{selectedReport.uploader_username}</Text></View>
                             <View style={adminPanelStyles.actionButtons}>
-                                <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnDismiss]} onPress={() => handleResolveReport('dismiss')}>
-                                    <Text style={adminPanelStyles.btnTextDark}>Yoksay</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnDelete]} onPress={() => handleResolveReport('delete_content')}>
-                                    <Text style={adminPanelStyles.btnText}>İçeriği Sil</Text>
-                                </TouchableOpacity>
+                                <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnDismiss]} onPress={() => handleResolveReport('dismiss')}><Text style={adminPanelStyles.btnTextDark}>Yoksay</Text></TouchableOpacity>
+                                <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnDelete]} onPress={() => handleResolveReport('delete_content')}><Text style={adminPanelStyles.btnText}>İçeriği Sil</Text></TouchableOpacity>
                             </View>
-                            
-                            <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnBan]} onPress={() => handleResolveReport('ban_user')}>
-                                <Text style={adminPanelStyles.btnText}>KULLANICIYI BANLA VE SİL</Text>
-                            </TouchableOpacity>
+                            <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnBan]} onPress={() => handleResolveReport('ban_user')}><Text style={adminPanelStyles.btnText}>KULLANICIYI BANLA VE SİL</Text></TouchableOpacity>
                         </>
                     )}
                 </ScrollView>
@@ -317,31 +397,11 @@ export default function AdminPanel() {
                         <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
                             {selectedBannedUser && (
                                 <>
-                                    <View style={adminPanelStyles.modalHeader}>
-                                        <Text style={adminPanelStyles.modalTitle}>Ban Detayı</Text>
-                                        <TouchableOpacity onPress={() => setBanModalVisible(false)}>
-                                            <Ionicons name="close" size={24} color="#333" />
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    <View style={adminPanelStyles.detailRow}>
-                                        <Text style={adminPanelStyles.label}>Kullanıcı Adı:</Text>
-                                        <Text style={adminPanelStyles.value}>{selectedBannedUser.username || "-"}</Text>
-                                    </View>
-                                    
-                                    <View style={adminPanelStyles.detailRow}>
-                                        <Text style={adminPanelStyles.label}>Telefon:</Text>
-                                        <Text style={adminPanelStyles.value}>{selectedBannedUser.phone_number}</Text>
-                                    </View>
-
-                                    <View style={adminPanelStyles.detailRow}>
-                                        <Text style={adminPanelStyles.label}>Ban Sebebi:</Text>
-                                        <Text style={adminPanelStyles.value}>{selectedBannedUser.reason}</Text>
-                                    </View>
-
-                                    <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnUnban]} onPress={handleUnbanUser}>
-                                        <Text style={adminPanelStyles.btnText}>Banı Kaldır</Text>
-                                    </TouchableOpacity>
+                                    <View style={adminPanelStyles.modalHeader}><Text style={adminPanelStyles.modalTitle}>Ban Detayı</Text><TouchableOpacity onPress={() => setBanModalVisible(false)}><Ionicons name="close" size={24} color="#333" /></TouchableOpacity></View>
+                                    <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Kullanıcı Adı:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.username || "-"}</Text></View>
+                                    <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Telefon:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.phone_number}</Text></View>
+                                    <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Ban Sebebi:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.reason}</Text></View>
+                                    <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnUnban]} onPress={handleUnbanUser}><Text style={adminPanelStyles.btnText}>Banı Kaldır</Text></TouchableOpacity>
                                 </>
                             )}
                         </ScrollView>
@@ -350,7 +410,6 @@ export default function AdminPanel() {
             </View>
         </TouchableWithoutFeedback>
       </Modal>
-
     </View>
   );
 }

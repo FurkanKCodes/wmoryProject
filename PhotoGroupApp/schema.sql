@@ -25,7 +25,8 @@ CREATE TABLE users(
     profile_image VARCHAR(255) DEFAULT NULL,
     phone_number VARCHAR(15) UNIQUE NOT NULL,
     is_super_admin TINYINT(1) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    push_token VARCHAR(255) DEFAULT NULL;
 );
 
 CREATE TABLE groups_members(
@@ -97,4 +98,13 @@ CREATE TABLE blocked_users (
     UNIQUE KEY unique_block (blocker_id, blocked_id),
     FOREIGN KEY (blocker_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE verification_codes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    code VARCHAR(6) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

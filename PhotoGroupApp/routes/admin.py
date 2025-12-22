@@ -1,8 +1,129 @@
 import os
+import random
+import datetime
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import Blueprint, request, jsonify, current_app, url_for
 from db import get_db_connection
 
 admin_bp = Blueprint('admin', __name__)
+
+# --- EMAIL CONFIGURATION (GMAIL SMTP) ---
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+SENDER_EMAIL = "furkankozen22@gmail.com"  
+SENDER_PASSWORD = "xjgwmfxgqblniasv" 
+
+def send_verification_email(to_email, code):
+    try:
+        subject = "Admin Paneli Giriş Kodu"
+        body = f"Merhaba Yönetici,\n\nAdmin paneline giriş için doğrulama kodunuz: {code}\n\nBu kod 3 dakika süreyle geçerlidir."
+
+        msg = MIMEMultipart()
+        msg['From'] = SENDER_EMAIL
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        text = msg.as_string()
+        server.sendmail(SENDER_EMAIL, to_email, text)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Email sending error: {e}")
+        return False
+
+# ==========================================
+# INITIATE 2FA (Insert into verification_codes)
+# ==========================================
+@admin_bp.route('/admin/initiate-2fa', methods=['POST'])
+def initiate_2fa():
+    admin_id = request.json.get('admin_id')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # 1. Check Admin & Get Email
+        cursor.execute("SELECT email, is_super_admin FROM users WHERE id = %s", (admin_id,))
+        user = cursor.fetchone()
+
+        if not user or user['is_super_admin'] != 1:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Yetkisiz erişim."}), 403
+        
+        if not user['email']:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Kullanıcının kayıtlı e-posta adresi yok."}), 400
+
+        # 2. Generate 6-digit Code
+        code = str(random.randint(100000, 999999))
+        now = datetime.datetime.now()
+        expires_at = now + datetime.timedelta(minutes=3) # Valid for 3 mins
+
+        # 3. Clean old codes for this user & Insert New Code
+        cursor.execute("DELETE FROM verification_codes WHERE user_id = %s", (admin_id,))
+        
+        sql_insert = "INSERT INTO verification_codes (user_id, code, created_at, expires_at) VALUES (%s, %s, %s, %s)"
+        cursor.execute(sql_insert, (admin_id, code, now, expires_at))
+        
+        conn.commit()
+        cursor.close(); conn.close()
+
+        # 4. Send Email
+        email_sent = send_verification_email(user['email'], code)
+        
+        if email_sent:
+            masked_email = user['email'][0:3] + "****" + user['email'].split('@')[1]
+            return jsonify({"message": "Code sent", "email": masked_email}), 200
+        else:
+            # Mail atılamasa bile test için konsola basıyoruz
+            print(f"DEBUG CODE (Mail Failed): {code}")
+            return jsonify({"error": "Kod oluşturuldu ancak e-posta gönderilemedi."}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# VERIFY 2FA CODE (Check verification_codes table)
+# ==========================================
+@admin_bp.route('/admin/verify-2fa', methods=['POST'])
+def verify_2fa():
+    data = request.json
+    admin_id = data.get('admin_id')
+    code = data.get('code')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Fetch code from verification_codes table
+        sql = "SELECT * FROM verification_codes WHERE user_id = %s AND code = %s"
+        cursor.execute(sql, (admin_id, code))
+        record = cursor.fetchone()
+
+        if not record:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Hatalı kod."}), 400
+
+        # Check Expiry
+        if record['expires_at'] < datetime.datetime.now():
+            cursor.close(); conn.close()
+            return jsonify({"error": "Kodun süresi dolmuş."}), 400
+
+        # Success - Delete used code
+        cursor.execute("DELETE FROM verification_codes WHERE id = %s", (record['id'],))
+        conn.commit()
+        cursor.close(); conn.close()
+
+        return jsonify({"message": "Verified"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ==========================================
 # REPORT CONTENT (User action)
@@ -46,7 +167,7 @@ def report_content():
         return jsonify({"error": str(e)}), 500
 
 # ==========================================
-# GET REPORTS (UPDATED: Detects Video vs Image)
+# GET REPORTS
 # ==========================================
 @admin_bp.route('/admin/get-reports', methods=['GET'])
 def get_reports():

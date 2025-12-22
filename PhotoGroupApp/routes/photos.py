@@ -1,10 +1,9 @@
 import os
+import requests # IMPORT REQUESTS FOR PUSH
 from flask import Blueprint, request, jsonify, send_from_directory, current_app, url_for
 from werkzeug.utils import secure_filename
 from db import get_db_connection
-# IMPORT PILLOW & IMAGEOPS
 from PIL import Image, ImageOps
-# IMPORT OPENCV FOR VIDEO THUMBNAILS
 import cv2 
 
 photos_bp = Blueprint('photos', __name__)
@@ -15,8 +14,27 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# --- HELPER: PUSH NOTIFICATION (Repeated to keep file standalone) ---
+def send_expo_push_notification(tokens, title, body, data=None):
+    if not tokens: return
+    try:
+        message = {
+            "to": tokens,
+            "sound": "default",
+            "title": title,
+            "body": body,
+            "data": data or {}
+        }
+        requests.post(
+            "https://exp.host/--/api/v2/push/send",
+            json=message,
+            headers={"Accept": "application/json", "Accept-Encoding": "gzip, deflate"}
+        )
+    except Exception as e:
+        print(f"Push notification error: {e}")
+
 # ==========================================
-# HELPER: CREATE THUMBNAIL (IMAGE & VIDEO)
+# HELPER: CREATE THUMBNAIL 
 # ==========================================
 def create_thumbnail(file_path, filename):
     try:
@@ -27,24 +45,20 @@ def create_thumbnail(file_path, filename):
         img = None
 
         if is_video:
-            # Extract first frame from video using OpenCV
             cam = cv2.VideoCapture(file_path)
             ret, frame = cam.read()
             if ret:
-                # Convert color from BGR (OpenCV) to RGB (Pillow)
                 img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             cam.release()
         else:
-            # Process Image
             img = Image.open(file_path)
-            img = ImageOps.exif_transpose(img) # Fix rotation
+            img = ImageOps.exif_transpose(img) 
             if img.mode in ('RGBA', 'P'):
                 img = img.convert('RGB')
 
         if img:
             img.thumbnail(size)
             thumb_filename = f"thumb_{filename}"
-            # Thumbnails are always saved as JPEG images, even for videos
             thumb_path = os.path.join(os.path.dirname(file_path), thumb_filename)
             img.save(thumb_path, "JPEG", quality=85)
             print(f"Thumbnail created: {thumb_filename}")
@@ -58,7 +72,7 @@ def create_thumbnail(file_path, filename):
         return None
 
 # ==========================================
-# UPLOAD PHOTO
+# UPLOAD PHOTO (UPDATED WITH PUSH NOTIFICATION)
 # ==========================================
 @photos_bp.route('/upload-photo', methods=['POST'])
 def upload_photo():
@@ -75,8 +89,9 @@ def upload_photo():
     if allowed_file(file.filename):
         try:
             conn = get_db_connection()
-            cursor = conn.cursor()
+            cursor = conn.cursor(dictionary=True) # Use dictionary cursor for easy access
 
+            # Check membership
             cursor.execute("SELECT id FROM groups_members WHERE user_id = %s AND group_id = %s", (user_id, group_id))
             if not cursor.fetchone():
                 cursor.close(); conn.close()
@@ -87,17 +102,51 @@ def upload_photo():
             save_path = os.path.join(upload_folder, filename)
             file.save(save_path)
 
-            # Generate Thumbnail (For both Images and Videos)
             create_thumbnail(save_path, filename)
 
             sql = "INSERT INTO photos (file_name, user_id, group_id) VALUES (%s, %s, %s)"
             cursor.execute(sql, (filename, user_id, group_id))
             conn.commit()
+
+            # --- NOTIFICATION LOGIC ---
+            # Get Group Info & Uploader Info
+            cursor.execute("SELECT group_name FROM groups_table WHERE id = %s", (group_id,))
+            group_row = cursor.fetchone()
+            
+            cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+            user_row = cursor.fetchone()
+
+            if group_row and user_row:
+                group_name = group_row['group_name']
+                uploader_name = user_row['username']
+
+                # Get all OTHER group members with push tokens
+                sql_members = """
+                    SELECT u.push_token 
+                    FROM users u
+                    JOIN groups_members gm ON u.id = gm.user_id
+                    WHERE gm.group_id = %s 
+                    AND u.id != %s 
+                    AND u.push_token IS NOT NULL
+                """
+                cursor.execute(sql_members, (group_id, user_id))
+                members = cursor.fetchall()
+                
+                tokens = [m['push_token'] for m in members]
+
+                if tokens:
+                    title = group_name
+                    body = f"{uploader_name}, {group_name} grubuna medya yükledi"
+                    data_payload = {"screen": "MediaGallery", "groupId": group_id}
+                    
+                    send_expo_push_notification(tokens, title, body, data_payload)
+            # --------------------------
+
             cursor.close(); conn.close()
 
             return jsonify({"message": "File uploaded successfully", "filename": filename}), 201
         except Exception as e:
-            return jsonify({"error": "Internal Server Error"}), 500
+            return jsonify({"error": str(e)}), 500
     else:
         return jsonify({"error": "File type not allowed"}), 400
 

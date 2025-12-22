@@ -16,7 +16,8 @@ export default function CameraScreen() {
   const cameraRef = useRef(null);
 
   // --- STATE ---
-  const [mode, setMode] = useState('photo'); // 'photo' | 'video'
+  // DÜZELTME 1: Başlangıç değeri 'photo' yerine 'picture' yapıldı
+  const [mode, setMode] = useState('picture'); // 'picture' | 'video'
   const [facing, setFacing] = useState('back');
   
   // Flash States: 'off', 'on', 'auto'
@@ -78,7 +79,8 @@ export default function CameraScreen() {
   const handleCapture = async () => {
     if (!cameraRef.current) return;
 
-    if (mode === 'photo') {
+    // DÜZELTME 2: Kontrol 'picture' olarak değiştirildi
+    if (mode === 'picture') {
       try {
         // Capture photo with highest quality
         const photo = await cameraRef.current.takePictureAsync({
@@ -145,7 +147,7 @@ export default function CameraScreen() {
         style={cameraStyles.camera}
         facing={facing}
         flash={flash === 'on' ? 'on' : flash === 'off' ? 'off' : 'auto'}
-        mode={mode}
+        mode={mode} // Artık buraya 'picture' veya 'video' gidiyor
         zoom={0} // Zoom disabled (0 = 1x)
       >
         {/* --- TOP CONTROLS --- */}
@@ -224,9 +226,10 @@ export default function CameraScreen() {
             if (isRecording) {
                 stopVideo();
             }
-            setMode('photo');
+            // DÜZELTME 3: 'photo' yerine 'picture'
+            setMode('picture');
           }}>
-            <Text style={[cameraStyles.modeText, mode === 'photo' && cameraStyles.activeMode]}>FOTOĞRAF</Text>
+            <Text style={[cameraStyles.modeText, mode === 'picture' && cameraStyles.activeMode]}>FOTOĞRAF</Text>
           </TouchableOpacity>
           
           <TouchableOpacity onPress={() => {
