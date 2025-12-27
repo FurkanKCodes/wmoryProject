@@ -1,6 +1,7 @@
 import os
 import string
 import random
+import datetime
 from flask import Blueprint, request, jsonify, current_app, url_for
 from db import get_db_connection
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -89,23 +90,23 @@ def login():
         return jsonify({"error": "Content-Type must be application/json"}), 415
 
     data = request.json
-    email = data.get('email')
+    phone_number = data.get('phone_number')
     password = data.get('password')
 
-    if not email or not password:
-        return jsonify({"error": "Email and password are required"}), 400
+    if not phone_number or not password:
+        return jsonify({"error": "Phone number and password are required"}), 400
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
-        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        cursor.execute("SELECT * FROM users WHERE phone_number = %s", (phone_number,))
         user = cursor.fetchone()
         cursor.close()
         conn.close()
 
         if user and check_password_hash(user['password_hash'], password):
-            # Generate URLs
+            
             profile_url = None
             thumb_url = None
             if user['profile_image']:
@@ -116,13 +117,13 @@ def login():
                 "message": "Login successful",
                 "user_id": user['id'],
                 "username": user['username'],
-                "is_super_admin": user['is_super_admin'], # <--- ADDED
+                "is_super_admin": user['is_super_admin'],
                 "profile_image": user['profile_image'],
                 "profile_url": profile_url,
                 "thumbnail_url": thumb_url
             }), 200
         else:
-            return jsonify({"error": "Invalid email or password"}), 401
+            return jsonify({"error": "Hatalı telefon numarası veya şifre"}), 401 # 
 
     except Exception as e:
         print(f"Error during login: {e}")
@@ -296,4 +297,45 @@ def update_push_token():
         return jsonify({"message": "Token updated"}), 200
     except Exception as e:
         print(f"Token update error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@auth_bp.route('/reset-password-via-phone', methods=['POST'])
+def reset_password_via_phone():
+    if not request.is_json:
+        return jsonify({"error": "JSON formatı gerekli"}), 415
+
+    data = request.json
+    phone_number = data.get('phone_number')
+    new_password = data.get('new_password')
+
+    if not phone_number or not new_password:
+        return jsonify({"error": "Telefon numarası ve yeni şifre gerekli"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # 1. Kullanıcı var mı kontrol et
+        cursor.execute("SELECT id FROM users WHERE phone_number = %s", (phone_number,))
+        user = cursor.fetchone()
+
+        if not user:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "Bu numarayla kayıtlı kullanıcı bulunamadı"}), 404
+
+        # 2. Yeni şifreyi hashle ve güncelle
+        new_hashed_password = generate_password_hash(new_password)
+        
+        # Cursor'ı yeniden oluştur (Dict olmayan cursor gerekebilir veya aynı cursor ile devam)
+        cursor.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_hashed_password, user['id']))
+        conn.commit()
+        
+        cursor.close()
+        conn.close()
+
+        return jsonify({"message": "Şifreniz başarıyla sıfırlandı."}), 200
+
+    except Exception as e:
+        print(f"Password reset error: {e}")
         return jsonify({"error": str(e)}), 500
