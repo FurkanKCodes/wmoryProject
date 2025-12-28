@@ -3,7 +3,8 @@ import { StyleSheet, Platform, StatusBar } from 'react-native';
 const homeStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    // Item 1: Dark gray background (gradient requires logic change, dark gray applied)
+    backgroundColor: '#333333', 
   },
   // Header Styles (Updated)
   headerContainer: {
@@ -11,7 +12,8 @@ const homeStyles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 65 : StatusBar.currentHeight + 25,
     paddingBottom: 15, 
     paddingHorizontal: 20,
-    backgroundColor: '#007AFF', 
+    // Item 2: Darkest gray tone (background bottom color)
+    backgroundColor: '#1a1a1a', 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -23,22 +25,25 @@ const homeStyles = StyleSheet.create({
     zIndex: 1, 
   },
   profileImage: {
-    width: 38, 
-    height: 38,
+    width: 48, 
+    height: 48,
     borderRadius: 19, 
     borderWidth: 2,
-    borderColor: '#fff',
+    // Item 3: Black border
+    borderColor: '#ffffff',
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 18, 
+    // Item 4: White text and font size 27
+    color: '#ffffff',
+    fontSize: 27, 
     fontWeight: 'bold',
   },
   addButton: {
-    width: 38, 
-    height: 38,
+    width: 48, 
+    height: 48,
     borderRadius: 19,
-    backgroundColor: '#fff',
+    // Item 5: Black background
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -53,7 +58,8 @@ const homeStyles = StyleSheet.create({
   groupCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    // Item 6: Slightly lighter gray than header
+    backgroundColor: '#2C2C2C',
     padding: 15,
     borderRadius: 12,
     marginBottom: 12,
@@ -76,6 +82,9 @@ const homeStyles = StyleSheet.create({
     height: 50,
     borderRadius: 12,
     marginRight: 15,
+    // Item 7: Black border
+    borderWidth: 2,
+    borderColor: '#ffffff',
     backgroundColor: '#ddd',
   },
   groupInfo: {
@@ -83,9 +92,10 @@ const homeStyles = StyleSheet.create({
     justifyContent: 'center', 
   },
   groupName: {
-    fontSize: 16,
+    // Item 8: White text and font size 22
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#ffffff',
   },
   // Empty State Styles
   emptyContainer: {
@@ -96,12 +106,12 @@ const homeStyles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#555',
+    color: '#ffffff',
     marginTop: 20,
   },
   emptySubText: {
     fontSize: 14,
-    color: '#999',
+    color: '#ffffff',
     textAlign: 'center',
     marginTop: 10,
     paddingHorizontal: 40,
@@ -143,7 +153,7 @@ const homeStyles = StyleSheet.create({
     alignItems: 'center',
   },
   activeTab: {
-    backgroundColor: '#f5f5f5', // Seçili sekme için hafif gri
+    backgroundColor: '#f5f5f5', 
     borderBottomWidth: 3,
     borderBottomColor: '#007AFF',
   },

@@ -12,12 +12,12 @@ const mediaStyles = StyleSheet.create({
     width: '100%',
     paddingTop: Platform.OS === 'ios' ? 65 : StatusBar.currentHeight + 25,
     paddingBottom: 15,
-    paddingHorizontal: 15,
+    paddingHorizontal: 20,
     backgroundColor: '#007AFF', 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    zIndex: 10,
+    zIndex: 1,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -30,7 +30,7 @@ const mediaStyles = StyleSheet.create({
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 23,
     fontWeight: 'bold',
   },
   addButton: {

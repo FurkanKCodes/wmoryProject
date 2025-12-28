@@ -32,11 +32,11 @@ const profileStyles = StyleSheet.create({
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 23,
     fontWeight: 'bold',
     textAlign: 'center',
     flex: 1, 
-    marginRight: 40, // Balance the back button spacing
+    marginRight: 0, // Balance the back button spacing
   },
 
   // --- PROFILE INFO SECTION ---

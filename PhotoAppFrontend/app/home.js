@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import NetInfo from '@react-native-community/netinfo';
 import API_URL from '../config'; 
 import homeStyles from '../styles/homeStyles'; 
+import { LinearGradient } from 'expo-linear-gradient';
 
 const defaultProfileImage = require('../assets/no-pic.jpg');
 const { width } = Dimensions.get('window');
@@ -278,11 +279,11 @@ export default function HomeScreen() {
         />
       </TouchableOpacity>
       
-      <Text style={homeStyles.headerTitle}>Moments</Text>
+      <Text style={homeStyles.headerTitle}>OuRola</Text>
       
       {/* Add Button */}
       <TouchableOpacity style={homeStyles.addButton} onPress={() => setModalVisible(true)}>
-        <Ionicons name="add" size={24} color="#007AFF" />
+        <Ionicons name="add" size={30} color="#ffffff" />
       </TouchableOpacity>
     </View>
   );
@@ -319,7 +320,7 @@ export default function HomeScreen() {
 
         {/* Right: Camera Icon */}
         <TouchableOpacity style={{ padding: 5 }} onPress={() => handleCameraAction(item.id)}>
-            <Ionicons name="camera-outline" size={24} color="#666" />
+            <Ionicons name="camera-outline" size={30} color="#ffffff" />
         </TouchableOpacity>
       </View>
     );
@@ -330,8 +331,12 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={homeStyles.container}>
-      <StatusBar backgroundColor="#007AFF" barStyle="light-content" />
+    <LinearGradient 
+      colors={['#4e4e4e', '#1a1a1a']} 
+      style={homeStyles.container}
+    >
+      {/* StatusBar rengini de temaya uydurmak istersen değiştirebilirsin */}
+      <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
       <CustomHeader />
 
       {/* --- CREATE/JOIN MODAL (With Keyboard Avoidance) --- */}
@@ -471,6 +476,6 @@ export default function HomeScreen() {
           />
         )}
       </View>
-    </View>
+    </LinearGradient>
   );
 }

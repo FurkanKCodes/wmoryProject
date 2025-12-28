@@ -9,7 +9,8 @@ import { StyleSheet, StatusBar, Platform, Dimensions } from 'react-native';
     },
     // --- HEADER ---
     headerContainer: {
-      paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
+      width: '%100',
+      paddingTop: Platform.OS === 'ios' ? 65 : StatusBar.currentHeight + 25,
       paddingBottom: 15,
       paddingHorizontal: 20,
       backgroundColor: '#007AFF',
@@ -22,7 +23,7 @@ import { StyleSheet, StatusBar, Platform, Dimensions } from 'react-native';
     },
     headerTitle: {
       color: '#fff',
-      fontSize: 18,
+      fontSize: 23,
       fontWeight: 'bold',
       flex: 1,
       textAlign: 'center',
