@@ -18,6 +18,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import API_URL from '../config';
 import mediaStyles from '../styles/mediaStyles';
 import NetInfo from '@react-native-community/netinfo';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 const defaultUserImage = require('../assets/no-pic.jpg'); 
@@ -55,6 +56,7 @@ export default function MediaGalleryScreen() {
   // SELECTION MODE STATE
   const [isSelectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [showBulkOptions, setShowBulkOptions] = useState(false);
 
   // Current Media Index
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -418,17 +420,8 @@ export default function MediaGalleryScreen() {
   };
 
   const handleBulkActionPress = () => {
-      if (selectedIds.length === 0) return;
-
-      Alert.alert(
-          "Seçilenleri Yönet",
-          "Ne yapmak istersiniz?",
-          [
-              { text: "İptal", style: "cancel" },
-              { text: "Kaydet", onPress: handleBulkSave }, // Kaydet artık gerçek fonksiyonu çağırıyor
-              { text: "Kaldır", style: 'destructive', onPress: handleBulkRemoveConfirmation }
-          ]
-      );
+    if (selectedIds.length === 0) return;
+    setShowBulkOptions(!showBulkOptions);
   };
 
   // --- YENİ EKLENEN: TOPLU KAYDETME ---
@@ -697,7 +690,7 @@ export default function MediaGalleryScreen() {
                                 <Ionicons 
                                     name={isSelected ? "checkbox" : "square-outline"} 
                                     size={24} 
-                                    color={isSelected ? "#007AFF" : "#fff"} 
+                                    color={isSelected ? "#FFF" : "#fff"} 
                                 />
                             </View>
                         )}
@@ -753,21 +746,68 @@ export default function MediaGalleryScreen() {
   return (
     // Gesture Handler Root is required for gestures to work
     <GestureHandlerRootView style={{ flex: 1 }}>
-        <View style={mediaStyles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#007AFF" />
+        <LinearGradient 
+            colors={['#4e4e4e', '#1a1a1a']} 
+            style={mediaStyles.container}
+        >
+        {/* StatusBar rengini de temaya uydurmak istersen değiştirebilirsin */}
+        <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
         
         {/* HEADER */}
         <View style={mediaStyles.headerContainer}>
             {isSelectionMode ? (
-                <>
-                    <TouchableOpacity onPress={toggleSelectionMode}>
-                        <Text style={{color:'#fff', fontSize:16, fontWeight:'600'}}>İptal</Text>
-                    </TouchableOpacity>
-                    <Text style={mediaStyles.headerTitle}>{selectedIds.length} Seçildi</Text>
+            <>
+                <TouchableOpacity onPress={toggleSelectionMode}>
+                    <Text style={{color:'#fff', fontSize:16, fontWeight:'600'}}>İptal</Text>
+                </TouchableOpacity>
+                
+                <Text style={mediaStyles.headerTitle}>{selectedIds.length} Seçildi</Text>
+                
+                <View style={{ zIndex: 200 }}> 
+                    {/* 3 Dot Button */}
                     <TouchableOpacity onPress={handleBulkActionPress}>
                         <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
                     </TouchableOpacity>
-                </>
+
+                    {/* NEW: Custom Bulk Options Menu */}
+                    {showBulkOptions && (
+                        <>
+                            {/* Transparent Overlay to close menu when clicking outside */}
+                            <TouchableWithoutFeedback onPress={() => setShowBulkOptions(false)}>
+                                <View style={{ 
+                                    position: 'absolute', 
+                                    top: -50, right: -20, // Adjust to cover full screen from this relative point
+                                    width: width, height: height, 
+                                    backgroundColor: 'transparent', 
+                                    zIndex: 199 
+                                }} />
+                            </TouchableWithoutFeedback>
+
+                            {/* The Menu Box (Matched with Dark Theme) */}
+                            <View style={[mediaStyles.optionsMenu, { top: 35, right: 0, zIndex: 200 }]}>
+                                
+                                {/* Option 1: Save */}
+                                <TouchableOpacity 
+                                    style={mediaStyles.optionItem} 
+                                    onPress={() => { setShowBulkOptions(false); handleBulkSave(); }}
+                                >
+                                    <Text style={mediaStyles.optionText}>Kaydet</Text>
+                                </TouchableOpacity>
+                                
+                                {/* Option 2: Remove (Red) */}
+                                <TouchableOpacity 
+                                    style={[mediaStyles.optionItem, { borderBottomWidth: 0 }]} 
+                                    onPress={() => { setShowBulkOptions(false); handleBulkRemoveConfirmation(); }}
+                                >
+                                    <Text style={mediaStyles.optionText}>
+                                        Kaldır
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    )}
+                </View>
+            </>
             ) : (
                 <>
                     <TouchableOpacity style={mediaStyles.backButton} onPress={() => router.back()}>
@@ -794,7 +834,7 @@ export default function MediaGalleryScreen() {
         {/* TIMELINE LIST (SectionList with Pinch Gesture) */}
         <View style={{ flex: 1 }}> 
             {loading ? (
-                <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
+                <ActivityIndicator size="large" color="#FFF" style={{ marginTop: 50 }} />
             ) : (
                 <GestureDetector gesture={pinchGesture}>
                     <SectionList
@@ -851,14 +891,14 @@ export default function MediaGalleryScreen() {
                         <TouchableOpacity style={mediaStyles.filterRow} onPress={() => toggleMemberFilter('all')}>
                             <View style={{flexDirection:'row', alignItems:'center'}}>
                                 <View style={mediaStyles.filterAvatarPlaceholder}>
-                                    <Ionicons name="people" size={20} color="#fff" />
+                                    <Ionicons name="people" size={20} color="#000" />
                                 </View>
                                 <Text style={mediaStyles.filterName}>Herkes</Text>
                             </View>
                             <Ionicons 
                                 name={isAllSelected ? "checkbox" : "square-outline"} 
                                 size={24} 
-                                color={isAllSelected ? "#007AFF" : "#ccc"} 
+                                color={isAllSelected ? "#FFF" : "#ccc"} 
                             />
                         </TouchableOpacity>
 
@@ -877,7 +917,7 @@ export default function MediaGalleryScreen() {
                                     <Ionicons 
                                         name={isSelected ? "checkbox" : "square-outline"} 
                                         size={24} 
-                                        color={isSelected ? "#007AFF" : "#ccc"} 
+                                        color={isSelected ? "#FFF" : "#ccc"} 
                                     />
                                 </TouchableOpacity>
                             );
@@ -954,7 +994,7 @@ export default function MediaGalleryScreen() {
                 )}
             </View>
         </Modal>
-        </View>
+        </LinearGradient>
     </GestureHandlerRootView>
   );
 }

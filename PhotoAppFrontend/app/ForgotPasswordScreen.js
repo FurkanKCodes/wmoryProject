@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import auth from '@react-native-firebase/auth'; 
 import API_URL from '../config'; 
 import authStyles from '../styles/authStyles'; 
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -105,93 +106,102 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={authStyles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    // CHANGE: Added LinearGradient wrapper for dark theme consistency
+    <LinearGradient 
+      colors={['#4e4e4e', '#1a1a1a']} 
+      style={authStyles.container}
     >
-      <ScrollView contentContainerStyle={authStyles.scrollContainer} keyboardShouldPersistTaps="handled">
-        
-        <Text style={authStyles.title}>Şifremi Unuttum</Text>
-        <Text style={{textAlign:'center', marginBottom:20, color:'#666'}}>
-          Hesabınıza kayıtlı telefon numarasını girin. Size bir doğrulama kodu göndereceğiz.
-        </Text>
 
-        <View style={authStyles.inputContainer}>
-          <View style={authStyles.phoneContainer}>
-             <Text style={authStyles.phonePrefix}>+90</Text>
-             <TextInput
-                style={authStyles.phoneInput}
-                placeholder="555 XXX XX XX"
-                placeholderTextColor="#aaa"
-                value={phoneNumber}
-                onChangeText={handlePhoneChange}
-                keyboardType="number-pad"
-                maxLength={10} 
-             />
-          </View>
-        </View>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} // Ensure background is transparent to show gradient
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView contentContainerStyle={authStyles.scrollContainer} keyboardShouldPersistTaps="handled">
+          
+          <Text style={authStyles.title}>Şifremi Unuttum</Text>
+          
+          {/* CHANGE: Updated text color from #666 to #cccccc for better visibility on dark bg */}
+          <Text style={{textAlign:'center', marginBottom:20, color:'#cccccc'}}>
+            Hesabınıza kayıtlı telefon numarasını girin. Size bir doğrulama kodu göndereceğiz.
+          </Text>
 
-        <TouchableOpacity 
-            style={authStyles.button} 
-            onPress={handleSendSMS} 
-            disabled={loading}
-        >
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={authStyles.buttonText}>Kod Gönder</Text>}
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => router.back()} style={authStyles.linkContainer}>
-          <Text style={authStyles.linkText}>Giriş Ekranına Dön</Text>
-        </TouchableOpacity>
-
-        {/* --- MODAL (KOD + YENİ ŞİFRE) --- */}
-        <Modal
-          animationType="fade"
-          transparent={true}
-          visible={modalVisible}
-          onRequestClose={() => setModalVisible(false)}
-        >
-          <View style={authStyles.modalOverlay}>
-            <View style={authStyles.modalContainer}>
-              <Text style={authStyles.modalTitle}>Şifre Yenileme</Text>
-              
-              <TextInput
-                style={authStyles.modalInput}
-                placeholder="Kod (123456)"
-                placeholderTextColor="#ccc"
-                value={verificationCode}
-                onChangeText={setVerificationCode}
-                keyboardType="number-pad"
-                maxLength={6}
-              />
-
-              <TextInput
-                style={[authStyles.input, {width:'100%', marginBottom:20}]} 
-                placeholder="Yeni Şifre"
-                placeholderTextColor="#aaa"
-                value={newPassword}
-                onChangeText={setNewPassword}
-                secureTextEntry
-              />
-
-              <TouchableOpacity 
-                style={authStyles.modalButton} 
-                onPress={handleVerifyAndReset}
-                disabled={loading}
-              >
-                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={authStyles.buttonText}>Şifreyi Değiştir</Text>}
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={authStyles.modalCancelButton} 
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={authStyles.modalCancelText}>Vazgeç</Text>
-              </TouchableOpacity>
+          <View style={authStyles.inputContainer}>
+            <View style={authStyles.phoneContainer}>
+               <Text style={authStyles.phonePrefix}>+90</Text>
+               <TextInput
+                  style={authStyles.phoneInput}
+                  placeholder="555 XXX XX XX"
+                  placeholderTextColor="#666" // Darker placeholder
+                  value={phoneNumber}
+                  onChangeText={handlePhoneChange}
+                  keyboardType="number-pad"
+                  maxLength={10} 
+               />
             </View>
           </View>
-        </Modal>
 
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <TouchableOpacity 
+              style={authStyles.button} 
+              onPress={handleSendSMS} 
+              disabled={loading}
+          >
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={authStyles.buttonText}>Kod Gönder</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.back()} style={authStyles.linkContainer}>
+            <Text style={authStyles.linkText}>Giriş Ekranına Dön</Text>
+          </TouchableOpacity>
+
+          {/* --- MODAL (KOD + YENİ ŞİFRE) --- */}
+          <Modal
+            animationType="fade"
+            transparent={true}
+            visible={modalVisible}
+            onRequestClose={() => setModalVisible(false)}
+          >
+            <View style={authStyles.modalOverlay}>
+              <View style={authStyles.modalContainer}>
+                <Text style={authStyles.modalTitle}>Şifre Yenileme</Text>
+                
+                <TextInput
+                  style={authStyles.modalInput}
+                  placeholder="Kod (123456)"
+                  placeholderTextColor="#666"
+                  value={verificationCode}
+                  onChangeText={setVerificationCode}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+
+                <TextInput
+                  style={[authStyles.input, {width:'100%', marginBottom:20}]} 
+                  placeholder="Yeni Şifre"
+                  placeholderTextColor="#666"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry
+                />
+
+                <TouchableOpacity 
+                  style={authStyles.modalButton} 
+                  onPress={handleVerifyAndReset}
+                  disabled={loading}
+                >
+                   {loading ? <ActivityIndicator color="#fff" /> : <Text style={authStyles.buttonText}>Şifreyi Değiştir</Text>}
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={authStyles.modalCancelButton} 
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={authStyles.modalCancelText}>Vazgeç</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }

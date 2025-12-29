@@ -11,8 +11,9 @@ import 'react-native-gesture-handler';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants'; 
 import API_URL from '../config';
+import { LinearGradient } from 'expo-linear-gradient';
 
-// Bildirim ayarları
+// Notification Settings
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -168,113 +169,157 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: '#fff' }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <LinearGradient
+      colors={['#4e4e4e', '#1a1a1a']} // Home sayfasıyla aynı gradient renkleri
+      style={{ flex: 1 }}
     >
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer} 
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <StatusBar barStyle="dark-content" />
-        
-        <View style={styles.logoContainer}>
-          <Image source={require('../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.title}>Photo App</Text>
-        </View>
+      {/* Status Bar yazılarını beyaz yapıyoruz */}
+      <StatusBar barStyle="light-content" />
 
-        <View style={styles.formContainer}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer} 
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           
-          {/* --- TELEFON GİRİŞ ALANI (TEK CONTAINER GÖRÜNÜMÜ) --- */}
-          <View style={styles.phoneInputContainer}>
-            <Text style={styles.countryCode}>+90</Text>
-            <TextInput
-              style={styles.phoneInput}
-              placeholder="Telefon Numarası (555...)"
-              placeholderTextColor="#999"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              keyboardType="number-pad"
-              maxLength={10} 
-            />
+          <View style={styles.logoContainer}>
+            <Image source={require('../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
+            <Text style={styles.title}>İsimÇokZor</Text>
           </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Şifre"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          <View style={styles.formContainer}>
+            
+            {/* --- TELEFON GİRİŞ ALANI --- */}
+            <View style={styles.phoneInputContainer}>
+              <Text style={styles.countryCode}>+90</Text>
+              <TextInput
+                style={styles.phoneInput}
+                placeholder="Telefon Numarası (555...)"
+                placeholderTextColor="#666" // Placeholder rengi (daha koyu gri)
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="number-pad"
+                maxLength={10} 
+              />
+            </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Giriş Yap</Text>}
-          </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder="Şifre"
+              placeholderTextColor="#666" // Placeholder rengi
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
 
-          <TouchableOpacity onPress={() => router.push('/ForgotPasswordScreen')} style={{marginBottom: 15}}>
-            <Text style={styles.linkText}>Şifremi Unuttum</Text>
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Giriş Yap</Text>}
+            </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => router.push('/register')}>
-            <Text style={styles.linkText}>Hesabın yok mu? Kayıt Ol</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <TouchableOpacity onPress={() => router.push('/ForgotPasswordScreen')} style={{marginBottom: 15}}>
+              <Text style={styles.linkText}>Şifremi Unuttum</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => router.push('/register')}>
+              <Text style={styles.linkText}>Hesabın yok mu? Kayıt Ol</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  // Main container background updated to Dark Theme
   scrollContainer: { 
     flexGrow: 1, 
     justifyContent: 'center', 
-    padding: 20 
+    padding: 20,
   },
-  logoContainer: { alignItems: 'center', marginBottom: 40 },
-  logo: { width: 100, height: 100, marginBottom: 10 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#333' },
-  formContainer: { width: '100%' },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 40
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 10
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#ffffff', // White text
+    marginBottom: 10,
+  },
+  formContainer: {
+    width: '100%'
+  },
   
-  // Normal Input Stili (Şifre vb. için)
+  // Normal Input Style (Light Gray Background as requested)
   input: { 
     height: 50, 
-    borderColor: '#ddd', 
+    borderColor: '#555', // Darker border
     borderWidth: 1, 
     borderRadius: 8, 
     paddingHorizontal: 15, 
     marginBottom: 15, 
     fontSize: 16, 
-    backgroundColor: '#f9f9f9' 
+    backgroundColor: '#E0E0E0', // Light Gray Box
+    color: '#000000', // Black Text inside light box
   },
 
-  // Yeni Telefon Input Container Yapısı
+  // Phone Input Container (Light Gray Background)
   phoneInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 50,
-    borderColor: '#ddd',
+    borderColor: '#555',
     borderWidth: 1,
     borderRadius: 8,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#E0E0E0', // Light Gray Box
     paddingHorizontal: 15,
     marginBottom: 15
   },
   countryCode: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#000000', // Black Text
     marginRight: 10
   },
   phoneInput: {
     flex: 1,
     height: '100%',
     fontSize: 16,
-    color: '#333'
+    color: '#000000' // Black Text
   },
-
-  button: { backgroundColor: '#007AFF', height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  linkText: { color: '#007AFF', textAlign: 'center', fontSize: 16 },
+  
+  // Login Button (Black Background, White Text)
+  button: { 
+    backgroundColor: '#000000', // Black Background
+    height: 50, 
+    borderRadius: 25, // More rounded (consistent with other buttons)
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#444' // Subtle border
+  },
+  buttonText: {
+    color: '#ffffff', // White Text
+    fontSize: 18,
+    fontWeight: 'bold'
+  },
+  
+  // Link Texts (Forgot Password / Register)
+  linkText: {
+    color: '#cccccc', // Light Gray/White text for visibility on dark bg
+    textAlign: 'center',
+    fontSize: 16,
+    marginTop: 10,
+  },
 });

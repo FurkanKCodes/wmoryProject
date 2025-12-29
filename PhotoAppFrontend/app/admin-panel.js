@@ -240,7 +240,7 @@ export default function AdminPanel() {
   if (!isVerified) {
       return (
         <View style={adminPanelStyles.container}>
-            <StatusBar backgroundColor="#007AFF" barStyle="light-content" />
+            <StatusBar backgroundColor="#FFF" barStyle="light-content" />
             
             {/* Simple Header */}
             <View style={adminPanelStyles.headerContainer}>
@@ -253,12 +253,12 @@ export default function AdminPanel() {
 
             {initLoading ? (
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <ActivityIndicator size="large" color="#007AFF" />
+                    <ActivityIndicator size="large" color="#FFF" />
                     <Text style={{ marginTop: 20, color: '#666' }}>Kod oluşturuluyor...</Text>
                 </View>
             ) : (
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={adminPanelStyles.authContainer}>
-                    <Ionicons name="shield-checkmark" size={80} color="#007AFF" style={{ marginBottom: 20 }} />
+                    <Ionicons name="shield-checkmark" size={80} color="#FFF" style={{ marginBottom: 20 }} />
                     <Text style={adminPanelStyles.authTitle}>Kimlik Doğrulama</Text>
                     <Text style={adminPanelStyles.authDesc}>
                         Lütfen {userEmail ? <Text style={{fontWeight:'bold'}}>{userEmail}</Text> : "mail"} adresinize gönderilen 6 haneli kodu giriniz.
@@ -279,7 +279,7 @@ export default function AdminPanel() {
                     </TouchableOpacity>
 
                     <TouchableOpacity style={{ marginTop: 20 }} onPress={handleResendCode}>
-                        <Text style={{ color: '#007AFF', fontWeight: '600' }}>Kodu Yeniden Gönder</Text>
+                        <Text style={{ color: '#FFF', fontWeight: '600' }}>Kodu Yeniden Gönder</Text>
                     </TouchableOpacity>
                 </KeyboardAvoidingView>
             )}
@@ -290,7 +290,7 @@ export default function AdminPanel() {
   // --- MAIN ADMIN PANEL CONTENT (SADECE DOĞRULANINCA GÖRÜNÜR) ---
   return (
     <View style={adminPanelStyles.container}>
-      <StatusBar backgroundColor="#007AFF" barStyle="light-content" />
+      <StatusBar backgroundColor="#FFF" barStyle="light-content" />
       
       <View style={adminPanelStyles.headerContainer}>
           <TouchableOpacity style={adminPanelStyles.backButton} onPress={() => router.back()}>
@@ -346,7 +346,7 @@ export default function AdminPanel() {
                   </ScrollView>
               </KeyboardAvoidingView>
           ) : (
-              loading ? <ActivityIndicator size="large" color="#007AFF" style={{marginTop: 50}} /> : (
+              loading ? <ActivityIndicator size="large" color="#FFF" style={{marginTop: 50}} /> : (
                   <FlatList
                     data={activeTab === 'reports' ? reports : bannedUsers}
                     keyExtractor={item => (activeTab === 'reports' ? `rep_${item.report_id}` : `ban_${item.id}`)}

@@ -5,15 +5,17 @@ const { height } = Dimensions.get('window');
 const adminPanelStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    // Dark Theme Background
+    backgroundColor: '#333333',
   },
-  // --- HEADER ---
+  // --- HEADER (Matched with Home & Profile) ---
   headerContainer: {
     width: '100%',
-    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
+    paddingTop: Platform.OS === 'ios' ? 65 : StatusBar.currentHeight + 25,
     paddingBottom: 15,
     paddingHorizontal: 20,
-    backgroundColor: '#007AFF',
+    // Darkest gray header
+    backgroundColor: '#1a1a1a',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -28,15 +30,15 @@ const adminPanelStyles = StyleSheet.create({
     padding: 5,
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 18,
+    color: '#ffffff', // White text
+    fontSize: 20,     // Slightly larger for visibility
     fontWeight: 'bold',
     flex: 1,
     textAlign: 'center',
-    marginRight: 30, // Dengelemek için
+    marginRight: 30, // To balance the back button
   },
 
-  // --- 2FA AUTH SCREEN STYLES (YENİ) ---
+  // --- 2FA AUTH SCREEN STYLES ---
   authContainer: {
       flex: 1,
       alignItems: 'center',
@@ -46,12 +48,12 @@ const adminPanelStyles = StyleSheet.create({
   authTitle: {
       fontSize: 24,
       fontWeight: 'bold',
-      color: '#333',
+      color: '#ffffff', // White
       marginBottom: 10,
   },
   authDesc: {
       fontSize: 16,
-      color: '#666',
+      color: '#cccccc', // Light gray
       textAlign: 'center',
       marginBottom: 30,
       lineHeight: 22,
@@ -59,18 +61,19 @@ const adminPanelStyles = StyleSheet.create({
   authInput: {
       width: '100%',
       borderWidth: 1,
-      borderColor: '#ddd',
+      borderColor: '#555',
       borderRadius: 10,
       padding: 15,
       fontSize: 24,
       textAlign: 'center',
       letterSpacing: 5,
       marginBottom: 20,
-      backgroundColor: '#f9f9f9',
+      backgroundColor: '#E0E0E0', // Light box for input
+      color: '#000000', // Black text
   },
   authButton: {
       width: '100%',
-      backgroundColor: '#007AFF',
+      backgroundColor: '#000', // Blue button remains
       paddingVertical: 15,
       borderRadius: 10,
       alignItems: 'center',
@@ -84,11 +87,14 @@ const adminPanelStyles = StyleSheet.create({
   // --- TABS ---
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    // Dark background for tabs
+    backgroundColor: '#1a1a1a', 
     elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#444',
   },
   tabButton: {
     flex: 1,
@@ -98,16 +104,16 @@ const adminPanelStyles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomColor: '#007AFF',
+    borderBottomColor: '#000',
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#999',
+    color: '#888', // Dimmed text
     textAlign: 'center',
   },
   activeTabText: {
-    color: '#007AFF',
+    color: '#FFF', // Active Blue
     fontWeight: 'bold',
   },
 
@@ -119,12 +125,13 @@ const adminPanelStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    // Dark card background
+    backgroundColor: '#2C2C2C', 
     padding: 15,
     borderRadius: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#444',
   },
   rowInfo: {
     flex: 1,
@@ -132,11 +139,11 @@ const adminPanelStyles = StyleSheet.create({
   mainText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#ffffff', // White
   },
   subText: {
     fontSize: 13,
-    color: '#666',
+    color: '#cccccc', // Light gray
     marginTop: 3,
   },
   emptyText: {
@@ -154,11 +161,11 @@ const adminPanelStyles = StyleSheet.create({
       fontSize: 20,
       fontWeight: 'bold',
       marginBottom: 10,
-      color: '#333',
+      color: '#ffffff', // White
   },
   formDesc: {
       fontSize: 14,
-      color: '#666',
+      color: '#cccccc', // Light gray
       marginBottom: 30,
   },
   inputGroup: {
@@ -166,11 +173,12 @@ const adminPanelStyles = StyleSheet.create({
   },
   input: {
       borderWidth: 1,
-      borderColor: '#ddd',
+      borderColor: '#555',
       borderRadius: 8,
       padding: 12,
       fontSize: 16,
-      backgroundColor: '#f9f9f9',
+      backgroundColor: '#E0E0E0', // Light box
+      color: '#000000', // Black text
       marginTop: 5,
   },
   separator: {
@@ -181,14 +189,15 @@ const adminPanelStyles = StyleSheet.create({
   // --- MODAL ---
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)', // Darker overlay
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
     width: '90%',
     maxHeight: '85%', 
-    backgroundColor: '#fff',
+    // Dark Modal Background
+    backgroundColor: '#2C2C2C', 
     borderRadius: 15,
     padding: 20,
     elevation: 5,
@@ -196,6 +205,8 @@ const adminPanelStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#444',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -203,13 +214,13 @@ const adminPanelStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#444',
     paddingBottom: 10,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#ffffff', // White
   },
   
   // Evidence Image
@@ -219,7 +230,9 @@ const adminPanelStyles = StyleSheet.create({
     backgroundColor: '#000',
     borderRadius: 8,
     marginBottom: 15,
-    resizeMode: 'contain'
+    resizeMode: 'contain',
+    borderWidth: 1,
+    borderColor: '#444',
   },
 
   // Evidence Video
@@ -229,6 +242,8 @@ const adminPanelStyles = StyleSheet.create({
     backgroundColor: '#000',
     borderRadius: 8,
     marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#444',
   },
   
   // Detail Box
@@ -237,13 +252,13 @@ const adminPanelStyles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    color: '#888',
+    color: '#aaaaaa', // Lighter label
     fontWeight: '600',
     textTransform: 'uppercase',
   },
   value: {
     fontSize: 16,
-    color: '#333',
+    color: '#ffffff', // White value
     fontWeight: '500',
   },
   
@@ -262,19 +277,19 @@ const adminPanelStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   btnDismiss: {
-    backgroundColor: '#ddd',
+    backgroundColor: '#555555', // Dark gray for Cancel/Dismiss
   },
   btnDelete: {
-    backgroundColor: '#FF9500',
+    backgroundColor: '#FF9500', // Orange
   },
   btnBan: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#FF3B30', // Red
     marginTop: 15, 
     width: '100%',
     paddingVertical: 14,
   },
   btnUnban: {
-    backgroundColor: '#34C759', 
+    backgroundColor: '#34C759', // Green
     width: '100%',
     marginTop: 15,
   },
@@ -283,8 +298,10 @@ const adminPanelStyles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
+  // Used for dismiss button text if background is light, 
+  // but now bg is dark (#555), so white text is better.
   btnTextDark: {
-    color: '#333',
+    color: '#ffffff', 
     fontWeight: 'bold',
     fontSize: 14,
   },

@@ -441,6 +441,29 @@ def manage_request():
 
         if action == 'accept':
             cursor.execute("INSERT INTO groups_members (user_id, group_id) VALUES (%s, %s)", (target_user_id, group_id))
+            try:
+                # A) Get Group Name
+                cursor.execute("SELECT group_name FROM groups_table WHERE id = %s", (group_id,))
+                group_res = cursor.fetchone()
+                
+                # B) Get Accepted User's Push Token
+                cursor.execute("SELECT push_token FROM users WHERE id = %s", (target_user_id,))
+                user_res = cursor.fetchone()
+
+                if group_res and user_res and user_res[0]:
+                    group_name = group_res[0]
+                    user_token = user_res[0]
+                    
+                    # Send Notification
+                    send_expo_push_notification(
+                        tokens=[user_token],
+                        title=group_name,
+                        body=f"'{group_name}' grubuna katıldınız!",
+                        data={"screen": "GroupDetails", "groupId": group_id}
+                    )
+            except Exception as notify_error:
+                print(f"Notification error (Non-critical): {notify_error}")
+            # --- NEW NOTIFICATION CODE END ---
         
         conn.commit()
         cursor.close(); conn.close()

@@ -7,6 +7,8 @@ import { useRouter } from 'expo-router';
 import auth from '@react-native-firebase/auth'; 
 import API_URL from '../config'; 
 import authStyles from '../styles/authStyles'; 
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function RegisterScreen() {
   const [username, setUsername] = useState('');
@@ -144,166 +146,175 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={authStyles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    // CHANGE: Added LinearGradient as the main wrapper matching Home screen
+    <LinearGradient
+      colors={['#4e4e4e', '#1a1a1a']}
+      style={authStyles.container}
     >
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={authStyles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} // Changed from authStyles.container to flex:1 to show gradient
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Text style={authStyles.title}>Aramıza Katıl</Text>
-        
-        <View style={authStyles.inputContainer}>
-          <TextInput
-            style={authStyles.input}
-            placeholder="Kullanıcı Adı"
-            placeholderTextColor="#aaa"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-          />
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={authStyles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={authStyles.title}>Aramıza Katıl</Text>
+          
+          <View style={authStyles.inputContainer}>
+            <TextInput
+              style={authStyles.input}
+              placeholder="Kullanıcı Adı"
+              placeholderTextColor="#aaa"
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+            />
 
-          <TextInput
-            style={authStyles.input}
-            placeholder="E-posta Adresi"
-            placeholderTextColor="#aaa"
-            value={email}
-            onChangeText={handleEmailChange}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          {!isEmailValid && (
-             <Text style={authStyles.errorText}>Geçerli bir e-posta girin (.com)</Text>
-          )}
+            <TextInput
+              style={authStyles.input}
+              placeholder="E-posta Adresi"
+              placeholderTextColor="#aaa"
+              value={email}
+              onChangeText={handleEmailChange}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            {!isEmailValid && (
+               <Text style={authStyles.errorText}>Geçerli bir e-posta girin (.com)</Text>
+            )}
 
-          <View style={authStyles.phoneContainer}>
-             <Text style={authStyles.phonePrefix}>+90</Text>
-             <TextInput
-                style={authStyles.phoneInput}
-                placeholder="Telefon Numarası (555...)"
-                placeholderTextColor="#aaa"
-                value={phoneNumber}
-                onChangeText={handlePhoneChange}
-                keyboardType="number-pad"
-                maxLength={10} 
-             />
+            <View style={authStyles.phoneContainer}>
+               <Text style={authStyles.phonePrefix}>+90</Text>
+               <TextInput
+                  style={authStyles.phoneInput}
+                  placeholder="Telefon Numarası (555...)"
+                  placeholderTextColor="#aaa"
+                  value={phoneNumber}
+                  onChangeText={handlePhoneChange}
+                  keyboardType="number-pad"
+                  maxLength={10} 
+               />
+            </View>
+            {!isPhoneValid && (
+               <Text style={authStyles.errorText}>Lütfen geçerli bir telefon numarası girin</Text>
+            )}
+
+            <TextInput
+              style={authStyles.input}
+              placeholder="Şifre"
+              placeholderTextColor="#aaa"
+              value={password}
+              onChangeText={handlePasswordChange}
+              secureTextEntry
+            />
+            {!isPasswordValid && (
+               <Text style={authStyles.errorText}>En az 6 karakter olmalı</Text>
+            )}
           </View>
-          {!isPhoneValid && (
-             <Text style={authStyles.errorText}>Lütfen 10 haneli numarayı girin</Text>
-          )}
 
-          <TextInput
-            style={authStyles.input}
-            placeholder="Şifre"
-            placeholderTextColor="#aaa"
-            value={password}
-            onChangeText={handlePasswordChange}
-            secureTextEntry
-          />
-          {!isPasswordValid && (
-             <Text style={authStyles.errorText}>En az 6 karakter olmalı</Text>
-          )}
-        </View>
-
-        {/* --- CHECKBOX AREA --- */}
-        <View style={authStyles.checkboxContainer}>
+          {/* --- CHECKBOX AREA --- */}
+          <View style={authStyles.checkboxContainer}>
             <TouchableOpacity onPress={() => setIsAgreed(!isAgreed)}>
-                <View style={[authStyles.checkbox, isAgreed && authStyles.checkboxSelected]} />
+              <View style={[authStyles.checkbox, isAgreed && authStyles.checkboxSelected]}>
+                {/* Eğer onaylandıysa (isAgreed true ise) içine SİYAH TİK koy */}
+                {isAgreed && <Ionicons name="checkmark" size={18} color="black" />}
+              </View>
             </TouchableOpacity>
 
-            <View style={authStyles.checkboxTextContainer}>
-                <TouchableOpacity onPress={() => setShowTermsModal(true)}>
-                    <Text style={authStyles.checkboxLink}>Kullanıcı Sözleşmesini</Text>
-                </TouchableOpacity>
-                <Text style={authStyles.checkboxLabel}> ve </Text>
-                <TouchableOpacity onPress={() => setShowPrivacyModal(true)}>
-                    <Text style={authStyles.checkboxLink}>Gizlilik Politikasını</Text>
-                </TouchableOpacity>
-                <Text style={authStyles.checkboxLabel}> okudum, onaylıyorum.</Text>
-            </View>
-        </View>
-
-        <TouchableOpacity 
-            style={[authStyles.button, (!isRegisterEnabled || loading) && authStyles.buttonDisabled]} 
-            onPress={handleSendSMS} 
-            disabled={!isRegisterEnabled || loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={authStyles.buttonText}>Kayıt Ol</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => router.back()} style={authStyles.linkContainer}>
-          <Text style={authStyles.linkText}>Zaten hesabın var mı? Giriş Yap</Text>
-        </TouchableOpacity>
-
-        {/* --- SMS MODAL --- */}
-        <Modal
-          animationType="fade"
-          transparent={true}
-          visible={modalVisible}
-          onRequestClose={() => { setModalVisible(!modalVisible); setLoading(false); }}
-        >
-          <View style={authStyles.modalOverlay}>
-            <View style={authStyles.modalContainer}>
-              <Text style={authStyles.modalTitle}>Doğrulama Kodu</Text>
-              <Text style={authStyles.modalSubtitle}>{`+90 ${phoneNumber} numarasına gönderilen 6 haneli kodu giriniz.`}</Text>
-              <TextInput
-                style={authStyles.modalInput}
-                placeholder="123456"
-                placeholderTextColor="#ccc"
-                value={verificationCode}
-                onChangeText={setVerificationCode}
-                keyboardType="number-pad"
-                maxLength={6}
-                autoFocus={true}
-              />
-              <TouchableOpacity style={authStyles.modalButton} onPress={verifyCodeAndRegister} disabled={loading}>
-                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={authStyles.buttonText}>Doğrula ve Tamamla</Text>}
-              </TouchableOpacity>
-              <TouchableOpacity style={authStyles.modalCancelButton} onPress={() => { setModalVisible(false); setLoading(false); }}>
-                <Text style={authStyles.modalCancelText}>Vazgeç</Text>
-              </TouchableOpacity>
-            </View>
+              <View style={authStyles.checkboxTextContainer}>
+                  <TouchableOpacity onPress={() => setShowTermsModal(true)}>
+                      <Text style={authStyles.checkboxLink}>Kullanıcı Sözleşmesini</Text>
+                  </TouchableOpacity>
+                  <Text style={authStyles.checkboxLabel}> ve </Text>
+                  <TouchableOpacity onPress={() => setShowPrivacyModal(true)}>
+                      <Text style={authStyles.checkboxLink}>Gizlilik Politikasını</Text>
+                  </TouchableOpacity>
+                  <Text style={authStyles.checkboxLabel}> okudum, onaylıyorum.</Text>
+              </View>
           </View>
-        </Modal>
 
-        {/* --- TERMS OF SERVICE MODAL --- */}
-        <Modal visible={showTermsModal} animationType="slide" transparent={true} onRequestClose={() => setShowTermsModal(false)}>
-            <View style={authStyles.docModalContainer}>
-                <View style={authStyles.docModalContent}>
-                    <Text style={authStyles.docModalTitle}>Kullanıcı Sözleşmesi</Text>
-                    <ScrollView style={authStyles.docScrollView}>
-                        <Text style={authStyles.docText}>{termsOfServiceText}</Text>
-                    </ScrollView>
-                    <TouchableOpacity style={authStyles.docCloseButton} onPress={() => setShowTermsModal(false)}>
-                        <Text style={authStyles.buttonText}>Kapat</Text>
-                    </TouchableOpacity>
-                </View>
+          <TouchableOpacity 
+              style={[authStyles.button, (!isRegisterEnabled || loading) && authStyles.buttonDisabled]} 
+              onPress={handleSendSMS} 
+              disabled={!isRegisterEnabled || loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={authStyles.buttonText}>Kayıt Ol</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.back()} style={authStyles.linkContainer}>
+            <Text style={authStyles.linkText}>Zaten hesabın var mı? Giriş Yap</Text>
+          </TouchableOpacity>
+
+          {/* --- SMS MODAL --- */}
+          <Modal
+            animationType="fade"
+            transparent={true}
+            visible={modalVisible}
+            onRequestClose={() => { setModalVisible(!modalVisible); setLoading(false); }}
+          >
+            <View style={authStyles.modalOverlay}>
+              <View style={authStyles.modalContainer}>
+                <Text style={authStyles.modalTitle}>Doğrulama Kodu</Text>
+                <Text style={authStyles.modalSubtitle}>{`+90 ${phoneNumber} numarasına gönderilen 6 haneli kodu giriniz.`}</Text>
+                <TextInput
+                  style={authStyles.modalInput}
+                  placeholder="123456"
+                  placeholderTextColor="#666" // Darker placeholder for better contrast on light modal input
+                  value={verificationCode}
+                  onChangeText={setVerificationCode}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  autoFocus={true}
+                />
+                <TouchableOpacity style={authStyles.modalButton} onPress={verifyCodeAndRegister} disabled={loading}>
+                   {loading ? <ActivityIndicator color="#fff" /> : <Text style={authStyles.buttonText}>Doğrula ve Tamamla</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity style={authStyles.modalCancelButton} onPress={() => { setModalVisible(false); setLoading(false); }}>
+                  <Text style={authStyles.modalCancelText}>Vazgeç</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-        </Modal>
+          </Modal>
 
-        {/* --- PRIVACY POLICY MODAL --- */}
-        <Modal visible={showPrivacyModal} animationType="slide" transparent={true} onRequestClose={() => setShowPrivacyModal(false)}>
-            <View style={authStyles.docModalContainer}>
-                <View style={authStyles.docModalContent}>
-                    <Text style={authStyles.docModalTitle}>Gizlilik Politikası</Text>
-                    <ScrollView style={authStyles.docScrollView}>
-                        <Text style={authStyles.docText}>{privacyPolicyText}</Text>
-                    </ScrollView>
-                    <TouchableOpacity style={authStyles.docCloseButton} onPress={() => setShowPrivacyModal(false)}>
-                        <Text style={authStyles.buttonText}>Kapat</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </Modal>
+          {/* --- TERMS OF SERVICE MODAL --- */}
+          <Modal visible={showTermsModal} animationType="slide" transparent={true} onRequestClose={() => setShowTermsModal(false)}>
+              <View style={authStyles.docModalContainer}>
+                  <View style={authStyles.docModalContent}>
+                      <Text style={authStyles.docModalTitle}>Kullanıcı Sözleşmesi</Text>
+                      <ScrollView style={authStyles.docScrollView}>
+                          <Text style={authStyles.docText}>{termsOfServiceText}</Text>
+                      </ScrollView>
+                      <TouchableOpacity style={authStyles.docCloseButton} onPress={() => setShowTermsModal(false)}>
+                          <Text style={authStyles.buttonText}>Kapat</Text>
+                      </TouchableOpacity>
+                  </View>
+              </View>
+          </Modal>
 
-      </ScrollView>
-    </KeyboardAvoidingView>
+          {/* --- PRIVACY POLICY MODAL --- */}
+          <Modal visible={showPrivacyModal} animationType="slide" transparent={true} onRequestClose={() => setShowPrivacyModal(false)}>
+              <View style={authStyles.docModalContainer}>
+                  <View style={authStyles.docModalContent}>
+                      <Text style={authStyles.docModalTitle}>Gizlilik Politikası</Text>
+                      <ScrollView style={authStyles.docScrollView}>
+                          <Text style={authStyles.docText}>{privacyPolicyText}</Text>
+                      </ScrollView>
+                      <TouchableOpacity style={authStyles.docCloseButton} onPress={() => setShowPrivacyModal(false)}>
+                          <Text style={authStyles.buttonText}>Kapat</Text>
+                      </TouchableOpacity>
+                  </View>
+              </View>
+          </Modal>
+
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 

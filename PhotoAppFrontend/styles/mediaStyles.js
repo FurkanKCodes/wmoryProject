@@ -5,15 +5,17 @@ const { width, height } = Dimensions.get('window');
 const mediaStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff', 
+    // Dark background consistent with Home page
+    backgroundColor: '#333333', 
   },
-  // --- HEADER ---
+  // --- HEADER (Matched with Home) ---
   headerContainer: {
     width: '100%',
     paddingTop: Platform.OS === 'ios' ? 65 : StatusBar.currentHeight + 25,
     paddingBottom: 15,
     paddingHorizontal: 20,
-    backgroundColor: '#007AFF', 
+    // Home header color (Darkest Gray)
+    backgroundColor: '#1a1a1a', 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -27,35 +29,51 @@ const mediaStyles = StyleSheet.create({
   },
   backButton: {
     padding: 5,
+    // Optional: make back button hit area larger
+    width: 40,
+    height: 40,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 23,
+    // White text like Home
+    color: '#ffffff',
+    fontSize: 27, // Matched with Home font size
     fontWeight: 'bold',
   },
+  // Matched with Home's Add Button (Black Circle)
   addButton: {
-    padding: 5,
+    width: 40, 
+    height: 40,
+    borderRadius: 20,
+    // Black background
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  // --- SECTION HEADERS ---
+  // --- SECTION HEADERS (Date Separators) ---
   sectionHeaderContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)', // Slightly translucent
+    // Darker gray for separation (Matched with Home group cards)
+    backgroundColor: '#2C2C2C', 
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#444', // Dark border
   },
   sectionHeaderText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    // White text
+    color: '#ffffff',
   },
 
   // --- SCROLL BUBBLE ---
   scrollBubble: {
     position: 'absolute',
     top: 50, 
-    right: 20, // Sağ tarafa yaslı
+    right: 20, 
+    // Accent color remains Blue for visibility or can be Black
     backgroundColor: '#007AFF',
     paddingVertical: 6,
     paddingHorizontal: 16,
@@ -76,15 +94,15 @@ const mediaStyles = StyleSheet.create({
   // --- GRID LIST ---
   rowContainer: {
       flexDirection: 'row',
-      justifyContent: 'flex-start', // Items align left
+      justifyContent: 'flex-start', 
   },
   mediaItem: {
-    // Width and height are set dynamically in JS via inline styles
+    // Border color changed to dark to blend in
     borderWidth: 1,
-    borderColor: '#fff', 
+    borderColor: '#333', 
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0', 
+    backgroundColor: '#1a1a1a', // Dark placeholder
   },
   mediaItemSelected: {
       opacity: 0.7, 
@@ -105,19 +123,20 @@ const mediaStyles = StyleSheet.create({
       top: 5,
       left: 5,
       zIndex: 5,
-      backgroundColor: 'rgba(0,0,0,0.3)', 
+      backgroundColor: 'rgba(0,0,0,0.5)', 
       borderRadius: 4,
   },
 
-  // --- FILTER MODAL STYLES (YENİ EKLENDİ) ---
+  // --- FILTER MODAL STYLES (Updated for Dark Mode) ---
   filterModalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'flex-start', // Üstten başlasın (Pop-down hissi için)
-      paddingTop: 100, // Header'ın altında kalsın
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      justifyContent: 'flex-start', 
+      paddingTop: 100, 
   },
   filterModalContainer: {
-      backgroundColor: '#fff',
+      // Dark background
+      backgroundColor: '#1a1a1a',
       marginHorizontal: 20,
       borderRadius: 15,
       maxHeight: height * 0.6,
@@ -127,6 +146,8 @@ const mediaStyles = StyleSheet.create({
       shadowOpacity: 0.25,
       shadowRadius: 4,
       overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: '#333',
   },
   filterHeader: {
       flexDirection: 'row',
@@ -134,13 +155,14 @@ const mediaStyles = StyleSheet.create({
       alignItems: 'center',
       padding: 15,
       borderBottomWidth: 1,
-      borderBottomColor: '#eee',
-      backgroundColor: '#f9f9f9',
+      borderBottomColor: '#333',
+      // Slightly lighter dark for header
+      backgroundColor: '#222',
   },
   filterTitle: {
       fontSize: 18,
       fontWeight: 'bold',
-      color: '#333',
+      color: '#ffffff',
   },
   filterContent: {
       padding: 10,
@@ -157,33 +179,33 @@ const mediaStyles = StyleSheet.create({
       height: 36,
       borderRadius: 18,
       marginRight: 10,
-      backgroundColor: '#eee',
+      backgroundColor: '#555',
   },
   filterAvatarPlaceholder: {
       width: 36,
       height: 36,
       borderRadius: 18,
       marginRight: 10,
-      backgroundColor: '#007AFF',
+      backgroundColor: '#FFF',
       alignItems: 'center',
       justifyContent: 'center',
   },
   filterName: {
       fontSize: 16,
-      color: '#333',
+      color: '#ffffff',
   },
   filterSeparator: {
       height: 1,
-      backgroundColor: '#eee',
+      backgroundColor: '#333',
       marginVertical: 5,
   },
   filterFooter: {
       padding: 15,
       borderTopWidth: 1,
-      borderTopColor: '#eee',
+      borderTopColor: '#333',
   },
   applyButton: {
-      backgroundColor: '#007AFF',
+      backgroundColor: '#000',
       paddingVertical: 12,
       borderRadius: 8,
       alignItems: 'center',
@@ -212,7 +234,7 @@ const mediaStyles = StyleSheet.create({
   },
   controlButton: {
     padding: 10,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 20,
   },
   fullScreenContent: {
@@ -239,7 +261,7 @@ const mediaStyles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   infoText: {
     color: '#fff',
@@ -254,25 +276,28 @@ const mediaStyles = StyleSheet.create({
     position: 'absolute',
     top: Platform.OS === 'ios' ? 110 : 90,
     right: 20,
-    backgroundColor: '#fff',
+    // White background for menu is usually better for contrast, or dark gray
+    backgroundColor: '#2C2C2C',
     borderRadius: 10,
     padding: 5,
     width: 150,
     zIndex: 200,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: '#444',
   },
   optionItem: {
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#444',
   },
   optionText: {
     fontSize: 16,
-    color: '#333',
+    color: '#ffffff',
   },
   reportText: {
-    color: 'red',
+    color: '#FF3B30', // Red for report
     fontWeight: 'bold',
   },
 });

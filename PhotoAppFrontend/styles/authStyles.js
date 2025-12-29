@@ -1,12 +1,11 @@
 import { StyleSheet, Dimensions } from 'react-native';
 
-// FIX: Added 'height' to destructuring so it can be used in styles below
 const { width, height } = Dimensions.get('window');
 
 const authStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#333333', // Dark Theme Background
   },
   // Style for ScrollView content container
   scrollContainer: {
@@ -19,49 +18,50 @@ const authStyles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 40,
-    color: '#333',
+    color: '#ffffff', // White Title
   },
   inputContainer: {
     width: '100%',
     marginBottom: 20,
   },
   input: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#E0E0E0', // Light Gray Box (Requested Style)
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#555', // Darker border
     fontSize: 16,
     width: '100%',
+    color: '#000000', // Black Text inside light box
   },
   
   // --- PHONE INPUT STYLES ---
   phoneContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#E0E0E0', // Light Gray Box
     borderRadius: 10,
     marginBottom: 5, 
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#555',
     width: '100%',
   },
   phonePrefix: {
     paddingLeft: 15,
     paddingRight: 10,
     fontSize: 16,
-    color: '#555',
+    color: '#000000', // Black Text
     fontWeight: '600',
   },
   phoneInput: {
     flex: 1,
     padding: 15,
     fontSize: 16,
-    color: '#000',
+    color: '#000000', // Black Text
   },
   errorText: {
-    color: 'red',
+    color: '#FF3B30', // Bright Red
     fontSize: 12,
     marginBottom: 10, 
     marginLeft: 5,
@@ -70,14 +70,16 @@ const authStyles = StyleSheet.create({
 
   // Button Styles
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#000000', // Black Button
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 25, // Rounded corners consistent with Login
     width: '100%',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#444',
   },
   buttonDisabled: {
-    backgroundColor: '#a0c4ff', 
+    backgroundColor: '#555', // Dark gray when disabled
     opacity: 0.7,
   },
   buttonText: {
@@ -89,20 +91,20 @@ const authStyles = StyleSheet.create({
     marginTop: 20,
   },
   linkText: {
-    color: '#007AFF',
+    color: '#cccccc', // Light Gray Text
     fontSize: 16,
   },
 
   // --- MODAL (POP-UP) STYLES ---
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)', // Dimmed background
+    backgroundColor: 'rgba(0,0,0,0.7)', // Darker overlay
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
     width: width * 0.85,
-    backgroundColor: '#fff',
+    backgroundColor: '#2C2C2C', // Dark Card Background
     borderRadius: 20,
     padding: 25,
     alignItems: 'center',
@@ -111,32 +113,35 @@ const authStyles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: '#444',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#333',
+    color: '#ffffff', // White
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: '#cccccc', // Light Gray
     marginBottom: 20,
     textAlign: 'center',
   },
   modalInput: {
     width: '100%',
-    backgroundColor: '#f1f1f1',
+    backgroundColor: '#E0E0E0', // Light Gray Box
     padding: 15,
     borderRadius: 10,
     fontSize: 18,
-    textAlign: 'center', // Center the code
+    textAlign: 'center', 
     marginBottom: 20,
-    letterSpacing: 5, // Space between digits
+    letterSpacing: 5, 
     fontWeight: 'bold',
+    color: '#000000', // Black Text
   },
   modalButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#000', // Verification action can remain Blue or Black
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 10,
@@ -148,14 +153,14 @@ const authStyles = StyleSheet.create({
     paddingVertical: 10,
   },
   modalCancelText: {
-    color: 'red',
+    color: '#FF3B30', // Red
     fontSize: 16,
   },
 
   // --- CHECKBOX & AGREEMENT STYLES ---
   checkboxContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start', // Align text to top if multiline
+    alignItems: 'flex-start', 
     marginBottom: 20,
     width: '100%',
     paddingHorizontal: 5,
@@ -163,29 +168,29 @@ const authStyles = StyleSheet.create({
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 12, // Circular
+    borderRadius: 12, 
     borderWidth: 2,
-    borderColor: '#aaa',
+    borderColor: '#ffffff', // White border
     marginRight: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2, // Slight adjustment for text alignment
+    marginTop: 2, 
   },
   checkboxSelected: {
-    backgroundColor: '#007AFF', // Blue fill when selected
-    borderColor: '#007AFF',
+    backgroundColor: '#FFF', 
+    borderColor: '#000',
   },
   checkboxTextContainer: {
     flex: 1,
     flexDirection: 'row',
-    flexWrap: 'wrap', // Wrap text if it exceeds width
+    flexWrap: 'wrap', 
   },
   checkboxLabel: {
-    color: '#555',
+    color: '#cccccc', // Light Gray Text
     fontSize: 14,
   },
   checkboxLink: {
-    color: '#007AFF', // Blue link color
+    color: '#007AFF', // Blue Link (Requested to stay blue)
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -193,14 +198,14 @@ const authStyles = StyleSheet.create({
   // --- DOCUMENT MODAL STYLES (Terms/Privacy Pop-up) ---
   docModalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   docModalContent: {
     width: width * 0.9,
-    height: height * 0.8, // Covers 80% of screen height
-    backgroundColor: '#fff',
+    height: height * 0.8, 
+    backgroundColor: '#2C2C2C', // Dark Card
     borderRadius: 15,
     padding: 20,
     shadowColor: "#000",
@@ -208,27 +213,31 @@ const authStyles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: '#444',
   },
   docModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 15,
     textAlign: 'center',
-    color: '#333',
+    color: '#ffffff', // White
   },
   docScrollView: {
     marginBottom: 15,
   },
   docText: {
     fontSize: 14,
-    color: '#333',
+    color: '#cccccc', // Light Gray Text
     lineHeight: 22,
   },
   docCloseButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#000000', // Black Button
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#555',
   },
 });
 
