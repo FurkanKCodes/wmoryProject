@@ -13,7 +13,14 @@
       "bundleIdentifier": "com.photoapp.project",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.475359737954-6d67avriu75rq2rsqc92so3tms7sitpv"
+            ]
+          }
+        ]
       }
     },
     "android": {
