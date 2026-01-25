@@ -33,7 +33,12 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.photoapp.project",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "androidStatusBar": {
+        "barStyle": "light-content",
+        "backgroundColor": "#00000000",
+        "translucent": true
+      }
     },
     "web": {
       "output": "static",
@@ -55,7 +60,15 @@
       ],
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
-      "@react-native-firebase/app-check"
+      "@react-native-firebase/app-check",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Uygulamanın fotoğraf çekebilmesi için kamera izni gerekiyor.",
+          "enableMicrophonePermission": true,
+          "microphonePermissionText": "Video kaydı için mikrofon izni gerekiyor."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
