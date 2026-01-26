@@ -1,10 +1,10 @@
 import { StyleSheet, Platform, StatusBar } from 'react-native';
 
-const homeStyles = StyleSheet.create({
+export const getHomeStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     // Item 1: Dark gray background (gradient requires logic change, dark gray applied)
-    backgroundColor: '#333333', 
+    backgroundColor: colors.background, 
   },
   // Header Styles (Updated)
   headerContainer: {
@@ -13,7 +13,7 @@ const homeStyles = StyleSheet.create({
     paddingBottom: 15, 
     paddingHorizontal: 20,
     // Item 2: Darkest gray tone (background bottom color)
-    backgroundColor: '#1a1a1a', 
+    backgroundColor: colors.headerBg, 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -30,11 +30,11 @@ const homeStyles = StyleSheet.create({
     borderRadius: 19, 
     borderWidth: 2,
     // Item 3: Black border
-    borderColor: '#ffffff',
+    borderColor: colors.textPrimary,
   },
   headerTitle: {
     // Item 4: White text and font size 27
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontSize: 27, 
     fontWeight: 'bold',
   },
@@ -43,7 +43,7 @@ const homeStyles = StyleSheet.create({
     height: 40,
     borderRadius: 19,
     // Item 5: Black background
-    backgroundColor: '#000000',
+    backgroundColor: colors.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -75,7 +75,7 @@ const homeStyles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF', 
+    backgroundColor: colors.textPrimary, 
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 15,
@@ -86,8 +86,8 @@ const homeStyles = StyleSheet.create({
     borderRadius: 12,
     marginRight: 15,
     borderWidth: 2,
-    borderColor: '#ffffff',
-    backgroundColor: '#ddd',
+    borderColor: colors.textPrimary,
+    backgroundColor: colors.border,
   },
   groupInfo: {
     flex: 1,
@@ -96,14 +96,14 @@ const homeStyles = StyleSheet.create({
   groupName: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: colors.textPrimary,
   },
   memberListContainer: {
     marginTop: 10, // Space between header and members
     width: '100%',
   },
   memberPill: {
-    backgroundColor: '#E0E0E0', 
+    backgroundColor: colors.inputBg, 
     borderRadius: 8,      // ESKİSİ 15'ti. 8 yaparak daha köşeli (hafif yuvarlak) yaptık.
     paddingVertical: 7,   // ESKİSİ 5'ti. Yüksekliği artırdık.
     paddingHorizontal: 12,// ESKİSİ 10'du. Genişliği artırdık.
@@ -114,7 +114,7 @@ const homeStyles = StyleSheet.create({
   memberPillText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000000', // Black text for contrast
+    color: colors.textPrimary, // Black text for contrast
   },
   // Empty State Styles
   emptyContainer: {
@@ -125,12 +125,12 @@ const homeStyles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#ffffff',
+    color: colors.textPrimary,
     marginTop: 20,
   },
   emptySubText: {
     fontSize: 14,
-    color: '#ffffff',
+    color: colors.textPrimary,
     textAlign: 'center',
     marginTop: 10,
     paddingHorizontal: 40,
@@ -145,7 +145,7 @@ const homeStyles = StyleSheet.create({
   },
   modalContainer: {
     width: '90%',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.headerBg,
     borderRadius: 20,
     paddingVertical: 10,
     elevation: 5,
@@ -163,7 +163,7 @@ const homeStyles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#000000',
+    borderBottomColor: colors.textPrimary,
     marginBottom: 20,
   },
   tabButton: {
@@ -174,15 +174,15 @@ const homeStyles = StyleSheet.create({
   activeTab: {
     backgroundColor: '#101010', 
     borderBottomWidth: 3,
-    borderBottomColor: '#000000',
+    borderBottomColor: colors.textPrimary,
   },
   tabText: {
     fontSize: 16,
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontWeight: 'bold',
   },
   modalContent: {
@@ -202,7 +202,7 @@ const homeStyles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#ccc',
+    backgroundColor: colors.iconDefault,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -214,27 +214,27 @@ const homeStyles = StyleSheet.create({
     marginBottom: 10,
   },
   selectPhotoText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 14,
   },
   label: {
     alignSelf: 'flex-start',
     fontWeight: 'bold',
     marginBottom: 5,
-    color: '#ffffff',
+    color: colors.textPrimary,
     marginLeft: 2,
   },
   input: {
     width: '100%',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 12,
     marginBottom: 20,
     backgroundColor: '#fafafa',
   },
   actionButton: {
-    backgroundColor: '#000000',
+    backgroundColor: colors.textPrimary,
     paddingVertical: 12,
     borderRadius: 25,
     width: '100%',
@@ -250,7 +250,7 @@ const homeStyles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E0E0E0', // Light Gray Background
+    backgroundColor: colors.inputBg, // Light Gray Background
     borderRadius: 20, // Soft edges
     marginHorizontal: 20,
     marginTop: 20,
@@ -258,7 +258,7 @@ const homeStyles = StyleSheet.create({
     paddingHorizontal: 15,
     height: 45, // Slim bar
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: colors.iconDefault,
   },
   searchIcon: {
     marginRight: 10,
@@ -281,10 +281,8 @@ const homeStyles = StyleSheet.create({
   noResultText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#ffffff', // White text
+    color: colors.textPrimary, // White text
     textAlign: 'center',
     marginTop: 50,
   },
 });
-
-export default homeStyles;

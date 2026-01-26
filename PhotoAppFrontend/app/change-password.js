@@ -9,8 +9,12 @@ import API_URL from '../config';
 // Re-using edit profile styles for consistent look
 import editProfileStyles from '../styles/editProfileStyles';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
+import { getEditProfileStyles } from '../styles/editProfileStyles';
 
 export default function ChangePasswordScreen() {
+  const { colors, isDark } = useTheme();
+  const editProfileStyles = getEditProfileStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams();
   const userId = params.userId;
@@ -99,11 +103,13 @@ export default function ChangePasswordScreen() {
 
   return (
     <LinearGradient 
-      colors={['#4e4e4e', '#1a1a1a']} 
+      colors={colors.gradient} 
       style={editProfileStyles.container}
     >
-      <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
-
+      <StatusBar 
+        backgroundColor={colors.headerBg} 
+        barStyle={isDark ? "light-content" : "dark-content"} 
+      />
       {Platform.OS === 'ios' && (
         <View
           {...panResponder.panHandlers}
@@ -122,7 +128,7 @@ export default function ChangePasswordScreen() {
       {/* HEADER */}
       <View style={editProfileStyles.headerContainer}>
         <TouchableOpacity style={editProfileStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={32} color="#fff" />
+          <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
         </TouchableOpacity>
         
         <Text style={editProfileStyles.headerTitle}>Şifreyi Değiştir</Text>
@@ -134,7 +140,7 @@ export default function ChangePasswordScreen() {
             disabled={!isSaveActive || loading}
         >
             {loading ? (
-                <ActivityIndicator size="small" color="#007AFF" />
+                <ActivityIndicator size="small" color={colors.tint} />
             ) : (
                 <Text style={[
                     editProfileStyles.saveButtonText, 
@@ -161,6 +167,7 @@ export default function ChangePasswordScreen() {
                         value={currentPassword}
                         onChangeText={(text) => { setCurrentPassword(text); setCurrentPasswordError(''); }}
                         placeholder="Mevcut şifrenizi girin"
+                        placeholderTextColor={colors.textSecondary}
                         secureTextEntry
                     />
                     {currentPasswordError ? (
@@ -176,6 +183,7 @@ export default function ChangePasswordScreen() {
                         value={newPassword}
                         onChangeText={handleNewPasswordChange}
                         placeholder="Yeni şifrenizi girin"
+                        placeholderTextColor={colors.textSecondary}
                         secureTextEntry
                     />
                     {newPasswordError ? (

@@ -8,8 +8,12 @@ import auth from '@react-native-firebase/auth';
 import API_URL from '../config'; 
 import authStyles from '../styles/authStyles'; 
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
+import { getAuthStyles } from '../styles/authStyles';
 
 export default function ForgotPasswordScreen() {
+  const { colors, isDark } = useTheme();
+  const authStyles = getAuthStyles(colors);
   const router = useRouter();
   
   const [phoneNumber, setPhoneNumber] = useState(''); 
@@ -108,7 +112,7 @@ export default function ForgotPasswordScreen() {
   return (
     // CHANGE: Added LinearGradient wrapper for dark theme consistency
     <LinearGradient 
-      colors={['#4e4e4e', '#1a1a1a']} 
+      colors={colors.gradient} 
       style={authStyles.container}
     >
 
@@ -121,7 +125,7 @@ export default function ForgotPasswordScreen() {
           <Text style={authStyles.title}>Şifremi Unuttum</Text>
           
           {/* CHANGE: Updated text color from #666 to #cccccc for better visibility on dark bg */}
-          <Text style={{textAlign:'center', marginBottom:20, color:'#cccccc'}}>
+          <Text style={{textAlign:'center', marginBottom:20, color: colors.textSecondary}}>
             Hesabınıza kayıtlı telefon numarasını girin. Size bir doğrulama kodu göndereceğiz.
           </Text>
 
@@ -131,7 +135,7 @@ export default function ForgotPasswordScreen() {
                <TextInput
                   style={authStyles.phoneInput}
                   placeholder="555 XXX XX XX"
-                  placeholderTextColor="#666" // Darker placeholder
+                  placeholderTextColor={colors.textSecondary} // Darker placeholder
                   value={phoneNumber}
                   onChangeText={handlePhoneChange}
                   keyboardType="number-pad"
@@ -166,7 +170,7 @@ export default function ForgotPasswordScreen() {
                 <TextInput
                   style={authStyles.modalInput}
                   placeholder="Kod (123456)"
-                  placeholderTextColor="#666"
+                  placeholderTextColor={colors.textSecondary}
                   value={verificationCode}
                   onChangeText={setVerificationCode}
                   keyboardType="number-pad"
@@ -176,7 +180,7 @@ export default function ForgotPasswordScreen() {
                 <TextInput
                   style={[authStyles.input, {width:'100%', marginBottom:20}]} 
                   placeholder="Yeni Şifre"
-                  placeholderTextColor="#666"
+                  placeholderTextColor={colors.textSecondary}
                   value={newPassword}
                   onChangeText={setNewPassword}
                   secureTextEntry

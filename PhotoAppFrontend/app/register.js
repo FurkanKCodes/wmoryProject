@@ -9,8 +9,12 @@ import API_URL from '../config';
 import authStyles from '../styles/authStyles'; 
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
+import { getAuthStyles } from '../styles/authStyles';
 
 export default function RegisterScreen() {
+  const { colors, isDark } = useTheme();
+  const authStyles = getAuthStyles(colors);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -148,7 +152,7 @@ export default function RegisterScreen() {
   return (
     // CHANGE: Added LinearGradient as the main wrapper matching Home screen
     <LinearGradient
-      colors={['#4e4e4e', '#1a1a1a']}
+      colors={colors.gradient}
       style={authStyles.container}
     >
       <KeyboardAvoidingView 
@@ -166,7 +170,7 @@ export default function RegisterScreen() {
             <TextInput
               style={authStyles.input}
               placeholder="Kullanıcı Adı"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.textSecondary}
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
@@ -175,7 +179,7 @@ export default function RegisterScreen() {
             <TextInput
               style={authStyles.input}
               placeholder="E-posta Adresi"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.textSecondary}
               value={email}
               onChangeText={handleEmailChange}
               keyboardType="email-address"
@@ -190,7 +194,7 @@ export default function RegisterScreen() {
                <TextInput
                   style={authStyles.phoneInput}
                   placeholder="Telefon Numarası (555...)"
-                  placeholderTextColor="#aaa"
+                  placeholderTextColor={colors.textSecondary}
                   value={phoneNumber}
                   onChangeText={handlePhoneChange}
                   keyboardType="number-pad"
@@ -204,7 +208,7 @@ export default function RegisterScreen() {
             <TextInput
               style={authStyles.input}
               placeholder="Şifre"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.textSecondary}
               value={password}
               onChangeText={handlePasswordChange}
               secureTextEntry
@@ -219,7 +223,7 @@ export default function RegisterScreen() {
             <TouchableOpacity onPress={() => setIsAgreed(!isAgreed)}>
               <View style={[authStyles.checkbox, isAgreed && authStyles.checkboxSelected]}>
                 {/* Eğer onaylandıysa (isAgreed true ise) içine SİYAH TİK koy */}
-                {isAgreed && <Ionicons name="checkmark" size={18} color="black" />}
+                {isAgreed && <Ionicons name="checkmark" size={18} color={isAgreed ? colors.tint : colors.textSecondary} />}
               </View>
             </TouchableOpacity>
 
@@ -241,7 +245,7 @@ export default function RegisterScreen() {
               disabled={!isRegisterEnabled || loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.tint} />
             ) : (
               <Text style={authStyles.buttonText}>Kayıt Ol</Text>
             )}
@@ -265,7 +269,7 @@ export default function RegisterScreen() {
                 <TextInput
                   style={authStyles.modalInput}
                   placeholder="123456"
-                  placeholderTextColor="#666" // Darker placeholder for better contrast on light modal input
+                  placeholderTextColor={colors.textSecondary} // Darker placeholder for better contrast on light modal input
                   value={verificationCode}
                   onChangeText={setVerificationCode}
                   keyboardType="number-pad"
@@ -273,7 +277,7 @@ export default function RegisterScreen() {
                   autoFocus={true}
                 />
                 <TouchableOpacity style={authStyles.modalButton} onPress={verifyCodeAndRegister} disabled={loading}>
-                   {loading ? <ActivityIndicator color="#fff" /> : <Text style={authStyles.buttonText}>Doğrula ve Tamamla</Text>}
+                   {loading ? <ActivityIndicator color={colors.tint} /> : <Text style={authStyles.buttonText}>Doğrula ve Tamamla</Text>}
                 </TouchableOpacity>
                 <TouchableOpacity style={authStyles.modalCancelButton} onPress={() => { setModalVisible(false); setLoading(false); }}>
                   <Text style={authStyles.modalCancelText}>Vazgeç</Text>

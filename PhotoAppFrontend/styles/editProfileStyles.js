@@ -1,9 +1,9 @@
 import { StyleSheet, Platform, StatusBar } from 'react-native';
 
-const editProfileStyles = StyleSheet.create({
+export const getEditProfileStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.textPrimary,
   },
   // --- HEADER STYLES ---
   headerContainer: {
@@ -11,7 +11,7 @@ const editProfileStyles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 65 : StatusBar.currentHeight + 25,
     paddingBottom: 15,
     paddingHorizontal: 20,
-    backgroundColor: '#1a1a1a', 
+    backgroundColor: colors.headerBg, 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between', 
@@ -29,7 +29,7 @@ const editProfileStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 27,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -53,7 +53,7 @@ const editProfileStyles = StyleSheet.create({
     fontWeight: 'bold',
   },
   saveTextActive: {
-    color: '#FFF', 
+    color: colors.textPrimary, 
   },
   saveTextInactive: {
     color: '#000', 
@@ -75,12 +75,12 @@ const editProfileStyles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
-    borderColor: '#FFFFFF', 
+    borderColor: colors.textPrimary, 
     marginBottom: 10,
   },
   changePhotoText: {
     fontSize: 16,
-    color: '#FFF',
+    color: colors.textPrimary,
     fontWeight: '600',
     marginTop: 5,
   },
@@ -96,7 +96,7 @@ const editProfileStyles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    color: '#cccccc',
+    color: colors.textSecondary,
     marginBottom: 8,
     fontWeight: 'bold',
     textAlign: 'left', // Ensure text aligns left
@@ -105,10 +105,10 @@ const editProfileStyles = StyleSheet.create({
   inputField: {
     borderBottomWidth: 1,
     backgroundColor: '#transparent',
-    borderBottomColor: '#666',
+    borderBottomColor: colors.border,
     paddingVertical: 10,
     fontSize: 18,
-    color: '#ffffff',
+    color: colors.textPrimary,
     width: '100%',
     textAlign: 'left',
   },
@@ -118,8 +118,8 @@ const editProfileStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    backgroundColor: '#FFF',
-    borderBottomColor: '#FFF',
+    backgroundColor: colors.textPrimary,
+    borderBottomColor: colors.textPrimary,
     width: '100%',
   },
   phonePrefix: {
@@ -142,5 +142,3 @@ const editProfileStyles = StyleSheet.create({
     textAlign: 'left',
   },
 });
-
-export default editProfileStyles;

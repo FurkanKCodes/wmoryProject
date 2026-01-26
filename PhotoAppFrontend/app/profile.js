@@ -6,11 +6,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_URL from '../config'; 
 import profileStyles from '../styles/profileStyles';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext'; 
+import { getProfileStyles } from '../styles/profileStyles';
 
 const defaultProfileImage = require('../assets/no-pic.jpg');
 
 export default function ProfileScreen() {
-  const { width } = Dimensions.get('window'); // Ekran genişliği
+  const { width } = Dimensions.get('window'); 
+
+  // --- THEME HOOK INTEGRATION ---
+  const { colors, themePreference, setTheme, isDark } = useTheme();
+  // Generate styles dynamically based on current colors
+  const profileStyles = getProfileStyles(colors); 
+  
+  // --- THEME MODAL STATE ---
+  const [isThemeModalVisible, setThemeModalVisible] = useState(false);
 
   // --- iOS SWIPE BACK (Right to Left) ---
   const panResponder = useRef(
@@ -265,10 +275,14 @@ export default function ProfileScreen() {
 
   return (
     <LinearGradient 
-      colors={['#4e4e4e', '#1a1a1a']} 
+      colors={colors.gradient} 
       style={profileStyles.container}
     >
-      <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
+      {/* Dynamic Status Bar */}
+      <StatusBar 
+         backgroundColor={colors.headerBg} 
+         barStyle={isDark ? "light-content" : "dark-content"} 
+      />
 
       {Platform.OS === 'ios' && (
         <View
@@ -361,6 +375,20 @@ export default function ProfileScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </TouchableOpacity>
+          
+          <TouchableOpacity style={profileStyles.settingItem} onPress={() => setThemeModalVisible(true)}>
+            <View style={profileStyles.settingLeft}>
+              <Ionicons name="color-palette-outline" size={24} color={colors.iconDefault} style={{marginRight: 15}} />
+              <Text style={profileStyles.settingText}>Görünüm</Text>
+            </View>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                {/* Show current theme status text */}
+                <Text style={{color: colors.textSecondary, marginRight: 10, fontSize: 14}}>
+                    {themePreference === 'system' ? 'Sistem' : (themePreference === 'dark' ? 'Koyu' : 'Aydınlık')}
+                </Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.iconDefault} />
+            </View>
+          </TouchableOpacity>
 
           <TouchableOpacity style={profileStyles.settingItem} onPress={handleLogout}>
             <View style={profileStyles.settingLeft}>
@@ -432,6 +460,54 @@ export default function ProfileScreen() {
                   style={profileStyles.fullScreenImage}
                   resizeMode="contain"
               />
+          </View>
+      </Modal>
+
+      {/* --- THEME SELECTION MODAL (NEW) --- */}
+      <Modal visible={isThemeModalVisible} transparent={true} animationType="fade" onRequestClose={() => setThemeModalVisible(false)}>
+          <View style={profileStyles.modalOverlay}>
+              <View style={profileStyles.themeModalContainer}>
+                  <Text style={profileStyles.themeTitle}>Tema Seç</Text>
+                  
+                  <View style={profileStyles.themeOptionsContainer}>
+                      {/* LIGHT OPTION */}
+                      <TouchableOpacity 
+                        style={[profileStyles.themeOption, themePreference === 'light' && profileStyles.themeOptionSelected]} 
+                        onPress={() => setTheme('light')}
+                      >
+                          <View style={[profileStyles.themePreviewBox, {backgroundColor: '#fff', borderColor: '#ccc'}]}>
+                             <Ionicons name="sunny" size={24} color="#000" />
+                          </View>
+                          <Text style={profileStyles.themeText}>Aydınlık</Text>
+                      </TouchableOpacity>
+
+                      {/* DARK OPTION */}
+                      <TouchableOpacity 
+                        style={[profileStyles.themeOption, themePreference === 'dark' && profileStyles.themeOptionSelected]} 
+                        onPress={() => setTheme('dark')}
+                      >
+                          <View style={[profileStyles.themePreviewBox, {backgroundColor: '#333', borderColor: '#555'}]}>
+                             <Ionicons name="moon" size={24} color="#fff" />
+                          </View>
+                          <Text style={profileStyles.themeText}>Koyu</Text>
+                      </TouchableOpacity>
+
+                      {/* SYSTEM OPTION */}
+                      <TouchableOpacity 
+                        style={[profileStyles.themeOption, themePreference === 'system' && profileStyles.themeOptionSelected]} 
+                        onPress={() => setTheme('system')}
+                      >
+                          <View style={[profileStyles.themePreviewBox, {backgroundColor: '#666', borderColor: '#888'}]}>
+                             <Ionicons name="phone-portrait-outline" size={24} color="#fff" />
+                          </View>
+                          <Text style={profileStyles.themeText}>Sistem</Text>
+                      </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity onPress={() => setThemeModalVisible(false)} style={profileStyles.closeModalButton}>
+                      <Text style={profileStyles.closeModalText}>Kapat</Text>
+                  </TouchableOpacity>
+              </View>
           </View>
       </Modal>
 

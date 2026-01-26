@@ -12,6 +12,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants'; 
 import API_URL from '../config';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 
 // Notification Settings
 Notifications.setNotificationHandler({
@@ -23,6 +24,10 @@ Notifications.setNotificationHandler({
 });
 
 export default function LoginScreen() {
+  // --- THEME HOOK ---
+  const { colors, isDark } = useTheme();
+  // Generate styles dynamically based on current theme colors
+  const styles = getStyles(colors);
   const router = useRouter();
   
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -163,18 +168,20 @@ export default function LoginScreen() {
   if (checkingSession) {
       return (
           <View style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'#fff'}}>
-              <ActivityIndicator size="large" color="#007AFF" />
+              <ActivityIndicator size="large" color={colors.tint} />
           </View>
       );
   }
 
   return (
     <LinearGradient
-      colors={['#4e4e4e', '#1a1a1a']} // Home sayfasıyla aynı gradient renkleri
+      colors={colors.gradient} 
       style={{ flex: 1 }}
     >
-      {/* Status Bar yazılarını beyaz yapıyoruz */}
-      <StatusBar barStyle="light-content" />
+      <StatusBar 
+        barStyle={isDark ? "light-content" : "dark-content"} 
+        backgroundColor={colors.headerBg} // Android için arka plan
+      />
 
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
@@ -199,7 +206,7 @@ export default function LoginScreen() {
               <TextInput
                 style={styles.phoneInput}
                 placeholder="Telefon Numarası (555...)"
-                placeholderTextColor="#666" // Placeholder rengi (daha koyu gri)
+                placeholderTextColor={colors.textSecondary} // Placeholder rengi (daha koyu gri)
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 keyboardType="number-pad"
@@ -210,14 +217,14 @@ export default function LoginScreen() {
             <TextInput
               style={styles.input}
               placeholder="Şifre"
-              placeholderTextColor="#666" // Placeholder rengi
+              placeholderTextColor={colors.textSecondary} // Placeholder rengi
               value={password}
               onChangeText={setPassword}
               secureTextEntry
             />
 
             <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Giriş Yap</Text>}
+              {loading ? <ActivityIndicator color={colors.background} /> : <Text style={styles.buttonText}>Giriş Yap</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => router.push('/ForgotPasswordScreen')} style={{marginBottom: 15}}>
@@ -234,8 +241,8 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  // Main container background updated to Dark Theme
+// Dynamic Style Generator
+const getStyles = (colors) => StyleSheet.create({
   scrollContainer: { 
     flexGrow: 1, 
     justifyContent: 'center', 
@@ -253,71 +260,71 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#ffffff', // White text
+    color: colors.textPrimary, // Dynamic text color
     marginBottom: 10,
   },
   formContainer: {
     width: '100%'
   },
   
-  // Normal Input Style (Light Gray Background as requested)
+  // Normal Input Style
   input: { 
     height: 50, 
-    borderColor: '#555', // Darker border
+    borderColor: colors.border, 
     borderWidth: 1, 
     borderRadius: 8, 
     paddingHorizontal: 15, 
     marginBottom: 15, 
     fontSize: 16, 
-    backgroundColor: '#E0E0E0', // Light Gray Box
-    color: '#000000', // Black Text inside light box
+    backgroundColor: colors.inputBg, // Dynamic Input Background
+    color: colors.textPrimary, // Dynamic Input Text
   },
 
-  // Phone Input Container (Light Gray Background)
+  // Phone Input Container
   phoneInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 50,
-    borderColor: '#555',
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 8,
-    backgroundColor: '#E0E0E0', // Light Gray Box
+    backgroundColor: colors.inputBg, // Dynamic Input Background
     paddingHorizontal: 15,
     marginBottom: 15
   },
   countryCode: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#000000', // Black Text
+    color: colors.textPrimary, 
     marginRight: 10
   },
   phoneInput: {
     flex: 1,
     height: '100%',
     fontSize: 16,
-    color: '#000000' // Black Text
+    color: colors.textPrimary 
   },
   
-  // Login Button (Black Background, White Text)
+  // Login Button
   button: { 
-    backgroundColor: '#000000', // Black Background
+    backgroundColor: colors.textPrimary, // Light: Black, Dark: White (Inverted look)
     height: 50, 
-    borderRadius: 25, // More rounded (consistent with other buttons)
+    borderRadius: 25, 
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#444' // Subtle border
+    borderColor: colors.border
   },
   buttonText: {
-    color: '#ffffff', // White Text
+    color: colors.background, // Light: White text, Dark: Black text (Contrast)
     fontSize: 18,
     fontWeight: 'bold'
   },
   
-  // Link Texts (Forgot Password / Register)
+  // Link Texts
   linkText: {
-    color: '#cccccc', // Light Gray/White text for visibility on dark bg
+    color: colors.textSecondary, // Dynamic gray
     textAlign: 'center',
     fontSize: 16,
     marginTop: 10,

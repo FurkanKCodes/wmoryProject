@@ -2,10 +2,10 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-const authStyles = StyleSheet.create({
+export const getAuthStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#333333', // Dark Theme Background
+    backgroundColor: colors.background, // Dark Theme Background
   },
   // Style for ScrollView content container
   scrollContainer: {
@@ -18,47 +18,47 @@ const authStyles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 40,
-    color: '#ffffff', // White Title
+    color: colors.textPrimary, // White Title
   },
   inputContainer: {
     width: '100%',
     marginBottom: 20,
   },
   input: {
-    backgroundColor: '#E0E0E0', // Light Gray Box (Requested Style)
+    backgroundColor: colors.inputBg, // Light Gray Box (Requested Style)
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#555', // Darker border
+    borderColor: colors.border, // Darker border
     fontSize: 16,
     width: '100%',
-    color: '#000000', // Black Text inside light box
+    color: colors.textPrimary, // Black Text inside light box
   },
   
   // --- PHONE INPUT STYLES ---
   phoneContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E0E0E0', // Light Gray Box
+    backgroundColor: colors.inputBg, // Light Gray Box
     borderRadius: 10,
     marginBottom: 5, 
     borderWidth: 1,
-    borderColor: '#555',
+    borderColor: colors.border,
     width: '100%',
   },
   phonePrefix: {
     paddingLeft: 15,
     paddingRight: 10,
     fontSize: 16,
-    color: '#000000', // Black Text
+    color: colors.textPrimary, // Black Text
     fontWeight: '600',
   },
   phoneInput: {
     flex: 1,
     padding: 15,
     fontSize: 16,
-    color: '#000000', // Black Text
+    color: colors.textPrimary, // Black Text
   },
   errorText: {
     color: '#FF3B30', // Bright Red
@@ -70,20 +70,20 @@ const authStyles = StyleSheet.create({
 
   // Button Styles
   button: {
-    backgroundColor: '#000000', // Black Button
+    backgroundColor: colors.textPrimary, // Black Button
     padding: 15,
     borderRadius: 25, // Rounded corners consistent with Login
     width: '100%',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: colors.border,
   },
   buttonDisabled: {
-    backgroundColor: '#555', // Dark gray when disabled
+    backgroundColor: colors.border, // Dark gray when disabled
     opacity: 0.7,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -91,7 +91,7 @@ const authStyles = StyleSheet.create({
     marginTop: 20,
   },
   linkText: {
-    color: '#cccccc', // Light Gray Text
+    color: colors.textSecondary, // Light Gray Text
     fontSize: 16,
   },
 
@@ -104,33 +104,33 @@ const authStyles = StyleSheet.create({
   },
   modalContainer: {
     width: width * 0.85,
-    backgroundColor: '#2C2C2C', // Dark Card Background
+    backgroundColor: colors.modalBg, // Dark Card Background
     borderRadius: 20,
     padding: 25,
     alignItems: 'center',
-    shadowColor: "#000",
+    shadowColor: colors.textPrimary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: colors.border,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#ffffff', // White
+    color: colors.textPrimary, // White
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#cccccc', // Light Gray
+    color: colors.textSecondary, // Light Gray
     marginBottom: 20,
     textAlign: 'center',
   },
   modalInput: {
     width: '100%',
-    backgroundColor: '#E0E0E0', // Light Gray Box
+    backgroundColor: colors.inputBg, // Light Gray Box
     padding: 15,
     borderRadius: 10,
     fontSize: 18,
@@ -138,10 +138,10 @@ const authStyles = StyleSheet.create({
     marginBottom: 20,
     letterSpacing: 5, 
     fontWeight: 'bold',
-    color: '#000000', // Black Text
+    color: colors.textPrimary, // Black Text
   },
   modalButton: {
-    backgroundColor: '#000', // Verification action can remain Blue or Black
+    backgroundColor: colors.textPrimary, // Verification action can remain Blue or Black
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 10,
@@ -170,15 +170,15 @@ const authStyles = StyleSheet.create({
     height: 24,
     borderRadius: 12, 
     borderWidth: 2,
-    borderColor: '#ffffff', // White border
+    borderColor: colors.textPrimary, // White border
     marginRight: 10,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2, 
   },
   checkboxSelected: {
-    backgroundColor: '#FFF', 
-    borderColor: '#000',
+    backgroundColor: colors.textPrimary, 
+    borderColor: colors.textPrimary,
   },
   checkboxTextContainer: {
     flex: 1,
@@ -186,11 +186,11 @@ const authStyles = StyleSheet.create({
     flexWrap: 'wrap', 
   },
   checkboxLabel: {
-    color: '#cccccc', // Light Gray Text
+    color: colors.textSecondary, // Light Gray Text
     fontSize: 14,
   },
   checkboxLink: {
-    color: '#007AFF', // Blue Link (Requested to stay blue)
+    color: colors.tint, // Blue Link (Requested to stay blue)
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -205,40 +205,38 @@ const authStyles = StyleSheet.create({
   docModalContent: {
     width: width * 0.9,
     height: height * 0.8, 
-    backgroundColor: '#2C2C2C', // Dark Card
+    backgroundColor: colors.modalBg, // Dark Card
     borderRadius: 15,
     padding: 20,
-    shadowColor: "#000",
+    shadowColor: colors.textPrimary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: colors.border,
   },
   docModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 15,
     textAlign: 'center',
-    color: '#ffffff', // White
+    color: colors.textPrimary, // White
   },
   docScrollView: {
     marginBottom: 15,
   },
   docText: {
     fontSize: 14,
-    color: '#cccccc', // Light Gray Text
+    color: colors.textSecondary, // Light Gray Text
     lineHeight: 22,
   },
   docCloseButton: {
-    backgroundColor: '#000000', // Black Button
+    backgroundColor: colors.textPrimary, // Black Button
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#555',
+    borderColor: colors.border,
   },
 });
-
-export default authStyles;

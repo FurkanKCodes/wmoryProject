@@ -10,10 +10,14 @@ import * as ImagePicker from 'expo-image-picker';
 import API_URL from '../config';
 import editProfileStyles from '../styles/editProfileStyles';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
+import { getEditProfileStyles } from '../styles/editProfileStyles';
 
 const defaultProfileImage = require('../assets/no-pic.jpg');
 
 export default function EditProfileScreen() {
+  const { colors, isDark } = useTheme();
+  const editProfileStyles = getEditProfileStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams();
   const userId = params.userId;
@@ -208,10 +212,13 @@ export default function EditProfileScreen() {
 
   return (
     <LinearGradient 
-      colors={['#4e4e4e', '#1a1a1a']} 
+      colors={colors.gradient} 
       style={editProfileStyles.container}
     >
-      <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
+      <StatusBar 
+        backgroundColor={colors.headerBg} 
+        barStyle={isDark ? "light-content" : "dark-content"} 
+      />
 
       {Platform.OS === 'ios' && (
         <View
@@ -231,7 +238,7 @@ export default function EditProfileScreen() {
       {/* HEADER */}
       <View style={editProfileStyles.headerContainer}>
         <TouchableOpacity style={editProfileStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={32} color="#fff" />
+          <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
         </TouchableOpacity>
         
         <Text style={editProfileStyles.headerTitle}>Profili Düzenle</Text>
@@ -243,7 +250,7 @@ export default function EditProfileScreen() {
             disabled={!isSaveActive || saving}
         >
             {saving ? (
-                <ActivityIndicator size="small" color="#007AFF" />
+                <ActivityIndicator size="small" color={colors.tint} />
             ) : (
                 <Text style={[
                     editProfileStyles.saveButtonText, 
@@ -263,7 +270,7 @@ export default function EditProfileScreen() {
       >
         <ScrollView contentContainerStyle={editProfileStyles.scrollContent}>
             {loading ? (
-                <ActivityIndicator style={{ marginTop: 50 }} color="#FFFFFF" />
+                <ActivityIndicator style={{ marginTop: 50 }} color={colors.tint} />
             ) : (
                 <View>
                     
@@ -289,6 +296,7 @@ export default function EditProfileScreen() {
                                 value={username}
                                 onChangeText={setUsername}
                                 placeholder="Kullanıcı Adı"
+                                placeholderTextColor={colors.textSecondary}
                             />
                         </View>
 
@@ -300,6 +308,7 @@ export default function EditProfileScreen() {
                                 value={email}
                                 onChangeText={handleEmailChange} // CHANGED: Use new handler
                                 placeholder="Email Adresi"
+                                placeholderTextColor={colors.textSecondary}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                             />

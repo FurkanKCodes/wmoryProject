@@ -12,11 +12,15 @@ import NetInfo from '@react-native-community/netinfo';
 import API_URL from '../config'; 
 import homeStyles from '../styles/homeStyles'; 
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
+import { getHomeStyles } from '../styles/homeStyles';
 
 const defaultProfileImage = require('../assets/no-pic.jpg');
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
+  const { colors, isDark } = useTheme();
+  const homeStyles = getHomeStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams();
   const userId = params.userId; 
@@ -286,7 +290,7 @@ export default function HomeScreen() {
       
       {/* Add Button */}
       <TouchableOpacity style={homeStyles.addButton} onPress={() => setModalVisible(true)}>
-        <Ionicons name="add" size={30} color="#ffffff" />
+        <Ionicons name="add" size={30} color={colors.textPrimary} />
       </TouchableOpacity>
     </View>
   );
@@ -351,7 +355,7 @@ export default function HomeScreen() {
 
             {/* Right: Camera Icon */}
             <TouchableOpacity style={{ padding: 5 }} onPress={() => handleCameraAction(item.id)}>
-                <Ionicons name="camera-outline" size={30} color="#ffffff" />
+                <Ionicons name="camera-outline" size={30} color={colors.textPrimary} />
             </TouchableOpacity>
         </View>
 
@@ -400,11 +404,13 @@ export default function HomeScreen() {
 
   return (
     <LinearGradient 
-      colors={['#4e4e4e', '#1a1a1a']} 
+      colors={colors.gradient} 
       style={homeStyles.container}
     >
-      {/* StatusBar rengini de temaya uydurmak istersen değiştirebilirsin */}
-      <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
+      <StatusBar 
+    backgroundColor={colors.headerBg} 
+    barStyle={isDark ? "light-content" : "dark-content"} 
+  />
       <CustomHeader />
 
       {/* --- SEARCH BAR SECTION --- */}
@@ -416,7 +422,7 @@ export default function HomeScreen() {
         <TextInput
           style={homeStyles.searchInput}
           placeholder="Ara"
-          placeholderTextColor="#666" // Matching gray placeholder
+          placeholderTextColor={colors.textSecondary} // Matching gray placeholder
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoCapitalize="none"
@@ -426,7 +432,7 @@ export default function HomeScreen() {
         {/* Right: Clear Button (Visible only when typing) */}
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')} style={homeStyles.clearButton}>
-            <Ionicons name="close" size={14} color="black" />
+            <Ionicons name="close" size={14} color={colors.textPrimary} />
           </TouchableOpacity>
         )}
       </View>
@@ -442,7 +448,7 @@ export default function HomeScreen() {
             
             {/* Close Button */}
             <TouchableOpacity style={homeStyles.closeButton} onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#ffffff" />
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
 
             {/* Tabs */}
@@ -501,7 +507,7 @@ export default function HomeScreen() {
                             onPress={handleCreateGroup}
                             disabled={actionLoading}
                         >
-                            {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={homeStyles.actionButtonText}>Oluştur</Text>}
+                            {actionLoading ? <ActivityIndicator color={colors.tint} /> : <Text style={homeStyles.actionButtonText}>Oluştur</Text>}
                         </TouchableOpacity>
                     </View>
                 ) : (
@@ -519,7 +525,7 @@ export default function HomeScreen() {
                             onPress={handleJoinGroup}
                             disabled={actionLoading}
                         >
-                            {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={homeStyles.actionButtonText}>Katıl</Text>}
+                            {actionLoading ? <ActivityIndicator color={colors.tint} /> : <Text style={homeStyles.actionButtonText}>Katıl</Text>}
                         </TouchableOpacity>
                     </View>
                 )}
@@ -551,7 +557,7 @@ export default function HomeScreen() {
       {/* --- GROUP LIST --- */}
       <View style={homeStyles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color="#FFFFFF" style={{ marginTop: 50 }} />
+          <ActivityIndicator size="large" color={colors.tint} style={{ marginTop: 50 }} />
         ) : (
           <FlatList
             data={filteredData}

@@ -9,8 +9,13 @@ import { Video, ResizeMode } from 'expo-av';
 import API_URL from '../config';
 import adminPanelStyles from '../styles/adminPanelStyles';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
+import { getAdminPanelStyles } from '../styles/adminPanelStyles';
 
 export default function AdminPanel() {
+    // --- THEME HOOK ---
+  const { colors, isDark } = useTheme();
+  const adminPanelStyles = getAdminPanelStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams();
   const currentUserId = params.userId;
@@ -241,7 +246,7 @@ export default function AdminPanel() {
             <Text style={adminPanelStyles.subText}>Raporlayan: {item.reporter_username}</Text>
             <Text style={[adminPanelStyles.subText, {color: 'red'}]}>Şüpheli: {item.uploader_username}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        <Ionicons name="chevron-forward" size={20} color={colors.iconDefault} />
     </TouchableOpacity>
   );
 
@@ -261,10 +266,13 @@ export default function AdminPanel() {
   if (!isVerified) {
       return (
         <LinearGradient 
-            colors={['#4e4e4e', '#1a1a1a']} 
+            colors={colors.gradient}
             style={adminPanelStyles.container}
         >
-            <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
+            <StatusBar 
+                backgroundColor={colors.headerBg} 
+                barStyle={isDark ? "light-content" : "dark-content"} 
+            />
 
             {Platform.OS === 'ios' && (
                 <View
@@ -284,7 +292,7 @@ export default function AdminPanel() {
             {/* Simple Header */}
             <View style={adminPanelStyles.headerContainer}>
                 <TouchableOpacity style={adminPanelStyles.backButton} onPress={() => router.back()}>
-                    <Ionicons name="chevron-back" size={32} color="#fff" />
+                    <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
                 </TouchableOpacity>
                 <Text style={adminPanelStyles.headerTitle}>Güvenlik Kontrolü</Text>
                 <View style={{width:40}} /> 
@@ -292,12 +300,12 @@ export default function AdminPanel() {
 
             {initLoading ? (
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <ActivityIndicator size="large" color="#FFF" />
+                    <ActivityIndicator size="large" color={colors.tint} />
                     <Text style={{ marginTop: 20, color: '#666' }}>Kod oluşturuluyor...</Text>
                 </View>
             ) : (
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={adminPanelStyles.authContainer}>
-                    <Ionicons name="shield-checkmark" size={80} color="#FFF" style={{ marginBottom: 20 }} />
+                    <Ionicons name="shield-checkmark" size={80} color={colors.textPrimary} style={{ marginBottom: 20 }} />
                     <Text style={adminPanelStyles.authTitle}>Kimlik Doğrulama</Text>
                     <Text style={adminPanelStyles.authDesc}>
                         Lütfen {userEmail ? <Text style={{fontWeight:'bold'}}>{userEmail}</Text> : "mail"} adresinize gönderilen 6 haneli kodu giriniz.
@@ -314,7 +322,7 @@ export default function AdminPanel() {
                     />
 
                     <TouchableOpacity style={adminPanelStyles.authButton} onPress={handleVerifyCode} disabled={verifying}>
-                        {verifying ? <ActivityIndicator color="#fff" /> : <Text style={adminPanelStyles.authButtonText}>Onayla</Text>}
+                        {verifying ? <ActivityIndicator color={colors.tint} /> : <Text style={adminPanelStyles.authButtonText}>Onayla</Text>}
                     </TouchableOpacity>
 
                     <TouchableOpacity style={{ marginTop: 20 }} onPress={handleResendCode}>
@@ -329,10 +337,13 @@ export default function AdminPanel() {
   // --- MAIN ADMIN PANEL CONTENT ---
   return (
     <LinearGradient 
-      colors={['#4e4e4e', '#1a1a1a']} 
+      colors={colors.gradient} 
       style={adminPanelStyles.container}
     >
-      <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
+      <StatusBar 
+        backgroundColor={colors.headerBg} 
+        barStyle={isDark ? "light-content" : "dark-content"} 
+      />
 
       {Platform.OS === 'ios' && (
         <View
@@ -351,7 +362,7 @@ export default function AdminPanel() {
       
       <View style={adminPanelStyles.headerContainer}>
           <TouchableOpacity style={adminPanelStyles.backButton} onPress={() => router.back()}>
-              <Ionicons name="chevron-back" size={32} color="#fff" />
+              <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={adminPanelStyles.headerTitle}>Admin Sayfası</Text>
           <View style={{width: 32}} />
@@ -398,12 +409,12 @@ export default function AdminPanel() {
                       </View>
 
                       <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnBan, { marginTop: 30 }]} onPress={handleManualBan}>
-                          {manualLoading ? <ActivityIndicator color="#fff" /> : <Text style={adminPanelStyles.btnText}>Kullanıcıyı Banla ve Sil</Text>}
+                          {manualLoading ? <ActivityIndicator color={colors.tint} /> : <Text style={adminPanelStyles.btnText}>Kullanıcıyı Banla ve Sil</Text>}
                       </TouchableOpacity>
                   </ScrollView>
               </KeyboardAvoidingView>
           ) : (
-              loading ? <ActivityIndicator size="large" color="#FFF" style={{marginTop: 50}} /> : (
+              loading ? <ActivityIndicator size="large" color={colors.tint} style={{marginTop: 50}} /> : (
                   <FlatList
                     data={activeTab === 'reports' ? reports : bannedUsers}
                     keyExtractor={item => (activeTab === 'reports' ? `rep_${item.report_id}` : `ban_${item.id}`)}
@@ -424,7 +435,7 @@ export default function AdminPanel() {
                         <>
                             <View style={adminPanelStyles.modalHeader}>
                                 <Text style={adminPanelStyles.modalTitle}>Rapor Detayı</Text>
-                                <TouchableOpacity onPress={() => setReportModalVisible(false)}><Ionicons name="close" size={24} color="#333" /></TouchableOpacity>
+                                <TouchableOpacity onPress={() => setReportModalVisible(false)}><Ionicons name="close" size={24} color={colors.textPrimary} /></TouchableOpacity>
                             </View>
                             {selectedReport.media_type === 'video' ? (
                                 <Video source={{ uri: selectedReport.photo_url }} style={adminPanelStyles.evidenceVideo} useNativeControls resizeMode={ResizeMode.CONTAIN} isLooping />
@@ -454,7 +465,7 @@ export default function AdminPanel() {
                         <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
                             {selectedBannedUser && (
                                 <>
-                                    <View style={adminPanelStyles.modalHeader}><Text style={adminPanelStyles.modalTitle}>Ban Detayı</Text><TouchableOpacity onPress={() => setBanModalVisible(false)}><Ionicons name="close" size={24} color="#333" /></TouchableOpacity></View>
+                                    <View style={adminPanelStyles.modalHeader}><Text style={adminPanelStyles.modalTitle}>Ban Detayı</Text><TouchableOpacity onPress={() => setBanModalVisible(false)}><Ionicons name="close" size={24} color={colors.textPrimary} /></TouchableOpacity></View>
                                     <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Kullanıcı Adı:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.username || "-"}</Text></View>
                                     <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Telefon:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.phone_number}</Text></View>
                                     <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Ban Sebebi:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.reason}</Text></View>

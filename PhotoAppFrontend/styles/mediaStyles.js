@@ -2,11 +2,11 @@ import { StyleSheet, Platform, StatusBar, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-const mediaStyles = StyleSheet.create({
+export const getMediaStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     // Dark background consistent with Home page
-    backgroundColor: '#333333', 
+    backgroundColor: colors.background, 
   },
   // --- HEADER (Matched with Home) ---
   headerContainer: {
@@ -15,7 +15,7 @@ const mediaStyles = StyleSheet.create({
     paddingBottom: 15,
     paddingHorizontal: 20,
     // Home header color (Darkest Gray)
-    backgroundColor: '#1a1a1a', 
+    backgroundColor: colors.headerBg, 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -37,7 +37,7 @@ const mediaStyles = StyleSheet.create({
   },
   headerTitle: {
     // White text like Home
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontSize: 27, // Matched with Home font size
     fontWeight: 'bold',
   },
@@ -55,17 +55,17 @@ const mediaStyles = StyleSheet.create({
   // --- SECTION HEADERS (Date Separators) ---
   sectionHeaderContainer: {
     // Darker gray for separation (Matched with Home group cards)
-    backgroundColor: '#2C2C2C', 
+    backgroundColor: colors.cardBg, 
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#444', // Dark border
+    borderBottomColor: colors.border, // Dark border
   },
   sectionHeaderText: {
     fontSize: 16,
     fontWeight: 'bold',
     // White text
-    color: '#ffffff',
+    color: colors.textPrimary,
   },
 
   // --- SCROLL BUBBLE ---
@@ -102,7 +102,7 @@ const mediaStyles = StyleSheet.create({
     borderColor: '#333', 
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1a1a1a', // Dark placeholder
+    backgroundColor: colors.headerBg, // Dark placeholder
   },
   mediaItemSelected: {
       opacity: 0.7, 
@@ -136,7 +136,7 @@ const mediaStyles = StyleSheet.create({
   },
   filterModalContainer: {
       // Dark background
-      backgroundColor: '#1a1a1a',
+      backgroundColor: colors.headerBg,
       marginHorizontal: 20,
       borderRadius: 15,
       maxHeight: height * 0.6,
@@ -157,12 +157,12 @@ const mediaStyles = StyleSheet.create({
       borderBottomWidth: 1,
       borderBottomColor: '#333',
       // Slightly lighter dark for header
-      backgroundColor: '#222',
+      backgroundColor: colors.cardBg,
   },
   filterTitle: {
       fontSize: 18,
       fontWeight: 'bold',
-      color: '#ffffff',
+      color: colors.textPrimary,
   },
   filterContent: {
       padding: 10,
@@ -192,7 +192,7 @@ const mediaStyles = StyleSheet.create({
   },
   filterName: {
       fontSize: 16,
-      color: '#ffffff',
+      color: colors.textPrimary,
   },
   filterSeparator: {
       height: 1,
@@ -282,24 +282,24 @@ const mediaStyles = StyleSheet.create({
     position: 'absolute',
     top: Platform.OS === 'ios' ? 110 : 90,
     right: 20,
-    backgroundColor: '#2C2C2C',
+    backgroundColor: colors.cardBg,
     borderRadius: 10,
     padding: 5,
     width: 150,
     zIndex: 200,
     elevation: 5,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: colors.border,
   },
   optionItem: {
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    borderBottomColor: colors.border,
   },
   optionText: {
     fontSize: 16,
-    color: '#ffffff',
+    color: colors.textPrimary,
   },
   reportText: {
     color: '#FF3B30', 
@@ -320,7 +320,7 @@ const mediaStyles = StyleSheet.create({
     borderRadius: 15,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: colors.border,
     // Shadow for depth
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -338,7 +338,7 @@ const mediaStyles = StyleSheet.create({
   reportOption: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    borderBottomColor: colors.border,
   },
   reportOptionText: {
     fontSize: 16,
@@ -346,5 +346,3 @@ const mediaStyles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-
-export default mediaStyles;

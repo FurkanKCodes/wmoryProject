@@ -2,7 +2,7 @@ import { StyleSheet, Platform, StatusBar, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-const profileStyles = StyleSheet.create({
+export const getProfileStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     // Background color is handled by LinearGradient in profile.js
@@ -14,7 +14,7 @@ const profileStyles = StyleSheet.create({
     paddingBottom: 15,
     paddingHorizontal: 20,
     // Darkest gray (same as Home header)
-    backgroundColor: '#1a1a1a', 
+    backgroundColor: colors.headerBg, 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between', 
@@ -33,7 +33,7 @@ const profileStyles = StyleSheet.create({
   },
   headerTitle: {
     // White text and font size 27 (Matched with Home)
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontSize: 27,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -53,14 +53,14 @@ const profileStyles = StyleSheet.create({
     borderRadius: 60,
     borderWidth: 3,
     // White border (Matched with Home profile pic style)
-    borderColor: '#ffffff', 
+    borderColor: colors.textPrimary, 
     marginBottom: 15,
   },
   usernameText: {
     fontSize: 22,
     fontWeight: 'bold',
     // White text
-    color: '#ffffff',
+    color: colors.textPrimary,
     marginBottom: 5,
   },
   editProfileButton: {
@@ -74,7 +74,7 @@ const profileStyles = StyleSheet.create({
     marginBottom: 15, // Butonun altındaki boşluk
   },
   editProfileText: {
-    color: '#ffffff', // Beyaz yazı
+    color: colors.textPrimary, // Beyaz yazı
     fontSize: 14,
     fontWeight: '600',
   },
@@ -85,7 +85,7 @@ const profileStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     // Card background color (Matched with Home list items)
-    backgroundColor: '#2C2C2C', 
+    backgroundColor: colors.cardBg, 
     paddingVertical: 15,
     paddingHorizontal: 15,
     marginTop: 15,
@@ -100,20 +100,20 @@ const profileStyles = StyleSheet.create({
   infoLabel: {
     fontSize: 14,
     // Light gray for labels
-    color: '#cccccc',
+    color: colors.textSecondary,
     fontWeight: '400',
   },
   infoValue: {
     fontSize: 14,
     // White for values
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontWeight: 'bold',
     marginLeft: 5,
   },
   verticalDivider: {
     width: 1,
     height: '60%',
-    backgroundColor: '#555555', // Darker divider
+    backgroundColor: colors.divider, // Darker divider
     marginHorizontal: 15,
   },
 
@@ -129,7 +129,7 @@ const profileStyles = StyleSheet.create({
     paddingVertical: 15,
     borderBottomWidth: 1,
     // Dark divider color
-    borderBottomColor: '#444444',
+    borderBottomColor: colors.border,
   },
   settingLeft: {
     flexDirection: 'row',
@@ -145,7 +145,7 @@ const profileStyles = StyleSheet.create({
   settingText: {
     fontSize: 16,
     // White text
-    color: '#ffffff',
+    color: colors.textPrimary,
   },
   deleteAccountText: {
     color: '#FF3B30', // Keep red for delete
@@ -169,6 +169,77 @@ const profileStyles = StyleSheet.create({
     zIndex: 10,
     padding: 10,
   },
-});
 
-export default profileStyles;
+  // --- THEME SELECTION MODAL STYLES (New) ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: colors.overlay, // Dynamic overlay color
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  themeModalContainer: {
+    width: width * 0.85,
+    backgroundColor: colors.modalBg, // Dynamic modal background
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  themeTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginBottom: 20,
+  },
+  themeOptionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 20,
+  },
+  themeOption: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 10,
+    marginHorizontal: 5,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: colors.cardBg,
+  },
+  themeOptionSelected: {
+    borderColor: colors.tint, // Active blue border
+    backgroundColor: colors.cardBg,
+  },
+  themePreviewBox: {
+    width: '100%',
+    height: 50,
+    borderRadius: 8,
+    marginBottom: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  themeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginTop: 5,
+  },
+  closeModalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  closeModalText: {
+    fontSize: 16,
+    color: colors.tint,
+    fontWeight: 'bold',
+  },
+});

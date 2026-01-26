@@ -10,11 +10,16 @@ import * as Clipboard from 'expo-clipboard';
 import API_URL from '../config';
 import groupDetailsStyles from '../styles/groupDetailsStyles';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
+import { getGroupDetailsStyles } from '../styles/groupDetailsStyles';
 
 const defaultGroupImage = require('../assets/no-pic.jpg'); 
 const defaultUserImage = require('../assets/no-pic.jpg');
 
 export default function GroupDetailsScreen() {
+    // --- THEME HOOK ---
+  const { colors, isDark } = useTheme();
+  const groupDetailsStyles = getGroupDetailsStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams();
   const { groupId, userId } = params;
@@ -322,7 +327,7 @@ export default function GroupDetailsScreen() {
         {!isCurrentUser && (
             <View style={{ position: 'relative' }}>
                 <TouchableOpacity onPress={toggleMenu} style={groupDetailsStyles.moreButton}>
-                    <Ionicons name="ellipsis-vertical" size={24} color="#888" />
+                    <Ionicons name="ellipsis-vertical" size={24} color={colors.textSecondary} />
                 </TouchableOpacity>
                 {isMenuOpen && (
                     <View style={groupDetailsStyles.popupMenu}>
@@ -380,15 +385,18 @@ export default function GroupDetailsScreen() {
 
   return (
     <LinearGradient 
-      colors={['#4e4e4e', '#1a1a1a']} 
+      colors={colors.gradient} 
       style={groupDetailsStyles.container}
     >
-      <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
+      <StatusBar 
+        backgroundColor={colors.headerBg} 
+        barStyle={isDark ? "light-content" : "dark-content"} 
+      />
 
       {/* --- HEADER --- */}
       <View style={groupDetailsStyles.headerContainer}>
         <TouchableOpacity style={groupDetailsStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={32} color="#fff" />
+          <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
         </TouchableOpacity>
         {/* Show group name or empty if loading */}
         <Text style={groupDetailsStyles.headerTitle}>{groupDetails?.group_name}</Text>
@@ -401,7 +409,7 @@ export default function GroupDetailsScreen() {
       {loading ? (
           // Loading View: Centered white spinner on dark background
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <ActivityIndicator size="large" color="#FFFFFF" />
+              <ActivityIndicator size="large" color={colors.tint} />
           </View>
       ) : (
           // Content View: Your existing ScrollView content
@@ -470,9 +478,9 @@ export default function GroupDetailsScreen() {
                         <Ionicons 
                             name={notificationsEnabled ? "notifications" : "notifications-off"} 
                             size={20} 
-                            color="#000" 
+                            color={notificationsEnabled ? colors.textPrimary : colors.textSecondary} 
                         />
-                        <Text style={groupDetailsStyles.textBlack}>
+                        <Text style={[groupDetailsStyles.actionButtonText, { color: notificationsEnabled ? colors.textPrimary : colors.textSecondary }]}>
                             {notificationsEnabled ? "Bildirimler Açık" : "Bildirimler Kapalı"}
                         </Text>
                     </TouchableOpacity>
@@ -506,7 +514,7 @@ export default function GroupDetailsScreen() {
       <Modal visible={isImageModalVisible} transparent={true} animationType="fade" onRequestClose={() => setImageModalVisible(false)}>
         <View style={groupDetailsStyles.modalContainer}>
             <TouchableOpacity style={groupDetailsStyles.modalCloseButton} onPress={() => setImageModalVisible(false)}>
-                <Ionicons name="chevron-back" size={32} color="#fff" />
+                <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
             </TouchableOpacity>
             {selectedImage && <Image source={selectedImage} style={groupDetailsStyles.fullScreenImage} />}
         </View>
@@ -516,7 +524,7 @@ export default function GroupDetailsScreen() {
       <Modal visible={editModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditModalVisible(false)}>
         <View style={groupDetailsStyles.editModalContainer}>
             <View style={groupDetailsStyles.editModalHeader}>
-                <TouchableOpacity onPress={() => setEditModalVisible(false)}><Ionicons name="chevron-back" size={30} color="#fff" /></TouchableOpacity>
+                <TouchableOpacity onPress={() => setEditModalVisible(false)}><Ionicons name="chevron-back" size={30} color={colors.textPrimary} /></TouchableOpacity>
                 <Text style={groupDetailsStyles.editHeaderTitle}>Grubu Düzenle</Text>
                 <TouchableOpacity 
                     style={[
@@ -550,7 +558,7 @@ export default function GroupDetailsScreen() {
                     </View>
                     <View style={groupDetailsStyles.inputContainer}>
                         <Text style={groupDetailsStyles.inputLabel}>Grup Adı:</Text>
-                        <TextInput style={groupDetailsStyles.input} value={editName} onChangeText={onNameChange} placeholder="Grup adı" placeholderTextColor="#666" />
+                        <TextInput style={groupDetailsStyles.input} value={editName} onChangeText={onNameChange} placeholder="Grup adı" placeholderTextColor={colors.textSecondary} />
                     </View>
                     {/* DESCRIPTION EDIT FIELD */}
                     <View style={groupDetailsStyles.inputContainer}>
@@ -560,7 +568,7 @@ export default function GroupDetailsScreen() {
                             value={editDescription} 
                             onChangeText={onDescriptionChange} 
                             placeholder="Grup açıklaması"
-                            placeholderTextColor="#666"
+                            placeholderTextColor={colors.textSecondary}
                             maxLength={255}
                             multiline
                         />

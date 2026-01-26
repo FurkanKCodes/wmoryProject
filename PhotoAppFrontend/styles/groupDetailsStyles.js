@@ -2,11 +2,11 @@ import { StyleSheet, StatusBar, Platform, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-const groupDetailsStyles = StyleSheet.create({
+export const getGroupDetailsStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     // Dark background consistent with Home page
-    backgroundColor: '#333333',
+    backgroundColor: colors.background,
   },
   // --- HEADER (Matched with Home) ---
   headerContainer: {
@@ -15,7 +15,7 @@ const groupDetailsStyles = StyleSheet.create({
     paddingBottom: 15,
     paddingHorizontal: 20,
     // Home header color
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.headerBg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -35,7 +35,7 @@ const groupDetailsStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#ffffff',
+    color: colors.textPrimary,
     // Same font size as Home
     fontSize: 27,
     fontWeight: 'bold',
@@ -51,7 +51,7 @@ const groupDetailsStyles = StyleSheet.create({
     paddingVertical: 20,
     borderBottomWidth: 1,
     // Border color darkened
-    borderBottomColor: '#444444',
+    borderBottomColor: colors.border,
   },
   largeGroupImage: {
     width: 100,
@@ -60,13 +60,13 @@ const groupDetailsStyles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: '#555', // Gray background if no image
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: colors.textPrimary,
   },
   groupNameText: {
     fontSize: 22,
     fontWeight: 'bold',
     // White text
-    color: '#ffffff',
+    color: colors.textPrimary,
     marginBottom: 5,
   },
   // DESCRIPTION STYLE
@@ -86,10 +86,10 @@ const groupDetailsStyles = StyleSheet.create({
     backgroundColor: '#000000',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: colors.border,
   },
   editGroupText: {
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -99,7 +99,7 @@ const groupDetailsStyles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     // White text
-    color: '#ffffff',
+    color: colors.textPrimary,
     marginLeft: 20,
     marginTop: 20,
     marginBottom: 10,
@@ -111,7 +111,7 @@ const groupDetailsStyles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     // Border color darkened
-    borderBottomColor: '#444444',
+    borderBottomColor: colors.border,
     zIndex: 1, 
   },
   memberImage: {
@@ -130,10 +130,10 @@ const groupDetailsStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     // White text
-    color: '#ffffff',
+    color: colors.textPrimary,
   },
   youTag: {
-    color: '#aaaaaa',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: 'normal',
   },
@@ -153,7 +153,7 @@ const groupDetailsStyles = StyleSheet.create({
       right: 35, 
       top: 0,
       // Menu background dark gray
-      backgroundColor: '#2C2C2C',
+      backgroundColor: colors.cardBg,
       borderRadius: 8,
       paddingVertical: 5,
       shadowColor: '#000',
@@ -164,18 +164,18 @@ const groupDetailsStyles = StyleSheet.create({
       minWidth: 140,
       zIndex: 1000,
       borderWidth: 1,
-      borderColor: '#444',
+      borderColor: colors.border,
   },
   popupMenuItem: {
       paddingVertical: 10,
       paddingHorizontal: 15,
       borderBottomWidth: 1,
-      borderBottomColor: '#444',
+      borderBottomColor: colors.border,
   },
   popupMenuText: {
       fontSize: 14,
       // Menu text white
-      color: '#ffffff',
+      color: colors.textPrimary,
   },
 
   // --- FULL SCREEN IMAGE MODAL ---
@@ -202,7 +202,7 @@ const groupDetailsStyles = StyleSheet.create({
   editModalContainer: {
     flex: 1,
     // Modal background dark
-    backgroundColor: '#333333',
+    backgroundColor: colors.background,
   },
   editModalHeader: {
     paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
@@ -212,7 +212,7 @@ const groupDetailsStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     // Same color as Header
-    backgroundColor: '#1a1a1a', 
+    backgroundColor: colors.headerBg, 
   },
   editHeaderTitle: {
     fontSize: 18,
@@ -229,7 +229,7 @@ const groupDetailsStyles = StyleSheet.create({
   },
   saveButtonDisabled: {
     opacity: 0.7, 
-    backgroundColor: '#e0e0e0', // Pasifken gri arka plan
+    backgroundColor: colors.cardBg, // Pasifken gri arka plan
   },
   saveButtonText: {
     fontSize: 14,
@@ -275,7 +275,7 @@ const groupDetailsStyles = StyleSheet.create({
   },
   input: {
     fontSize: 18,
-    color: '#ffffff', // Input text white
+    color: colors.textPrimary, // Input text white
     borderBottomWidth: 1,
     borderBottomColor: '#666',
     paddingVertical: 5,
@@ -309,7 +309,7 @@ const groupDetailsStyles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#444444',
+    borderBottomColor: colors.border,
   },
   requestImage: {
     width: 40,
@@ -322,7 +322,7 @@ const groupDetailsStyles = StyleSheet.create({
   },
   requestName: {
     fontSize: 16,
-    color: '#ffffff',
+    color: colors.textPrimary,
   },
   emptyText: {
     textAlign: 'center',
@@ -356,7 +356,7 @@ const groupDetailsStyles = StyleSheet.create({
     paddingVertical: 8, 
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: colors.border,
   },
   
   // --- BOTTOM ACTION AREA ---
@@ -387,13 +387,13 @@ const groupDetailsStyles = StyleSheet.create({
     backgroundColor: '#E0E0E0', // Light Gray
   },
   btnNotificationOff: {
-    backgroundColor: '#9E9E9E', // Darker Gray (When disabled)
+    backgroundColor: colors.border, // Darker Gray (When disabled)
   },
 
   // Delete Group Button (Bottom Center)
   deleteButtonCentered: {
     flexDirection: 'row',
-    backgroundColor: '#FF3B30', // Red
+    backgroundColor: colors.danger, // Red
     paddingVertical: 12,
     borderRadius: 25,
     justifyContent: 'center',
@@ -409,11 +409,9 @@ const groupDetailsStyles = StyleSheet.create({
     fontSize: 14,
   },
   textWhite: {
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontWeight: 'bold',
     marginLeft: 8,
     fontSize: 14,
   },
 });
-
-export default groupDetailsStyles;

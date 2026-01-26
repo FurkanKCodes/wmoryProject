@@ -2,7 +2,7 @@ import { StyleSheet, Platform, StatusBar, Dimensions } from 'react-native';
 
 const { height } = Dimensions.get('window');
 
-const adminPanelStyles = StyleSheet.create({
+export const getAdminPanelStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     // Dark Theme Background
@@ -14,7 +14,7 @@ const adminPanelStyles = StyleSheet.create({
     paddingBottom: 15,
     paddingHorizontal: 20,
     // Darkest gray header
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.headerBg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -29,7 +29,7 @@ const adminPanelStyles = StyleSheet.create({
     padding: 5,
   },
   headerTitle: {
-    color: '#ffffff', // White text
+    color: colors.textPrimary, // White text
     fontSize: 20,     // Slightly larger for visibility
     fontWeight: 'bold',
     flex: 1,
@@ -47,7 +47,7 @@ const adminPanelStyles = StyleSheet.create({
   authTitle: {
       fontSize: 24,
       fontWeight: 'bold',
-      color: '#ffffff', // White
+      color: colors.textPrimary, // White
       marginBottom: 10,
   },
   authDesc: {
@@ -78,7 +78,7 @@ const adminPanelStyles = StyleSheet.create({
       alignItems: 'center',
   },
   authButtonText: {
-      color: '#fff',
+      color: colors.textPrimary,
       fontSize: 18,
       fontWeight: 'bold',
   },
@@ -87,13 +87,13 @@ const adminPanelStyles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     // Dark background for tabs
-    backgroundColor: '#1a1a1a', 
+    backgroundColor: colors.headerBg, 
     elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 2,
     borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    borderBottomColor: colors.border,
   },
   tabButton: {
     flex: 1,
@@ -112,7 +112,7 @@ const adminPanelStyles = StyleSheet.create({
     textAlign: 'center',
   },
   activeTabText: {
-    color: '#FFF', // Active Blue
+    color: colors.textPrimary, // Active Blue
     fontWeight: 'bold',
   },
 
@@ -125,12 +125,12 @@ const adminPanelStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     // Dark card background
-    backgroundColor: '#2C2C2C', 
+    backgroundColor: colors.modalBg, 
     padding: 15,
     borderRadius: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: colors.border,
   },
   rowInfo: {
     flex: 1,
@@ -138,7 +138,7 @@ const adminPanelStyles = StyleSheet.create({
   mainText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#ffffff', // White
+    color: colors.textPrimary, // White
   },
   subText: {
     fontSize: 13,
@@ -160,7 +160,7 @@ const adminPanelStyles = StyleSheet.create({
       fontSize: 20,
       fontWeight: 'bold',
       marginBottom: 10,
-      color: '#ffffff', // White
+      color: colors.textPrimary, // White
   },
   formDesc: {
       fontSize: 14,
@@ -196,7 +196,7 @@ const adminPanelStyles = StyleSheet.create({
     width: '90%',
     maxHeight: '85%', 
     // Dark Modal Background
-    backgroundColor: '#2C2C2C', 
+    backgroundColor: colors.modalBg, 
     borderRadius: 15,
     padding: 20,
     elevation: 5,
@@ -205,7 +205,7 @@ const adminPanelStyles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: colors.border,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -213,13 +213,13 @@ const adminPanelStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    borderBottomColor: colors.border,
     paddingBottom: 10,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#ffffff', // White
+    color: colors.textPrimary, // White
   },
   
   // Evidence Image
@@ -231,7 +231,7 @@ const adminPanelStyles = StyleSheet.create({
     marginBottom: 15,
     resizeMode: 'contain',
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: colors.border,
   },
 
   // Evidence Video
@@ -242,7 +242,7 @@ const adminPanelStyles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: colors.border,
   },
   
   // Detail Box
@@ -251,13 +251,13 @@ const adminPanelStyles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    color: '#aaaaaa', // Lighter label
+    color: colors.textSecondary, // Lighter label
     fontWeight: '600',
     textTransform: 'uppercase',
   },
   value: {
     fontSize: 16,
-    color: '#ffffff', // White value
+    color: colors.textPrimary, // White value
     fontWeight: '500',
   },
   
@@ -282,7 +282,7 @@ const adminPanelStyles = StyleSheet.create({
     backgroundColor: '#FF9500', // Orange
   },
   btnBan: {
-    backgroundColor: '#FF3B30', // Red
+    backgroundColor: colors.danger, // Red
     marginTop: 15, 
     width: '100%',
     paddingVertical: 14,
@@ -293,17 +293,15 @@ const adminPanelStyles = StyleSheet.create({
     marginTop: 15,
   },
   btnText: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontWeight: 'bold',
     fontSize: 14,
   },
   // Used for dismiss button text if background is light, 
   // but now bg is dark (#555), so white text is better.
   btnTextDark: {
-    color: '#ffffff', 
+    color: colors.textPrimary, 
     fontWeight: 'bold',
     fontSize: 14,
   },
 });
-
-export default adminPanelStyles;

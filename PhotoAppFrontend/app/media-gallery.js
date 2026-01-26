@@ -27,6 +27,8 @@ import API_URL from '../config';
 import mediaStyles from '../styles/mediaStyles';
 import NetInfo from '@react-native-community/netinfo';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
+import { getMediaStyles } from '../styles/mediaStyles';
 
 const { width, height } = Dimensions.get('window');
 const defaultUserImage = require('../assets/no-pic.jpg'); 
@@ -128,6 +130,9 @@ const ZoomableImage = ({ uri, onPress, onZoomChange }) => {
   };
 
 export default function MediaGalleryScreen() {
+    // --- THEME HOOK ---
+  const { colors, isDark } = useTheme();
+  const mediaStyles = getMediaStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams();
   const { groupId, userId } = params;
@@ -847,18 +852,20 @@ export default function MediaGalleryScreen() {
     // Gesture Handler Root is required for gestures to work
     <GestureHandlerRootView style={{ flex: 1 }}>
         <LinearGradient 
-            colors={['#4e4e4e', '#1a1a1a']} 
+            colors={colors.gradient}
             style={mediaStyles.container}
         >
-        {/* StatusBar rengini de temaya uydurmak istersen değiştirebilirsin */}
-        <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
+        <StatusBar 
+            backgroundColor={colors.headerBg} 
+            barStyle={isDark ? "light-content" : "dark-content"} 
+        />
         
         {/* HEADER */}
         <View style={mediaStyles.headerContainer}>
             {isSelectionMode ? (
             <>
                 <TouchableOpacity onPress={toggleSelectionMode}>
-                    <Text style={{color:'#fff', fontSize:16, fontWeight:'600'}}>İptal</Text>
+                    <Text style={{color: colors.textPrimary, fontSize:16, fontWeight:'600'}}>İptal</Text>
                 </TouchableOpacity>
                 
                 <Text style={mediaStyles.headerTitle}>{selectedIds.length} Seçildi</Text>
@@ -866,7 +873,7 @@ export default function MediaGalleryScreen() {
                 <View style={{ zIndex: 200 }}> 
                     {/* 3 Dot Button */}
                     <TouchableOpacity onPress={handleBulkActionPress}>
-                        <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
+                        <Ionicons name="ellipsis-vertical" size={24} color={colors.textPrimary} />
                     </TouchableOpacity>
 
                     {/* NEW: Custom Bulk Options Menu */}
@@ -911,20 +918,20 @@ export default function MediaGalleryScreen() {
             ) : (
                 <>
                     <TouchableOpacity style={mediaStyles.backButton} onPress={() => router.back()}>
-                        <Ionicons name="chevron-back" size={32} color="#fff" />
+                        <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={mediaStyles.headerTitle}>Medya</Text>
                     <View style={{flexDirection: 'row', alignItems: 'center'}}>
                         {/* FİLTRE BUTONU */}
                         <TouchableOpacity style={{marginRight: 15}} onPress={handleOpenFilter}>
-                            <Ionicons name="filter" size={24} color="#fff" />
+                            <Ionicons name="filter" size={24} color={colors.textPrimary} />
                         </TouchableOpacity>
 
                         <TouchableOpacity style={{marginRight: 15}} onPress={toggleSelectionMode}>
                             <Text style={{color:'#fff', fontWeight: '600', fontSize: 16}}>Seç</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={mediaStyles.addButton} onPress={handleUpload}>
-                            {uploading ? <ActivityIndicator color="#fff" /> : <Ionicons name="add" size={32} color="#fff" />}
+                            {uploading ? <ActivityIndicator color={colors.textPrimary} /> : <Ionicons name="add" size={32} color= {colors.tint} />}
                         </TouchableOpacity>
                     </View>
                 </>
@@ -955,7 +962,7 @@ export default function MediaGalleryScreen() {
                         contentContainerStyle={{ paddingBottom: 100 }}
                         ListEmptyComponent={
                             <View style={{alignItems:'center', marginTop: 50}}>
-                                <Text style={{color:'#999'}}>Henüz medya yok.</Text>
+                                <Text style={{color: colors.textSecondary}}>Henüz medya yok.</Text>
                             </View>
                         }
                     />
@@ -982,7 +989,7 @@ export default function MediaGalleryScreen() {
                     <View style={mediaStyles.filterHeader}>
                         <Text style={mediaStyles.filterTitle}>Yükleyen Kişi Filtresi</Text>
                         <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
-                            <Ionicons name="close" size={24} color="#333" />
+                            <Ionicons name="close" size={24} color={colors.textPrimary} />
                         </TouchableOpacity>
                     </View>
 
@@ -991,14 +998,14 @@ export default function MediaGalleryScreen() {
                         <TouchableOpacity style={mediaStyles.filterRow} onPress={() => toggleMemberFilter('all')}>
                             <View style={{flexDirection:'row', alignItems:'center'}}>
                                 <View style={mediaStyles.filterAvatarPlaceholder}>
-                                    <Ionicons name="people" size={20} color="#000" />
+                                    <Ionicons name="people" size={20} color={colors.textPrimary} />
                                 </View>
                                 <Text style={mediaStyles.filterName}>Herkes</Text>
                             </View>
                             <Ionicons 
                                 name={isAllSelected ? "checkbox" : "square-outline"} 
                                 size={24} 
-                                color={isAllSelected ? "#FFF" : "#ccc"} 
+                                color={isAllSelected ? colors.tint : colors.iconDefault} 
                             />
                         </TouchableOpacity>
 
