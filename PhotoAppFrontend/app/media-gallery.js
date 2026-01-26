@@ -2,8 +2,16 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   View, Text, Image, TouchableOpacity, FlatList, Alert, 
   ActivityIndicator, StatusBar, Modal, Dimensions, ScrollView,
-  TouchableWithoutFeedback, Platform, ActionSheetIOS, SectionList 
+  TouchableWithoutFeedback, Platform, ActionSheetIOS, SectionList, Animated 
 } from 'react-native';
+import Reanimated, { 
+    useSharedValue, 
+    useAnimatedStyle, 
+    withTiming, 
+    runOnJS,
+    FadeIn,
+    FadeOut 
+  } from 'react-native-reanimated';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,6 +32,100 @@ const { width, height } = Dimensions.get('window');
 const defaultUserImage = require('../assets/no-pic.jpg'); 
 
 const COLUMN_OPTIONS = [2, 3, 4, 6, 8];
+
+// --- ANDROID & IOS COMPATIBLE ZOOM COMPONENT ---
+const ZoomableImage = ({ uri, onPress, onZoomChange }) => {
+    const scale = useSharedValue(1);
+    const savedScale = useSharedValue(1);
+    const translateX = useSharedValue(0);
+    const translateY = useSharedValue(0);
+    const savedTranslateX = useSharedValue(0);
+    const savedTranslateY = useSharedValue(0);
+  
+    // Pinch Handler (Zoom In/Out)
+    const pinchGesture = Gesture.Pinch()
+      .onStart(() => {
+        savedScale.value = scale.value;
+      })
+      .onUpdate((e) => {
+        scale.value = savedScale.value * e.scale;
+      })
+      .onEnd(() => {
+        if (scale.value < 1) {
+          // Reset to original size if zoomed out too much
+          scale.value = withTiming(1);
+          savedScale.value = 1;
+          translateX.value = withTiming(0);
+          translateY.value = withTiming(0);
+          runOnJS(onZoomChange)(true); // Enable FlatList scrolling
+        } else {
+          savedScale.value = scale.value;
+          runOnJS(onZoomChange)(false); // Disable FlatList scrolling (Zoom active)
+        }
+      });
+  
+    // Pan Handler (Move image when zoomed in)
+    const panGesture = Gesture.Pan()
+      .onStart(() => {
+          savedTranslateX.value = translateX.value;
+          savedTranslateY.value = translateY.value;
+      })
+      .onUpdate((e) => {
+          if (scale.value > 1) {
+              translateX.value = savedTranslateX.value + e.translationX;
+              translateY.value = savedTranslateY.value + e.translationY;
+          }
+      });
+  
+    // Double Tap (Quick Zoom Reset)
+    const doubleTap = Gesture.Tap()
+      .numberOfTaps(2)
+      .onEnd(() => {
+        if (scale.value > 1) {
+          // Reset to 1x
+          scale.value = withTiming(1);
+          savedScale.value = 1;
+          translateX.value = withTiming(0);
+          translateY.value = withTiming(0);
+          runOnJS(onZoomChange)(true);
+        } else {
+          // Quick zoom to 2x
+          scale.value = withTiming(2);
+          savedScale.value = 2;
+          runOnJS(onZoomChange)(false);
+        }
+      });
+  
+    // Single Tap (Toggle Controls)
+    const singleTap = Gesture.Tap()
+      .onEnd(() => {
+        runOnJS(onPress)();
+      });
+  
+    // Compose Gestures
+    const composed = Gesture.Simultaneous(pinchGesture, panGesture);
+    const taps = Gesture.Exclusive(doubleTap, singleTap);
+    const gesture = Gesture.Simultaneous(composed, taps);
+  
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+        { scale: scale.value }
+      ]
+    }));
+  
+    return (
+      <GestureDetector gesture={gesture}>
+        <Reanimated.View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Reanimated.Image 
+            source={{ uri }} 
+            style={[{ width: width, height: height, resizeMode: 'contain' }, animatedStyle]} 
+          />
+        </Reanimated.View>
+      </GestureDetector>
+    );
+  };
 
 export default function MediaGalleryScreen() {
   const router = useRouter();
@@ -51,7 +153,38 @@ export default function MediaGalleryScreen() {
   // Full Screen Viewer State
   const [isViewerVisible, setViewerVisible] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
-  const [areControlsVisible, setControlsVisible] = useState(true);
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  // ANIMATION STATE
+  const [showControls, setShowControls] = useState(true);
+  const fadeAnim = useRef(new Animated.Value(1)).current; // Opacity value 1 (visible)
+
+  const [scrollEnabled, setScrollEnabled] = useState(true); // Control FlatList scrolling during zoom
+
+  // Toggle Controls with Smooth Fade
+  const toggleControls = () => {
+    // 1. Priority: If options menu is open, just close it. Don't hide the UI.
+    if (showOptions) {
+        setShowOptions(false);
+        return;
+    }
+
+    // 2. Priority: If report modal is active, do nothing (it handles its own taps).
+    if (showReportModal) {
+        return;
+    }
+    
+    // 3. Normal Behavior: Toggle header/footer visibility
+    const toValue = showControls ? 0 : 1;
+    
+    Animated.timing(fadeAnim, {
+      toValue,
+      duration: 300, 
+      useNativeDriver: true,
+    }).start();
+
+    setShowControls(!showControls);
+  };
   
   // SELECTION MODE STATE
   const [isSelectionMode, setSelectionMode] = useState(false);
@@ -497,35 +630,9 @@ export default function MediaGalleryScreen() {
 
   // --- REPORT & SINGLE ACTIONS ---
   const handleReport = () => {
-    const currentMedia = photos[currentIndex];
-    if (!currentMedia) return;
-
-    const reportOptions = ["Şiddet / Tehlikeli", "Çıplaklık / Cinsellik", "Taciz / Zorbalık", "Nefret Söylemi", "Diğer"];
-
-    if (Platform.OS === 'ios') {
-        ActionSheetIOS.showActionSheetWithOptions(
-          {
-            options: ["İptal", ...reportOptions],
-            cancelButtonIndex: 0,
-            title: "İçeriği Bildir",
-            message: "Bu içeriği neden bildiriyorsunuz?"
-          },
-          (buttonIndex) => {
-            if (buttonIndex !== 0) {
-               submitReport(currentMedia.id, reportOptions[buttonIndex - 1]);
-            }
-          }
-        );
-    } else {
-        Alert.alert(
-            "İçeriği Bildir",
-            "Bildirim sebebini seçiniz:",
-            [
-                ...reportOptions.map(opt => ({ text: opt, onPress: () => submitReport(currentMedia.id, opt) })),
-                { text: "İptal", style: "cancel" }
-            ]
-        );
-    }
+    // Close options menu and open custom report modal
+    setShowOptions(false); 
+    setShowReportModal(true);
   };
 
   const submitReport = async (photoId, reason) => {
@@ -646,11 +753,6 @@ export default function MediaGalleryScreen() {
     } catch (error) { console.error(error); }
   };
 
-  const toggleControls = () => {
-    setControlsVisible(!areControlsVisible);
-    if (showOptions) setShowOptions(false); 
-  };
-
   // --- RENDERERS ---
   
   const renderSectionHeader = ({ section: { title } }) => (
@@ -677,7 +779,7 @@ export default function MediaGalleryScreen() {
                                 const globalIndex = photos.findIndex(p => p.id === photo.id);
                                 setCurrentIndex(globalIndex !== -1 ? globalIndex : 0);
                                 setViewerVisible(true);
-                                setControlsVisible(true);
+                                setShowControls(true);
                             }
                         }}
                     >
@@ -702,37 +804,35 @@ export default function MediaGalleryScreen() {
   };
 
   const renderFullScreenItem = ({ item }) => {
+    // 1. VIDEO (No Zoom, just toggle controls)
+    if (item.type === 'video') {
+        return (
+          <TouchableWithoutFeedback onPress={toggleControls}>
+            <View style={mediaStyles.fullScreenContent}>
+                <Video
+                    source={{ uri: item.url }} 
+                    rate={1.0}
+                    volume={1.0}
+                    isMuted={false}
+                    resizeMode={ResizeMode.CONTAIN}
+                    shouldPlay={true} 
+                    useNativeControls
+                    style={mediaStyles.fullVideo}
+                />
+            </View>
+          </TouchableWithoutFeedback>
+        );
+    }
+
+    // 2. IMAGE (ZOOMABLE COMPONENT)
     return (
-      <TouchableWithoutFeedback onPress={toggleControls}>
-        <View style={mediaStyles.fullScreenContent}>
-          {item.type === 'video' ? (
-             <Video
-                source={{ uri: item.url }} 
-                rate={1.0}
-                volume={1.0}
-                isMuted={false}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay={true} 
-                useNativeControls
-                style={mediaStyles.fullVideo}
-            />
-          ) : (
-            <ScrollView
-                style={{ width, height }}
-                contentContainerStyle={{ alignItems: 'center', justifyContent: 'center', height: '100%' }}
-                maximumZoomScale={3}
-                minimumZoomScale={1}
-                centerContent={true}
-                showsHorizontalScrollIndicator={false}
-                showsVerticalScrollIndicator={false}
-            >
-               <TouchableWithoutFeedback onPress={toggleControls}>
-                  <Image source={{ uri: item.url }} style={mediaStyles.fullImage} />
-               </TouchableWithoutFeedback>
-            </ScrollView>
-          )}
-        </View>
-      </TouchableWithoutFeedback>
+      <View style={mediaStyles.fullScreenContent}>
+         <ZoomableImage 
+            uri={item.url} 
+            onPress={toggleControls} 
+            onZoomChange={setScrollEnabled} // Lock list when zooming
+         />
+      </View>
     );
   };
 
@@ -940,59 +1040,127 @@ export default function MediaGalleryScreen() {
             animationType="fade"
             onRequestClose={() => setViewerVisible(false)} 
         >
-            <View style={mediaStyles.fullScreenContainer}>
-                {areControlsVisible && (
-                    <View style={mediaStyles.topControls}>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+                <View style={mediaStyles.fullScreenContainer}>
+                    
+                    {/* --- ANIMATED HEADER --- */}
+                    <Animated.View 
+                        style={[
+                            mediaStyles.fullScreenHeader, 
+                            { opacity: fadeAnim } 
+                        ]}
+                        pointerEvents={showControls ? 'auto' : 'none'}
+                    >
                         <TouchableOpacity style={mediaStyles.controlButton} onPress={() => setViewerVisible(false)}>
                             <Ionicons name="chevron-back" size={28} color="#fff" />
                         </TouchableOpacity>
+
                         <TouchableOpacity style={mediaStyles.controlButton} onPress={() => setShowOptions(!showOptions)}>
                             <Ionicons name="ellipsis-vertical" size={28} color="#fff" />
                         </TouchableOpacity>
-                    </View>
-                )}
+                    </Animated.View>
 
-                {showOptions && areControlsVisible && (
-                    <View style={mediaStyles.optionsMenu}>
-                        <TouchableOpacity style={mediaStyles.optionItem} onPress={handleSaveToGallery}>
-                            <Text style={mediaStyles.optionText}>Kaydet</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={mediaStyles.optionItem} onPress={handleRemove}>
-                            <Text style={mediaStyles.optionText}>Kaldır</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[mediaStyles.optionItem, { borderBottomWidth: 0 }]} onPress={handleReport}>
-                            <Text style={[mediaStyles.optionText, mediaStyles.reportText]}>Bildir</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
+                    {/* REMOVED: The general transparent overlay for 'showOptions'.
+                        REASON: The 'toggleControls' function now handles closing the menu
+                        when the image is tapped, preventing the UI from hiding simultaneously.
+                    */}
 
-                <FlatList
-                    ref={fullScreenListRef}
-                    data={photos}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={renderFullScreenItem}
-                    horizontal
-                    pagingEnabled 
-                    showsHorizontalScrollIndicator={false}
-                    initialScrollIndex={currentIndex} 
-                    onViewableItemsChanged={onViewRef.current}
-                    viewabilityConfig={viewConfigRef.current}
-                    getItemLayout={(data, index) => (
-                        {length: width, offset: width * index, index}
+                    {/* --- OPTIONS MENU (Animated) --- */}
+                    {showOptions && showControls && (
+                        <Reanimated.View 
+                            entering={FadeIn.duration(200)} // Fade In (200ms)
+                            exiting={FadeOut.duration(200)} // Fade Out (200ms)
+                            style={[mediaStyles.optionsMenu, { zIndex: 200 }]}
+                        >
+                            <TouchableOpacity style={mediaStyles.optionItem} onPress={handleSaveToGallery}>
+                                <Text style={mediaStyles.optionText}>Kaydet</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={mediaStyles.optionItem} onPress={handleRemove}>
+                                <Text style={mediaStyles.optionText}>Kaldır</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[mediaStyles.optionItem, { borderBottomWidth: 0 }]} onPress={handleReport}>
+                                <Text style={[mediaStyles.optionText, mediaStyles.reportText]}>Bildir</Text>
+                            </TouchableOpacity>
+                        </Reanimated.View>
                     )}
-                />
 
-                {areControlsVisible && (
-                    <View style={mediaStyles.bottomInfo}>
-                        <Text style={mediaStyles.infoText}>
-                            {photos[currentIndex]?.uploaded_by}
-                        </Text>
-                        <Text style={mediaStyles.dateText}>
-                            {photos[currentIndex] ? new Date(photos[currentIndex].date).toLocaleDateString() : ''}
-                        </Text>
-                    </View>
-                )}
-            </View>
+                    {/* --- REPORT MODAL (Animated Dialog) --- */}
+                    {showReportModal && (
+                        <Reanimated.View 
+                            entering={FadeIn.duration(300)} // Smooth entry
+                            exiting={FadeOut.duration(300)} // Smooth exit
+                            style={[mediaStyles.reportCenteredView, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+                        >
+                            {/* Tap outside to close Report Modal */}
+                            <TouchableWithoutFeedback onPress={() => setShowReportModal(false)}>
+                                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+                            </TouchableWithoutFeedback>
+
+                            {/* The Modal Box */}
+                            <View style={mediaStyles.reportModalBox}>
+                                <Text style={mediaStyles.reportHeader}>Bildirim Sebebi</Text>
+                                
+                                {["Şiddet / Tehlikeli", "Çıplaklık / Cinsellik", "Taciz / Zorbalık", "Nefret Söylemi", "Diğer"].map((reason) => (
+                                    <TouchableOpacity 
+                                        key={reason} 
+                                        style={mediaStyles.reportOption}
+                                        onPress={() => { 
+                                            // Close modal (triggers FadeOut automatically)
+                                            setShowReportModal(false); 
+                                            submitReport(photos[currentIndex].id, reason); 
+                                        }}
+                                    >
+                                        <Text style={mediaStyles.reportOptionText}>{reason}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                                
+                                <TouchableOpacity 
+                                    style={[mediaStyles.reportOption, { borderBottomWidth: 0 }]}
+                                    onPress={() => setShowReportModal(false)}
+                                >
+                                     <Text style={[mediaStyles.reportOptionText, { color: '#FF3B30' }]}>Vazgeç</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </Reanimated.View>
+                    )}
+
+                    {/* MEDIA LIST */}
+                    <FlatList
+                        ref={fullScreenListRef}
+                        scrollEnabled={scrollEnabled}
+                        data={photos}
+                        keyExtractor={(item) => item.id.toString()}
+                        renderItem={renderFullScreenItem}
+                        horizontal
+                        pagingEnabled 
+                        showsHorizontalScrollIndicator={false}
+                        initialScrollIndex={currentIndex} 
+                        onViewableItemsChanged={onViewRef.current}
+                        viewabilityConfig={viewConfigRef.current}
+                        getItemLayout={(data, index) => (
+                            {length: width, offset: width * index, index}
+                        )}
+                    />
+
+                    {/* --- ANIMATED FOOTER --- */}
+                    <Animated.View 
+                        style={[
+                            mediaStyles.fullScreenFooter, 
+                            { opacity: fadeAnim }
+                        ]}
+                        pointerEvents="none"
+                    >
+                        <View>
+                            <Text style={mediaStyles.infoText}>
+                                {photos[currentIndex]?.uploaded_by}
+                            </Text>
+                            <Text style={mediaStyles.dateText}>
+                                {photos[currentIndex] ? new Date(photos[currentIndex].date).toLocaleDateString() : ''}
+                            </Text>
+                        </View>
+                    </Animated.View>
+                </View>
+            </GestureHandlerRootView>
         </Modal>
         </LinearGradient>
     </GestureHandlerRootView>

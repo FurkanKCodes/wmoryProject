@@ -222,14 +222,18 @@ const mediaStyles = StyleSheet.create({
     backgroundColor: '#000', 
     justifyContent: 'center',
   },
-  topControls: {
+  // New Header Style to match Home Screen Alignment exactly
+  fullScreenHeader: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
+    top: 0, 
     left: 0,
     right: 0,
+    // Match Padding with Home Header
+    paddingTop: Platform.OS === 'ios' ? 65 : StatusBar.currentHeight + 25,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    alignItems: 'center',
     zIndex: 100, 
   },
   controlButton: {
@@ -252,7 +256,8 @@ const mediaStyles = StyleSheet.create({
     width: width,
     height: height * 0.6, 
   },
-  bottomInfo: {
+  // Updated Footer for smooth animation support
+  fullScreenFooter: {
     position: 'absolute',
     bottom: 40,
     left: 0,
@@ -262,6 +267,7 @@ const mediaStyles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     backgroundColor: 'rgba(0,0,0,0.6)',
+    zIndex: 100,
   },
   infoText: {
     color: '#fff',
@@ -276,7 +282,6 @@ const mediaStyles = StyleSheet.create({
     position: 'absolute',
     top: Platform.OS === 'ios' ? 110 : 90,
     right: 20,
-    // White background for menu is usually better for contrast, or dark gray
     backgroundColor: '#2C2C2C',
     borderRadius: 10,
     padding: 5,
@@ -297,8 +302,48 @@ const mediaStyles = StyleSheet.create({
     color: '#ffffff',
   },
   reportText: {
-    color: '#FF3B30', // Red for report
+    color: '#FF3B30', 
     fontWeight: 'bold',
+  },
+
+  // --- REPORT MODAL STYLES (New) ---
+  reportCenteredView: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 201, // Must be higher than overlay
+  },
+  reportModalBox: {
+    width: width * 0.8,
+    backgroundColor: '#2C2C2C', // Dark theme background
+    borderRadius: 15,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#444',
+    // Shadow for depth
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 10,
+  },
+  reportHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  reportOption: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#444',
+  },
+  reportOptionText: {
+    fontSize: 16,
+    color: '#fff',
+    textAlign: 'center',
   },
 });
 

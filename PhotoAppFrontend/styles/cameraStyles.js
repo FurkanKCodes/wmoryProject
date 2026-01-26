@@ -58,15 +58,18 @@ const cameraStyles = StyleSheet.create({
   // Exposure Control Container (Right side of focus box)
   exposureContainer: {
     position: 'absolute',
-    width: 40,
-    height: 150, // Height of the slider area
+    width: 100,
+    height: 160, // Height of the slider area
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 11,
+    right: -50,
+    top: -45,
   },
   // The sun icon
   sunIcon: {
     position: 'absolute',
+    top: -10,
     zIndex: 12,
   },
   // The vertical line
@@ -77,6 +80,7 @@ const cameraStyles = StyleSheet.create({
     backgroundColor: 'rgba(255, 215, 0, 0.5)',
     borderRadius: 1,
     zIndex: 11,
+    top: 20,
   },
   // The moving knob
   exposureKnob: {
@@ -86,6 +90,7 @@ const cameraStyles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#FFD700',
     zIndex: 13,
+    top: 20,
   },
 
   // --- TOP CONTROLS & NOTIFICATION ---
@@ -165,10 +170,13 @@ const cameraStyles = StyleSheet.create({
     bottom: BOTTOM_PADDING + 140, 
     alignSelf: 'center',
     backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    zIndex: 20,
+    // Increased padding and width for easier sliding touch area
+    paddingVertical: 8,
+    width: 120, 
+    borderRadius: 20,
+    zIndex: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   zoomText: {
     color: '#FFD700',
