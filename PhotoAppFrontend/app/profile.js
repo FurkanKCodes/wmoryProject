@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, Image, TouchableOpacity, StatusBar, Alert, ScrollView, ActivityIndicator, Modal, FlatList, Dimensions, PanResponder, Platform} from 'react-native';
+import { 
+  View, Text, Image, TouchableOpacity, StatusBar, Alert, ScrollView, 
+  ActivityIndicator, Modal, FlatList, Dimensions, PanResponder, Platform,
+  Animated, Pressable, TouchableWithoutFeedback
+} from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,6 +14,44 @@ import { useTheme } from '../context/ThemeContext';
 import { getProfileStyles } from '../styles/profileStyles';
 
 const defaultProfileImage = require('../assets/no-pic.jpg');
+
+// --- HELPER COMPONENT: ANIMATED SCALE BUTTON ---
+const ScaleButton = ({ onPress, style, children, wrapperStyle, ...props }) => {
+  const scaleValue = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+      if (props.disabled) return;
+      Animated.spring(scaleValue, {
+          toValue: 0.96,
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 10,
+      }).start();
+  };
+
+  const onPressOut = () => {
+      Animated.spring(scaleValue, {
+          toValue: 1, 
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 10,
+      }).start();
+  };
+
+  return (
+      <Pressable 
+          onPress={onPress} 
+          onPressIn={onPressIn} 
+          onPressOut={onPressOut}
+          style={wrapperStyle}
+          {...props} 
+      >
+          <Animated.View style={[style, { transform: [{ scale: scaleValue }] }]}>
+              {children}
+          </Animated.View>
+      </Pressable>
+  );
+};
 
 export default function ProfileScreen() {
   const { width } = Dimensions.get('window'); 
@@ -240,42 +282,43 @@ export default function ProfileScreen() {
   };
 
   const renderBlockedItem = ({ item }) => {
-      const isMenuOpen = activeMenuId === item.blocked_id;
-      return (
-          <View style={{ flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#444', justifyContent: 'space-between' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Image 
-                    source={item.thumbnail_url ? { uri: item.thumbnail_url } : defaultProfileImage} 
-                    style={{ width: 50, height: 50, borderRadius: 25, marginRight: 10, backgroundColor: '#333' }}
-                  />
-                  <Text style={{ fontSize: 16, fontWeight: '500', color: '#fff' }}>{item.username}</Text>
-              </View>
-              
-              <View style={{ position: 'relative' }}>
-                  <TouchableOpacity onPress={() => setActiveMenuId(isMenuOpen ? null : item.blocked_id)}>
-                      <Ionicons name="ellipsis-vertical" size={24} color="#ccc" />
-                  </TouchableOpacity>
-                  
-                  {isMenuOpen && (
-                      <View style={{
-                          position: 'absolute', right: 25, top: 0, backgroundColor: '#333', 
-                          padding: 10, borderRadius: 5, elevation: 5, zIndex: 10, minWidth: 100,
-                          shadowColor: '#000', shadowOffset: {width:0,height:2}, shadowOpacity:0.2,
-                          borderColor: '#555', borderWidth: 1
-                      }}>
-                          <TouchableOpacity onPress={() => handleUnblockUser(item.blocked_id)}>
-                              <Text style={{ color: '#fff' }}>Engeli Kaldır</Text>
-                          </TouchableOpacity>
-                      </View>
-                  )}
-              </View>
-          </View>
-      );
+    const isMenuOpen = activeMenuId === item.blocked_id;
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Image 
+                  source={item.thumbnail_url ? { uri: item.thumbnail_url } : defaultProfileImage} 
+                  // Fixed: Dynamic background color for placeholder area
+                  style={{ width: 50, height: 50, borderRadius: 25, marginRight: 10, backgroundColor: isDark ? '#333' : '#ccc' }}
+                />
+                <Text style={{ fontSize: 16, fontWeight: '500', color: colors.textPrimary }}>{item.username}</Text>
+            </View>
+            
+            <View style={{ position: 'relative' }}>
+                <TouchableOpacity onPress={() => setActiveMenuId(isMenuOpen ? null : item.blocked_id)}>
+                    <Ionicons name="ellipsis-vertical" size={24} color={colors.iconDefault} />
+                </TouchableOpacity>
+                
+                {isMenuOpen && (
+                    <View style={{
+                        position: 'absolute', right: 25, top: 0, backgroundColor: colors.cardBg, 
+                        padding: 10, borderRadius: 5, elevation: 5, zIndex: 10, minWidth: 100,
+                        shadowColor: '#000', shadowOffset: {width:0,height:2}, shadowOpacity:0.2,
+                        borderColor: colors.border, borderWidth: 1
+                    }}>
+                        <TouchableOpacity onPress={() => handleUnblockUser(item.blocked_id)}>
+                            <Text style={{ color: colors.textPrimary }}>Engeli Kaldır</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
+        </View>
+    );
   };
 
   return (
     <LinearGradient 
-      colors={colors.gradient} 
+      colors={isDark ? ['#4e4e4e', '#1a1a1a'] : ['#ffffff', '#d3d3d3']} 
       style={profileStyles.container}
     >
       {/* Dynamic Status Bar */}
@@ -302,7 +345,8 @@ export default function ProfileScreen() {
       {/* --- HEADER --- */}
       <View style={profileStyles.headerContainer}>
         <TouchableOpacity style={profileStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={32} color="#fff" />
+          {/* Always White to match Header Title */}
+          <Ionicons name="chevron-back" size={32} color="#ffffff" />
         </TouchableOpacity>
         <Text style={profileStyles.headerTitle}>Profilim</Text>
         <View style={{ width: 40 }} />
@@ -323,9 +367,11 @@ export default function ProfileScreen() {
               </TouchableOpacity>
 
               <Text style={profileStyles.usernameText}>{username}</Text>
-              <TouchableOpacity onPress={handleEditProfile} style={profileStyles.editProfileButton}>
+              
+              {/* Animated Edit Profile Button */}
+              <ScaleButton onPress={handleEditProfile} style={profileStyles.editProfileButton}>
                 <Text style={profileStyles.editProfileText}>Profili Düzenle</Text>
-              </TouchableOpacity>
+              </ScaleButton>
 
               {/* --- NEW: INFO STRIP (PLAN & REMAINING) --- */}
               <View style={profileStyles.infoStripContainer}>
@@ -365,7 +411,7 @@ export default function ProfileScreen() {
               <Ionicons name="ban-outline" size={24} color="#555" style={profileStyles.settingIcon} />
               <Text style={profileStyles.settingText}>Engellenen Kullanıcılar</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+            <Ionicons name="chevron-forward" size={20} color={isDark ? "#ccc" : "#000"} />
           </TouchableOpacity>
 
           <TouchableOpacity style={profileStyles.settingItem} onPress={handleChangePassword}>
@@ -373,7 +419,7 @@ export default function ProfileScreen() {
               <Ionicons name="lock-closed-outline" size={24} color="#555" style={profileStyles.settingIcon} />
               <Text style={profileStyles.settingText}>Şifreyi Değiştir</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+            <Ionicons name="chevron-forward" size={20} color={isDark ? "#ccc" : "#000"} />
           </TouchableOpacity>
           
           <TouchableOpacity style={profileStyles.settingItem} onPress={() => setThemeModalVisible(true)}>
@@ -386,7 +432,7 @@ export default function ProfileScreen() {
                 <Text style={{color: colors.textSecondary, marginRight: 10, fontSize: 14}}>
                     {themePreference === 'system' ? 'Sistem' : (themePreference === 'dark' ? 'Koyu' : 'Aydınlık')}
                 </Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.iconDefault} />
+                <Ionicons name="chevron-forward" size={20} color={isDark ? "#ccc" : "#000"} />
             </View>
           </TouchableOpacity>
 
@@ -407,7 +453,12 @@ export default function ProfileScreen() {
           {/* --- ADMIN PANEL BUTTON --- */}
           {isSuperAdmin === 1 && (
              <TouchableOpacity 
-                style={[profileStyles.settingItem, { borderTopWidth: 1, borderColor: '#eee', marginTop: 20 }]}
+                // Light Mode: Black Border, Dark Mode: Standard Border
+                style={[profileStyles.settingItem, { 
+                  borderTopWidth: 1, 
+                  borderColor: isDark ? colors.border : '#000000', 
+                  marginTop: 20 
+                }]}
                 onPress={() => router.push({ pathname: '/admin-panel', params: { userId } })}
              >
                 <View style={profileStyles.settingLeft}>
@@ -416,7 +467,7 @@ export default function ProfileScreen() {
                         Yönetici Paneli
                     </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                <Ionicons name="chevron-forward" size={20} color={isDark ? "#ccc" : "#000"} />
              </TouchableOpacity>
           )}
 
@@ -425,15 +476,26 @@ export default function ProfileScreen() {
 
       {/* --- BLOCKED USERS MODAL --- */}
       <Modal visible={blockedModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setBlockedModalVisible(false)}>
-          {/* DEĞİŞİKLİK: Beyaz View yerine LinearGradient ile geçişli gri arka plan */}
-          <LinearGradient colors={['#4e4e4e', '#1a1a1a']} style={{ flex: 1 }}>
-              
-              {/* Header kısmı: Arka planı temanın en koyu tonu (#1a1a1a) yaptık */}
-              <View style={{ padding: 65, paddingBottom: 15, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a1a', borderBottomWidth: 1, borderBottomColor: '#333' }}>
+            <LinearGradient colors={isDark ? ['#4e4e4e', '#1a1a1a'] : ['#ffffff', '#d3d3d3']} style={{ flex: 1 }}>
+              {/* Custom Header to match Profile Header */}
+              <View style={{ 
+                  paddingTop: Platform.OS === 'ios' ? 60 : 80, 
+                  paddingBottom: 15, 
+                  paddingHorizontal: 20, 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  backgroundColor: isDark ? '#1a1a1a' : '#808080', // Match Home/Profile Header
+                  borderBottomWidth: 1, 
+                  borderBottomColor: isDark ? '#444' : '#000' // Black divider in light mode
+              }}>
                   <TouchableOpacity onPress={() => setBlockedModalVisible(false)}>
-                      <Ionicons name="chevron-back" size={30} color="#fff" />
+                      {/* White Icon */}
+                      <Ionicons name="chevron-back" size={30} color="#ffffff" />
                   </TouchableOpacity>
-                  <Text style={{ fontSize: 18, color: '#fff', fontWeight: 'bold', marginLeft: 20 }}>Engellenen Kullanıcılar</Text>
+                  {/* White Title */}
+                  <Text style={{ fontSize: 18, color: '#ffffff', fontWeight: 'bold', marginLeft: 20 }}>
+                      Engellenen Kullanıcılar
+                  </Text>
               </View>
               
               {blockedUsers.length > 0 ? (
@@ -463,52 +525,56 @@ export default function ProfileScreen() {
           </View>
       </Modal>
 
-      {/* --- THEME SELECTION MODAL (NEW) --- */}
+      {/* --- THEME SELECTION MODAL --- */}
       <Modal visible={isThemeModalVisible} transparent={true} animationType="fade" onRequestClose={() => setThemeModalVisible(false)}>
-          <View style={profileStyles.modalOverlay}>
-              <View style={profileStyles.themeModalContainer}>
-                  <Text style={profileStyles.themeTitle}>Tema Seç</Text>
-                  
-                  <View style={profileStyles.themeOptionsContainer}>
-                      {/* LIGHT OPTION */}
-                      <TouchableOpacity 
-                        style={[profileStyles.themeOption, themePreference === 'light' && profileStyles.themeOptionSelected]} 
-                        onPress={() => setTheme('light')}
-                      >
-                          <View style={[profileStyles.themePreviewBox, {backgroundColor: '#fff', borderColor: '#ccc'}]}>
-                             <Ionicons name="sunny" size={24} color="#000" />
-                          </View>
-                          <Text style={profileStyles.themeText}>Aydınlık</Text>
-                      </TouchableOpacity>
+          {/* Outer Touchable to detect outside taps */}
+          <TouchableWithoutFeedback onPress={() => setThemeModalVisible(false)}>
+              <View style={profileStyles.modalOverlay}>
+                  {/* Stop propagation so tapping the modal box doesn't close it */}
+                  <TouchableWithoutFeedback onPress={() => {}}>
+                      <View style={profileStyles.themeModalContainer}>
+                          <Text style={profileStyles.themeTitle}>Görünüm Seç</Text>
+                          
+                          <View style={profileStyles.themeOptionsContainer}>
+                              {/* LIGHT OPTION */}
+                              <TouchableOpacity 
+                                style={[profileStyles.themeOption, themePreference === 'light' && profileStyles.themeOptionSelected]} 
+                                onPress={() => setTheme('light')}
+                              >
+                                  <View style={[profileStyles.themePreviewBox, {backgroundColor: '#fff', borderColor: '#ccc', borderWidth:1}]}>
+                                    <Ionicons name="sunny" size={24} color="#000" />
+                                  </View>
+                                  <Text style={profileStyles.themeText}>Aydınlık</Text>
+                              </TouchableOpacity>
 
-                      {/* DARK OPTION */}
-                      <TouchableOpacity 
-                        style={[profileStyles.themeOption, themePreference === 'dark' && profileStyles.themeOptionSelected]} 
-                        onPress={() => setTheme('dark')}
-                      >
-                          <View style={[profileStyles.themePreviewBox, {backgroundColor: '#333', borderColor: '#555'}]}>
-                             <Ionicons name="moon" size={24} color="#fff" />
-                          </View>
-                          <Text style={profileStyles.themeText}>Koyu</Text>
-                      </TouchableOpacity>
+                              {/* DARK OPTION */}
+                              <TouchableOpacity 
+                                style={[profileStyles.themeOption, themePreference === 'dark' && profileStyles.themeOptionSelected]} 
+                                onPress={() => setTheme('dark')}
+                              >
+                                  <View style={[profileStyles.themePreviewBox, {backgroundColor: '#333'}]}>
+                                    <Ionicons name="moon" size={24} color="#fff" />
+                                  </View>
+                                  <Text style={profileStyles.themeText}>Koyu</Text>
+                              </TouchableOpacity>
 
-                      {/* SYSTEM OPTION */}
-                      <TouchableOpacity 
-                        style={[profileStyles.themeOption, themePreference === 'system' && profileStyles.themeOptionSelected]} 
-                        onPress={() => setTheme('system')}
-                      >
-                          <View style={[profileStyles.themePreviewBox, {backgroundColor: '#666', borderColor: '#888'}]}>
-                             <Ionicons name="phone-portrait-outline" size={24} color="#fff" />
+                              {/* SYSTEM OPTION */}
+                              <TouchableOpacity 
+                                style={[profileStyles.themeOption, themePreference === 'system' && profileStyles.themeOptionSelected]} 
+                                onPress={() => setTheme('system')}
+                              >
+                                  <View style={[profileStyles.themePreviewBox, {backgroundColor: '#666'}]}>
+                                    <Ionicons name="phone-portrait-outline" size={24} color="#fff" />
+                                  </View>
+                                  <Text style={profileStyles.themeText}>Sistem</Text>
+                              </TouchableOpacity>
                           </View>
-                          <Text style={profileStyles.themeText}>Sistem</Text>
-                      </TouchableOpacity>
-                  </View>
 
-                  <TouchableOpacity onPress={() => setThemeModalVisible(false)} style={profileStyles.closeModalButton}>
-                      <Text style={profileStyles.closeModalText}>Kapat</Text>
-                  </TouchableOpacity>
+                          {/* Close button removed as requested */}
+                      </View>
+                  </TouchableWithoutFeedback>
               </View>
-          </View>
+          </TouchableWithoutFeedback>
       </Modal>
 
     </LinearGradient>

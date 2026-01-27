@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   View, Text, Image, TouchableOpacity, FlatList, Alert, 
   ActivityIndicator, StatusBar, Modal, TextInput, Dimensions,
-  KeyboardAvoidingView, Platform, ScrollView
+  KeyboardAvoidingView, Platform, ScrollView, Animated, Pressable,
+  TouchableWithoutFeedback 
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'; 
 import { Ionicons } from '@expo/vector-icons'; 
@@ -17,6 +18,46 @@ import { getHomeStyles } from '../styles/homeStyles';
 
 const defaultProfileImage = require('../assets/no-pic.jpg');
 const { width } = Dimensions.get('window');
+
+// --- HELPER COMPONENT: ANIMATED SCALE BUTTON ---
+// --- HELPER COMPONENT: ANIMATED SCALE BUTTON ---
+// --- HELPER COMPONENT: ANIMATED SCALE BUTTON ---
+const ScaleButton = ({ onPress, style, children, wrapperStyle, ...props }) => {
+  const scaleValue = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+      if (props.disabled) return;
+      Animated.spring(scaleValue, {
+          toValue: 0.96, // Slight shrink effect
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 10,
+      }).start();
+  };
+
+  const onPressOut = () => {
+      Animated.spring(scaleValue, {
+          toValue: 1, 
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 10,
+      }).start();
+  };
+
+  return (
+      <Pressable 
+          onPress={onPress} 
+          onPressIn={onPressIn} 
+          onPressOut={onPressOut}
+          style={wrapperStyle} // Layout styles (width, margin) go here
+          {...props} 
+      >
+          <Animated.View style={[style, { transform: [{ scale: scaleValue }] }]}>
+              {children}
+          </Animated.View>
+      </Pressable>
+  );
+};
 
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
@@ -47,6 +88,15 @@ export default function HomeScreen() {
 
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
+  // Search Bar Animation Value
+  const searchScale = useRef(new Animated.Value(1)).current;
+
+  const animateSearch = (focused) => {
+      Animated.spring(searchScale, {
+          toValue: focused ? 1.05 : 1,
+          useNativeDriver: true,
+      }).start();
+  };
 
   // --- INTERNET WARM-UP ---
   // Sayfa açıldığında NetInfo'yu bir kez tetikliyoruz ki ilk tıklamada hazır olsun.
@@ -295,92 +345,116 @@ export default function HomeScreen() {
     </View>
   );
 
-  // --- LIST ITEM RENDERER (UPDATED) ---
+  // --- RENDER ITEM ---
   const renderGroupItem = ({ item }) => {
     const thumbUrl = item.thumbnail_url || item.picture_url;
     const originalUrl = item.picture_url;
 
-    // --- MEMBER SORTING & FORMATTING LOGIC ---
     let sortedMembers = [];
     if (item.members) {
-        // 1. Separate "You" and "Others"
         const me = item.members.find(m => m.id.toString() === userId.toString());
         const others = item.members.filter(m => m.id.toString() !== userId.toString());
-        
-        // 2. Sort others alphabetically
         others.sort((a, b) => a.username.localeCompare(b.username));
-
-        // 3. Combine: [Me, ...Others]
-        if (me) sortedMembers.push({ ...me, displayName: "Siz" }); // Override name for "You"
+        if (me) sortedMembers.push({ ...me, displayName: "Siz" });
         sortedMembers = [...sortedMembers, ...others];
     }
+    const formatName = (name) => (name === "Siz" || name.length <= 6) ? name : name.substring(0, 6) + '...';
 
-    // Helper to truncate name: "AhmetAli" -> "AhmetA..."
-    const formatName = (name) => {
-        // Check if user is "Siz", keep it as is
-        if (name === "Siz") return name;
-        
-        if (name.length > 6) {
-            return name.substring(0, 6) + '...';
-        }
-        return name;
-    };
-    // -----------------------------------------
+    const goToDetails = () => router.push({ pathname: '/group-details', params: { groupId: item.id, userId: userId } });
 
     return (
-      <View style={homeStyles.groupCard}>
-        
-        {/* --- TOP ROW: IMAGE, NAME, CAMERA --- */}
-        <View style={homeStyles.cardHeader}>
-            {/* Left: Clickable Image */}
-            <TouchableOpacity onPress={() => handleImagePress(originalUrl)}>
-                {thumbUrl ? (
-                    <Image source={{ uri: thumbUrl }} style={homeStyles.groupImage} />
-                ) : (
-                    <View style={homeStyles.groupIconPlaceholder}>
-                        <Ionicons name="people" size={24} color="#000000" />
-                    </View>
-                )}
-            </TouchableOpacity>
+      // OUTER CARD: Handles Animation & Navigation for Background/Empty Areas
+      <ScaleButton 
+        onPress={goToDetails} 
+        style={homeStyles.groupCard}
+        activeOpacity={1} 
+      >
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
             
-            {/* Center: Clickable Info */}
-            <TouchableOpacity 
-                style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 10 }} 
-                onPress={() => router.push({ pathname: '/group-details', params: { groupId: item.id, userId: userId } })}
-            >
-                <View style={homeStyles.groupInfo}>
+            {/* LEFT CONTENT AREA */}
+            <View style={{flex: 1}}>
+                
+                {/* HEADER (Image + Name) */}
+                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
+                    {/* Profile Image - Intercepts click for Full Screen Image */}
+                    <TouchableOpacity onPress={() => handleImagePress(originalUrl)} activeOpacity={0.8} style={{marginRight: 15}}>
+                        {thumbUrl ? (
+                            <Image source={{ uri: thumbUrl }} style={homeStyles.groupImage} />
+                        ) : (
+                            <View style={homeStyles.groupIconPlaceholder}>
+                                <Ionicons name="people" size={24} color={isDark ? "#000000" : "#000000"} />
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                    
                     <Text style={homeStyles.groupName}>{item.group_name}</Text>
                 </View>
-            </TouchableOpacity>
 
-            {/* Right: Camera Icon */}
-            <TouchableOpacity style={{ padding: 5 }} onPress={() => handleCameraAction(item.id)}>
-                <Ionicons name="camera-outline" size={30} color={colors.textPrimary} />
-            </TouchableOpacity>
-        </View>
-
-        {/* --- BOTTOM ROW: MEMBER LIST (SCROLLABLE) --- */}
-        <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={homeStyles.memberListContainer}
-            keyboardShouldPersistTaps="handled"
-        >
-            {sortedMembers.map((member) => (
-                <View key={member.id} style={homeStyles.memberPill}>
-                    <Text style={homeStyles.memberPillText}>
-                        {formatName(member.displayName || member.username)}
-                    </Text>
+                {/* MEMBERS LIST (Scrollable) */}
+                <View>
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    > 
+                        {sortedMembers.map((member) => (
+                            // WRAPPING MEMBER IN TOUCHABLE FIXES SCROLLING:
+                            // It prevents the parent ScaleButton from locking the touch stream immediately,
+                            // allowing the ScrollView to detect the drag.
+                            <TouchableOpacity 
+                                key={member.id} 
+                                style={homeStyles.memberPill}
+                                onPress={goToDetails}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={homeStyles.memberPillText}>
+                                    {formatName(member.displayName || member.username)}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
                 </View>
-            ))}
-        </ScrollView>
+            </View>
 
-      </View>
+            {/* CAMERA BUTTON */}
+            <ScaleButton 
+                onPress={() => handleCameraAction(item.id)} 
+                style={homeStyles.cameraButtonContainer}
+            >
+                <Ionicons name="camera-outline" size={30} color={isDark ? "#fff" : "#000"} />
+            </ScaleButton>
+
+        </View>
+      </ScaleButton>
     );
   };
 
+  // --- BUTTON STATE COLORS ---
+  const getButtonColors = (isActive) => {
+    if (isDark) {
+        // Dark Mode: Active Black, Inactive #686868
+        return { bg: isActive ? '#000000' : '#686868', text: '#fff' };
+    } else {
+        // Light Mode: Active #2c2c2c, Inactive #545454
+        return { bg: isActive ? '#2c2c2c' : '#545454', text: '#fff' };
+    }
+  };
+
+  const isCreateEnabled = newGroupName.length > 0;
+  const isJoinEnabled = joinCode.length > 0;
+
+  const createBtnStyle = getButtonColors(isCreateEnabled);
+  const joinBtnStyle = getButtonColors(isJoinEnabled);
+
   if (!userId) {
-      return <ActivityIndicator size="large" style={{flex: 1}} />;
+    // Dynamic Color: White for Dark Mode, Black for Light Mode
+    return (
+      <ActivityIndicator 
+          size="large" 
+          color={isDark ? '#ffffff' : '#000000'} 
+          style={{flex: 1, backgroundColor: isDark ? '#333' : '#fff'}} 
+      />
+    );
   }
 
 
@@ -404,142 +478,166 @@ export default function HomeScreen() {
 
   return (
     <LinearGradient 
-      colors={colors.gradient} 
+      colors={isDark ? ['#4e4e4e', '#1a1a1a'] : ['#ffffff', '#d3d3d3']} 
       style={homeStyles.container}
     >
-      <StatusBar 
-    backgroundColor={colors.headerBg} 
-    barStyle={isDark ? "light-content" : "dark-content"} 
-  />
-      <CustomHeader />
+      <StatusBar backgroundColor={isDark ? '#1a1a1a' : '#55efe1'} barStyle={isDark ? "light-content" : "dark-content"} />
+      {/* --- HEADER --- */}
+      <View style={homeStyles.headerContainer}>
+        {/* Profile Pic */}
+        <ScaleButton onPress={() => router.push({ pathname: '/profile', params: { userId: userId } })}>
+            <Image 
+              source={userProfilePic ? { uri: userProfilePic } : defaultProfileImage} 
+              style={homeStyles.profileImage} 
+            />
+        </ScaleButton>
+        
+        <Text style={homeStyles.headerTitle}>AllSent</Text>
+        
+        {/* Add Button */}
+        <ScaleButton 
+            style={homeStyles.addButton} 
+            onPress={() => setModalVisible(true)}
+        >
+            {/* Icon Color: Light Mode #a9a9a9, Dark Mode #fff */}
+            <Ionicons name="add" size={30} color={isDark ? '#ffffff' : '#a9a9a9'} />
+        </ScaleButton>
+      </View>
 
       {/* --- SEARCH BAR SECTION --- */}
-      <View style={homeStyles.searchContainer}>
-        {/* Left: Black Search Icon */}
-        <Ionicons name="search" size={20} color="black" style={homeStyles.searchIcon} />
+      <Animated.View style={[homeStyles.searchContainer, { transform: [{ scale: searchScale }] }]}>
+        <Ionicons name="search" size={20} color={isDark ? '#989898' : '#e9e9e9'} style={homeStyles.searchIcon} />
         
-        {/* Input Field */}
         <TextInput
           style={homeStyles.searchInput}
           placeholder="Ara"
-          placeholderTextColor={colors.textSecondary} // Matching gray placeholder
+          placeholderTextColor={isDark ? '#989898' : '#e9e9e9'} 
           value={searchQuery}
           onChangeText={setSearchQuery}
+          onFocus={() => animateSearch(true)}
+          onBlur={() => animateSearch(false)}
           autoCapitalize="none"
           autoCorrect={false}
+          // Fixed: Cursor color white
+          selectionColor="#ffffff" 
         />
 
-        {/* Right: Clear Button (Visible only when typing) */}
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')} style={homeStyles.clearButton}>
-            <Ionicons name="close" size={14} color={colors.textPrimary} />
+            <Ionicons name="close" size={14} color={isDark ? '#ffffff' : '#000000'} />
           </TouchableOpacity>
         )}
-      </View>
+      </Animated.View>
 
-      {/* --- CREATE/JOIN MODAL (With Keyboard Avoidance) --- */}
+      {/* --- MODAL (CREATE/JOIN) --- */}
       <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
-        {/* Changed View to KeyboardAvoidingView */}
-        <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={homeStyles.modalOverlay}
-        >
-          <View style={homeStyles.modalContainer}>
-            
-            {/* Close Button */}
-            <TouchableOpacity style={homeStyles.closeButton} onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
+        {/* Outer Touchable to detect outside taps */}
+        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={homeStyles.modalOverlay}
+            >
+            {/* Stop propagation so tapping the modal itself doesn't close it */}
+            <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[homeStyles.modalContainer, { paddingVertical: 20 }]}>
+                    
+                    {/* REMOVED HEADER AREA AND CLOSE BUTTONS AS REQUESTED */}
 
-            {/* Tabs */}
-            <View style={homeStyles.tabContainer}>
-              <TouchableOpacity 
-                style={[homeStyles.tabButton, activeTab === 'create' && homeStyles.activeTab]}
-                onPress={() => setActiveTab('create')}
-              >
-                <Text style={[homeStyles.tabText, activeTab === 'create' && homeStyles.activeTabText]}>Grup Oluştur</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[homeStyles.tabButton, activeTab === 'join' && homeStyles.activeTab]}
-                onPress={() => setActiveTab('join')}
-              >
-                <Text style={[homeStyles.tabText, activeTab === 'join' && homeStyles.activeTabText]}>Gruba Katıl</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Content (Inside ScrollView to allow scrolling when keyboard is up) */}
-            <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-                <View style={homeStyles.modalContent}>
-                {activeTab === 'create' ? (
-                    <View style={homeStyles.formContainer}>
-                        <TouchableOpacity onPress={handleGroupImageOptions} style={homeStyles.imagePicker}>
-                            {newGroupImage ? (
-                                <Image source={{ uri: newGroupImage }} style={homeStyles.selectedImage} />
-                            ) : (
-                                <View style={homeStyles.defaultImagePlaceholder}>
-                                    <Ionicons name="camera" size={30} color="#fff" />
-                                </View>
-                            )}
-                            <Text style={homeStyles.selectPhotoText}>Fotoğraf Seçin</Text>
-                        </TouchableOpacity>
-
-                        <Text style={homeStyles.label}>Grup Adı:</Text>
-                        <TextInput 
-                            style={homeStyles.input}
-                            placeholder="Örn: Tatil Fotoğrafları"
-                            value={newGroupName}
-                            onChangeText={setNewGroupName}
-                        />
-
-                        <Text style={homeStyles.label}>Açıklama: (isteğe bağlı)</Text>
-                        <TextInput 
-                            style={homeStyles.input} 
-                            placeholder="Grup açıklaması (Maks 255 karakter)" 
-                            value={newGroupDescription} 
-                            onChangeText={setNewGroupDescription}
-                            maxLength={255}
-                            multiline
-                        />
-
-                        <TouchableOpacity 
-                            style={homeStyles.actionButton} 
-                            onPress={handleCreateGroup}
-                            disabled={actionLoading}
-                        >
-                            {actionLoading ? <ActivityIndicator color={colors.tint} /> : <Text style={homeStyles.actionButtonText}>Oluştur</Text>}
-                        </TouchableOpacity>
+                    {/* Tabs */}
+                    <View style={homeStyles.tabContainer}>
+                    <TouchableOpacity 
+                        style={[homeStyles.tabButton, activeTab === 'create' && homeStyles.activeTab]}
+                        onPress={() => setActiveTab('create')}
+                    >
+                        <Text style={[homeStyles.tabText, activeTab === 'create' && homeStyles.activeTabText]}>Grup Oluştur</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[homeStyles.tabButton, activeTab === 'join' && homeStyles.activeTab]}
+                        onPress={() => setActiveTab('join')}
+                    >
+                        <Text style={[homeStyles.tabText, activeTab === 'join' && homeStyles.activeTabText]}>Gruba Katıl</Text>
+                    </TouchableOpacity>
                     </View>
-                ) : (
-                    <View style={homeStyles.formContainer}>
-                        <Text style={homeStyles.label}>Grup Kodu:</Text>
-                        <TextInput 
-                            style={homeStyles.input}
-                            placeholder="Kodu buraya girin"
-                            value={joinCode}
-                            onChangeText={setJoinCode}
-                            autoCapitalize="characters"
-                        />
-                        <TouchableOpacity 
-                            style={homeStyles.actionButton} 
-                            onPress={handleJoinGroup}
-                            disabled={actionLoading}
-                        >
-                            {actionLoading ? <ActivityIndicator color={colors.tint} /> : <Text style={homeStyles.actionButtonText}>Katıl</Text>}
-                        </TouchableOpacity>
-                    </View>
-                )}
+
+                    <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+                        <View style={homeStyles.modalContent}>
+                        {activeTab === 'create' ? (
+                            <View style={homeStyles.formContainer}>
+                                <TouchableOpacity onPress={handleGroupImageOptions} style={homeStyles.imagePicker}>
+                                    {newGroupImage ? (
+                                        <Image source={{ uri: newGroupImage }} style={homeStyles.selectedImage} />
+                                    ) : (
+                                        <View style={homeStyles.defaultImagePlaceholder}>
+                                            <Ionicons name="camera" size={30} color={isDark ? "#fff" : "#000"} />
+                                        </View>
+                                    )}
+                                    <Text style={homeStyles.selectPhotoText}>Fotoğraf Seçin</Text>
+                                </TouchableOpacity>
+
+                                <Text style={homeStyles.label}>Grup Adı:</Text>
+                                <TextInput 
+                                    style={homeStyles.input}
+                                    placeholder="Örn: Tatil Fotoğrafları"
+                                    placeholderTextColor={isDark ? "#999" : "#ccc"}
+                                    value={newGroupName}
+                                    onChangeText={setNewGroupName}
+                                />
+
+                                <Text style={homeStyles.label}>Açıklama: (isteğe bağlı)</Text>
+                                <TextInput 
+                                    style={homeStyles.input} 
+                                    placeholder="Maks 255 karakter" 
+                                    placeholderTextColor={isDark ? "#999" : "#ccc"}
+                                    value={newGroupDescription} 
+                                    onChangeText={setNewGroupDescription}
+                                    maxLength={255}
+                                    multiline
+                                />
+
+                                <ScaleButton 
+                                  wrapperStyle={{ width: '100%' }} // FIX: Restore full width
+                                  style={[homeStyles.actionButton, { backgroundColor: createBtnStyle.bg }]} 
+                                  onPress={handleCreateGroup}
+                                  disabled={actionLoading || !isCreateEnabled}
+                                >
+                                  {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={[homeStyles.actionButtonText, {color: createBtnStyle.text}]}>Oluştur</Text>}
+                                </ScaleButton>
+                            </View>
+                        ) : (
+                            <View style={homeStyles.formContainer}>
+                                <Text style={homeStyles.label}>Grup Kodu:</Text>
+                                <TextInput 
+                                    style={homeStyles.input}
+                                    placeholder="Kodu buraya girin"
+                                    placeholderTextColor={isDark ? "#999" : "#ccc"}
+                                    value={joinCode}
+                                    onChangeText={setJoinCode}
+                                    autoCapitalize="characters"
+                                />
+                                <ScaleButton 
+                                  wrapperStyle={{ width: '100%' }} // FIX: Restore full width
+                                  style={[homeStyles.actionButton, { backgroundColor: joinBtnStyle.bg }]} 
+                                  onPress={handleJoinGroup}
+                                  disabled={actionLoading || !isJoinEnabled}
+                                >
+                                  {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={[homeStyles.actionButtonText, {color: joinBtnStyle.text}]}>Katıl</Text>}
+                                </ScaleButton>
+                            </View>
+                        )}
+                        </View>
+                    </ScrollView>
                 </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* --- FULL SCREEN IMAGE MODAL --- */}
       <Modal visible={isImageModalVisible} transparent={true} animationType="fade" onRequestClose={() => setImageModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }}>
+            {/* Updated Style for Alignment */}
             <TouchableOpacity 
-                style={{ position: 'absolute', top: 50, left: 20, zIndex: 10, padding: 10 }} 
+                style={homeStyles.fullScreenBackButton} 
                 onPress={() => setImageModalVisible(false)}
             >
                 <Ionicons name="chevron-back" size={32} color="#fff" />
@@ -557,7 +655,7 @@ export default function HomeScreen() {
       {/* --- GROUP LIST --- */}
       <View style={homeStyles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color={colors.tint} style={{ marginTop: 50 }} />
+          <ActivityIndicator size="large" color="#ffffff" style={{ marginTop: 50 }} />
         ) : (
           <FlatList
             data={filteredData}
