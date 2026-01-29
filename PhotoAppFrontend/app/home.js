@@ -232,12 +232,11 @@ export default function HomeScreen() {
 
   // --- CREATE GROUP LOGIC ---
   const handleCreateGroup = async () => {
-    // BURADA DA İNTERNET KONTROLÜ EKLENEBİLİR (İsteğe bağlı)
     const hasInternet = await checkInternetConnection();
     if (!hasInternet) return;
 
     if (!newGroupName.trim()) {
-      Alert.alert("Error", "Please enter group name.");
+      Alert.alert("Hata", "Lütfen bir grup adı giriniz.");
       return;
     }
 
@@ -278,10 +277,10 @@ export default function HomeScreen() {
         setNewGroupImage(null);
         fetchData(); // Refresh list
       } else {
-        Alert.alert("Error", data.error || "Failed.");
+        Alert.alert("Hata", data.error || "Hata gerçekleşti.");
       }
     } catch (error) {
-      Alert.alert("Error", "Connection failed.");
+      Alert.alert("Hata", "Bağlantı hatası.");
     } finally {
       setActionLoading(false);
     }
@@ -289,12 +288,11 @@ export default function HomeScreen() {
 
   // --- JOIN GROUP LOGIC ---
   const handleJoinGroup = async () => {
-    // BURADA DA İNTERNET KONTROLÜ EKLENEBİLİR
     const hasInternet = await checkInternetConnection();
     if (!hasInternet) return;
 
     if (!joinCode.trim()) {
-      Alert.alert("Error", "Please enter code.");
+      Alert.alert("Hata", "Lütfen geçerli bir kod giriniz.");
       return;
     }
 
@@ -316,10 +314,10 @@ export default function HomeScreen() {
         setJoinCode('');
         fetchData(); 
       } else {
-        Alert.alert("Warning", data.message || "Error.");
+        Alert.alert("Uyarı!", data.message || "Hata.");
       }
     } catch (error) {
-        Alert.alert("Error", "Connection failed.");
+        Alert.alert("Hata", "Bağlantı hatası.");
     } finally {
         setActionLoading(false);
     }
@@ -581,6 +579,7 @@ export default function HomeScreen() {
                                     placeholderTextColor={isDark ? "#999" : "#ccc"}
                                     value={newGroupName}
                                     onChangeText={setNewGroupName}
+                                    selectionColor={isDark ? "#ffffff" : "#000000"}
                                 />
 
                                 <Text style={homeStyles.label}>Açıklama: (isteğe bağlı)</Text>
@@ -592,6 +591,7 @@ export default function HomeScreen() {
                                     onChangeText={setNewGroupDescription}
                                     maxLength={255}
                                     multiline
+                                    selectionColor={isDark ? "#ffffff" : "#000000"}
                                 />
 
                                 <ScaleButton 
@@ -613,6 +613,7 @@ export default function HomeScreen() {
                                     value={joinCode}
                                     onChangeText={setJoinCode}
                                     autoCapitalize="characters"
+                                    selectionColor={isDark ? "#ffffff" : "#000000"}
                                 />
                                 <ScaleButton 
                                   wrapperStyle={{ width: '100%' }} // FIX: Restore full width

@@ -1,16 +1,54 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, FlatList, TouchableOpacity, Modal, Image, Alert, 
-  ActivityIndicator, StatusBar, TouchableWithoutFeedback, ScrollView, TextInput, KeyboardAvoidingView, Platform, PanResponder, Dimensions 
+  ActivityIndicator, StatusBar, TouchableWithoutFeedback, ScrollView, TextInput, KeyboardAvoidingView, Platform, PanResponder, Dimensions,
+  Animated, Pressable
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av'; 
 import API_URL from '../config';
-import adminPanelStyles from '../styles/adminPanelStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { getAdminPanelStyles } from '../styles/adminPanelStyles';
+
+// --- HELPER COMPONENT: ANIMATED SCALE BUTTON ---
+const ScaleButton = ({ onPress, style, children, wrapperStyle, ...props }) => {
+    const scaleValue = useRef(new Animated.Value(1)).current;
+  
+    const onPressIn = () => {
+        if (props.disabled) return;
+        Animated.spring(scaleValue, {
+            toValue: 0.96,
+            useNativeDriver: true,
+            speed: 50,
+            bounciness: 10,
+        }).start();
+    };
+  
+    const onPressOut = () => {
+        Animated.spring(scaleValue, {
+            toValue: 1, 
+            useNativeDriver: true,
+            speed: 50,
+            bounciness: 10,
+        }).start();
+    };
+  
+    return (
+        <Pressable 
+            onPress={onPress} 
+            onPressIn={onPressIn} 
+            onPressOut={onPressOut}
+            style={wrapperStyle}
+            {...props} 
+        >
+            <Animated.View style={[style, { transform: [{ scale: scaleValue }] }]}>
+                {children}
+            </Animated.View>
+        </Pressable>
+    );
+};
 
 export default function AdminPanel() {
     // --- THEME HOOK ---
@@ -239,38 +277,40 @@ export default function AdminPanel() {
   };
 
   const renderReportItem = ({ item }) => (
-    <TouchableOpacity style={adminPanelStyles.row} onPress={() => { setSelectedReport(item); setReportModalVisible(true); }}>
+    <ScaleButton style={adminPanelStyles.row} onPress={() => { setSelectedReport(item); setReportModalVisible(true); }}>
         <Ionicons name="alert-circle" size={24} color="#FF9500" style={{ marginRight: 10 }} />
         <View style={adminPanelStyles.rowInfo}>
             <Text style={adminPanelStyles.mainText} numberOfLines={1}>{item.reason}</Text>
             <Text style={adminPanelStyles.subText}>Raporlayan: {item.reporter_username}</Text>
             <Text style={[adminPanelStyles.subText, {color: 'red'}]}>Şüpheli: {item.uploader_username}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={colors.iconDefault} />
-    </TouchableOpacity>
+        {/* Dynamic Chevron */}
+        <Ionicons name="chevron-forward" size={20} color={isDark ? "#ccc" : "#000"} />
+    </ScaleButton>
   );
 
   const renderBannedUserItem = ({ item }) => (
-    <TouchableOpacity style={adminPanelStyles.row} onPress={() => { setSelectedBannedUser(item); setBanModalVisible(true); }}>
+    <ScaleButton style={adminPanelStyles.row} onPress={() => { setSelectedBannedUser(item); setBanModalVisible(true); }}>
         <Ionicons name="ban" size={24} color="#FF3B30" style={{ marginRight: 10 }} />
         <View style={adminPanelStyles.rowInfo}>
             <Text style={adminPanelStyles.mainText}>{item.username || "Bilinmeyen Kullanıcı"}</Text>
             <Text style={adminPanelStyles.subText}>Tarih: {new Date(item.banned_at).toLocaleDateString()}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#ccc" />
-    </TouchableOpacity>
+        {/* Dynamic Chevron */}
+        <Ionicons name="chevron-forward" size={20} color={isDark ? "#ccc" : "#000"} />
+    </ScaleButton>
   );
 
   // --- 2FA INTERCEPTION SCREEN ---
-  // Eğer doğrulama yapılmadıysa (isVerified = false), bu ekranı göster
   if (!isVerified) {
       return (
         <LinearGradient 
-            colors={colors.gradient}
+            colors={isDark ? ['#4e4e4e', '#1a1a1a'] : ['#ffffff', '#d3d3d3']} 
             style={adminPanelStyles.container}
         >
             <StatusBar 
-                backgroundColor={colors.headerBg} 
+                // Match Header Color
+                backgroundColor={isDark ? '#1a1a1a' : '#808080'} 
                 barStyle={isDark ? "light-content" : "dark-content"} 
             />
 
@@ -289,10 +329,11 @@ export default function AdminPanel() {
                 />
             )}
             
-            {/* Simple Header */}
+            {/* Header */}
             <View style={adminPanelStyles.headerContainer}>
                 <TouchableOpacity style={adminPanelStyles.backButton} onPress={() => router.back()}>
-                    <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
+                    {/* Always White Icon */}
+                    <Ionicons name="chevron-back" size={32} color="#ffffff" />
                 </TouchableOpacity>
                 <Text style={adminPanelStyles.headerTitle}>Güvenlik Kontrolü</Text>
                 <View style={{width:40}} /> 
@@ -300,8 +341,9 @@ export default function AdminPanel() {
 
             {initLoading ? (
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <ActivityIndicator size="large" color={colors.tint} />
-                    <Text style={{ marginTop: 20, color: '#666' }}>Kod oluşturuluyor...</Text>
+                    {/* Dynamic Spinner */}
+                    <ActivityIndicator size="large" color={colors.textPrimary} />
+                    <Text style={{ marginTop: 20, color: colors.textSecondary }}>Kod oluşturuluyor...</Text>
                 </View>
             ) : (
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={adminPanelStyles.authContainer}>
@@ -314,20 +356,22 @@ export default function AdminPanel() {
                     <TextInput 
                         style={adminPanelStyles.authInput}
                         placeholder="Kod (Örn: 123456)"
+                        placeholderTextColor={colors.textSecondary}
                         keyboardType="numeric"
                         maxLength={6}
                         value={verificationCode}
                         onChangeText={setVerificationCode}
                         autoFocus
+                        selectionColor={colors.textPrimary}
                     />
 
-                    <TouchableOpacity style={adminPanelStyles.authButton} onPress={handleVerifyCode} disabled={verifying}>
-                        {verifying ? <ActivityIndicator color={colors.tint} /> : <Text style={adminPanelStyles.authButtonText}>Onayla</Text>}
-                    </TouchableOpacity>
+                    <ScaleButton style={adminPanelStyles.authButton} onPress={handleVerifyCode} disabled={verifying}>
+                        {verifying ? <ActivityIndicator color="#fff" /> : <Text style={adminPanelStyles.authButtonText}>Onayla</Text>}
+                    </ScaleButton>
 
                     <TouchableOpacity style={{ marginTop: 20 }} onPress={handleResendCode}>
-                        <Text style={{ color: '#FFF', fontWeight: '600' }}>Kodu Yeniden Gönder</Text>
-                    </TouchableOpacity>
+                        <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>Kodu Yeniden Gönder</Text>
+                    </TouchableOpacity> 
                 </KeyboardAvoidingView>
             )}
         </LinearGradient>
@@ -337,11 +381,11 @@ export default function AdminPanel() {
   // --- MAIN ADMIN PANEL CONTENT ---
   return (
     <LinearGradient 
-      colors={colors.gradient} 
+      colors={isDark ? ['#4e4e4e', '#1a1a1a'] : ['#ffffff', '#d3d3d3']} 
       style={adminPanelStyles.container}
     >
       <StatusBar 
-        backgroundColor={colors.headerBg} 
+        backgroundColor={isDark ? '#1a1a1a' : '#808080'} 
         barStyle={isDark ? "light-content" : "dark-content"} 
       />
 
@@ -360,33 +404,29 @@ export default function AdminPanel() {
         />
       )}
       
+      {/* Header */}
       <View style={adminPanelStyles.headerContainer}>
           <TouchableOpacity style={adminPanelStyles.backButton} onPress={() => router.back()}>
-              <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
+              {/* Always White Icon */}
+              <Ionicons name="chevron-back" size={32} color="#ffffff" />
           </TouchableOpacity>
           <Text style={adminPanelStyles.headerTitle}>Admin Sayfası</Text>
           <View style={{width: 32}} />
       </View>
 
+      {/* Tabs */}
       <View style={adminPanelStyles.tabContainer}>
-          <TouchableOpacity 
-            style={[adminPanelStyles.tabButton, activeTab === 'reports' && adminPanelStyles.activeTab]}
-            onPress={() => setActiveTab('reports')}
-          >
-              <Text style={[adminPanelStyles.tabText, activeTab === 'reports' && adminPanelStyles.activeTabText]}>Raporlar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[adminPanelStyles.tabButton, activeTab === 'banned' && adminPanelStyles.activeTab]}
-            onPress={() => setActiveTab('banned')}
-          >
-              <Text style={[adminPanelStyles.tabText, activeTab === 'banned' && adminPanelStyles.activeTabText]}>Banlananlar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[adminPanelStyles.tabButton, activeTab === 'manual_ban' && adminPanelStyles.activeTab]}
-            onPress={() => setActiveTab('manual_ban')}
-          >
-              <Text style={[adminPanelStyles.tabText, activeTab === 'manual_ban' && adminPanelStyles.activeTabText]}>Kullanıcı Banla</Text>
-          </TouchableOpacity>
+          {['reports', 'banned', 'manual_ban'].map(tabKey => (
+              <TouchableOpacity 
+                key={tabKey}
+                style={[adminPanelStyles.tabButton, activeTab === tabKey && adminPanelStyles.activeTab]}
+                onPress={() => setActiveTab(tabKey)}
+              >
+                  <Text style={[adminPanelStyles.tabText, activeTab === tabKey && adminPanelStyles.activeTabText]}>
+                      {tabKey === 'reports' ? 'Raporlar' : tabKey === 'banned' ? 'Banlananlar' : 'Kullanıcı Banla'}
+                  </Text>
+              </TouchableOpacity>
+          ))}
       </View>
 
       <View style={{ flex: 1 }}>
@@ -398,29 +438,51 @@ export default function AdminPanel() {
                       
                       <View style={adminPanelStyles.inputGroup}>
                           <Text style={adminPanelStyles.label}>Kullanıcı ID:</Text>
-                          <TextInput style={adminPanelStyles.input} placeholder="Örn: 15" value={manualBanId} onChangeText={setManualBanId} keyboardType="numeric" />
+                          <TextInput 
+                            style={adminPanelStyles.input} 
+                            placeholder="Örn: 15" 
+                            placeholderTextColor={colors.textSecondary}
+                            value={manualBanId} 
+                            onChangeText={setManualBanId} 
+                            keyboardType="numeric" 
+                            selectionColor={colors.textPrimary}
+                          />
                       </View>
 
-                      <View style={adminPanelStyles.separator}><Text style={{color:'#999'}}>VEYA</Text></View>
+                      <View style={adminPanelStyles.separator}><Text style={{color: colors.textSecondary}}>VEYA</Text></View>
 
                       <View style={adminPanelStyles.inputGroup}>
                           <Text style={adminPanelStyles.label}>Telefon Numarası:</Text>
-                          <TextInput style={adminPanelStyles.input} placeholder="Örn: +905..." value={manualBanPhone} onChangeText={setManualBanPhone} keyboardType="phone-pad" />
+                          <TextInput 
+                            style={adminPanelStyles.input} 
+                            placeholder="Örn: +905..." 
+                            placeholderTextColor={colors.textSecondary}
+                            value={manualBanPhone} 
+                            onChangeText={setManualBanPhone} 
+                            keyboardType="phone-pad" 
+                            selectionColor={colors.textPrimary}
+                          />
                       </View>
 
-                      <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnBan, { marginTop: 30 }]} onPress={handleManualBan}>
-                          {manualLoading ? <ActivityIndicator color={colors.tint} /> : <Text style={adminPanelStyles.btnText}>Kullanıcıyı Banla ve Sil</Text>}
-                      </TouchableOpacity>
+                      <ScaleButton style={[adminPanelStyles.btn, adminPanelStyles.btnBan, { marginTop: 30 }]} onPress={handleManualBan}>
+                          {manualLoading ? <ActivityIndicator color="#fff" /> : <Text style={adminPanelStyles.btnText}>Kullanıcıyı Banla ve Sil</Text>}
+                      </ScaleButton>
                   </ScrollView>
               </KeyboardAvoidingView>
           ) : (
-              loading ? <ActivityIndicator size="large" color={colors.tint} style={{marginTop: 50}} /> : (
+              loading ? (
+                  <ActivityIndicator size="large" color={colors.textPrimary} style={{marginTop: 50}} /> 
+              ) : (
                   <FlatList
                     data={activeTab === 'reports' ? reports : bannedUsers}
                     keyExtractor={item => (activeTab === 'reports' ? `rep_${item.report_id}` : `ban_${item.id}`)}
                     renderItem={activeTab === 'reports' ? renderReportItem : renderBannedUserItem}
                     contentContainerStyle={adminPanelStyles.listContent}
-                    ListEmptyComponent={<Text style={adminPanelStyles.emptyText}>{activeTab === 'reports' ? 'Bekleyen rapor yok.' : 'Banlanan kullanıcı yok.'}</Text>}
+                    ListEmptyComponent={
+                        <Text style={adminPanelStyles.emptyText}>
+                            {activeTab === 'reports' ? 'Bekleyen rapor yok.' : 'Banlanan kullanıcı yok.'}
+                        </Text>
+                    }
                   />
               )
           )}
@@ -435,7 +497,9 @@ export default function AdminPanel() {
                         <>
                             <View style={adminPanelStyles.modalHeader}>
                                 <Text style={adminPanelStyles.modalTitle}>Rapor Detayı</Text>
-                                <TouchableOpacity onPress={() => setReportModalVisible(false)}><Ionicons name="close" size={24} color={colors.textPrimary} /></TouchableOpacity>
+                                <TouchableOpacity onPress={() => setReportModalVisible(false)}>
+                                    <Ionicons name="close" size={24} color={colors.textPrimary} />
+                                </TouchableOpacity>
                             </View>
                             {selectedReport.media_type === 'video' ? (
                                 <Video source={{ uri: selectedReport.photo_url }} style={adminPanelStyles.evidenceVideo} useNativeControls resizeMode={ResizeMode.CONTAIN} isLooping />
@@ -445,10 +509,10 @@ export default function AdminPanel() {
                             <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Sebep:</Text><Text style={adminPanelStyles.value}>{selectedReport.reason}</Text></View>
                             <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Şüpheli:</Text><Text style={[adminPanelStyles.value, {color:'red'}]}>{selectedReport.uploader_username}</Text></View>
                             <View style={adminPanelStyles.actionButtons}>
-                                <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnDismiss]} onPress={() => handleResolveReport('dismiss')}><Text style={adminPanelStyles.btnTextDark}>Yoksay</Text></TouchableOpacity>
-                                <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnDelete]} onPress={() => handleResolveReport('delete_content')}><Text style={adminPanelStyles.btnText}>İçeriği Sil</Text></TouchableOpacity>
+                                <ScaleButton style={[adminPanelStyles.btn, adminPanelStyles.btnDismiss]} onPress={() => handleResolveReport('dismiss')}><Text style={adminPanelStyles.btnText}>Yoksay</Text></ScaleButton>
+                                <ScaleButton style={[adminPanelStyles.btn, adminPanelStyles.btnDelete]} onPress={() => handleResolveReport('delete_content')}><Text style={adminPanelStyles.btnText}>İçeriği Sil</Text></ScaleButton>
                             </View>
-                            <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnBan]} onPress={() => handleResolveReport('ban_user')}><Text style={adminPanelStyles.btnText}>KULLANICIYI BANLA VE SİL</Text></TouchableOpacity>
+                            <ScaleButton style={[adminPanelStyles.btn, adminPanelStyles.btnBan]} onPress={() => handleResolveReport('ban_user')}><Text style={adminPanelStyles.btnText}>KULLANICIYI BANLA VE SİL</Text></ScaleButton>
                         </>
                     )}
                 </ScrollView>
@@ -469,7 +533,7 @@ export default function AdminPanel() {
                                     <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Kullanıcı Adı:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.username || "-"}</Text></View>
                                     <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Telefon:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.phone_number}</Text></View>
                                     <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Ban Sebebi:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.reason}</Text></View>
-                                    <TouchableOpacity style={[adminPanelStyles.btn, adminPanelStyles.btnUnban]} onPress={handleUnbanUser}><Text style={adminPanelStyles.btnText}>Banı Kaldır</Text></TouchableOpacity>
+                                    <ScaleButton style={[adminPanelStyles.btn, adminPanelStyles.btnUnban]} onPress={handleUnbanUser}><Text style={adminPanelStyles.btnText}>Banı Kaldır</Text></ScaleButton>
                                 </>
                             )}
                         </ScrollView>

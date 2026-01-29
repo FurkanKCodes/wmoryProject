@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, Image, TouchableOpacity, TextInput, 
   StatusBar, Alert, ScrollView, ActivityIndicator, 
-  KeyboardAvoidingView, Platform, PanResponder, Dimensions 
+  KeyboardAvoidingView, Platform, PanResponder, Dimensions,
+  Animated, Pressable 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +15,44 @@ import { useTheme } from '../context/ThemeContext';
 import { getEditProfileStyles } from '../styles/editProfileStyles';
 
 const defaultProfileImage = require('../assets/no-pic.jpg');
+
+// --- HELPER COMPONENT: ANIMATED SCALE BUTTON ---
+const ScaleButton = ({ onPress, style, children, wrapperStyle, ...props }) => {
+  const scaleValue = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+      if (props.disabled) return;
+      Animated.spring(scaleValue, {
+          toValue: 0.96,
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 10,
+      }).start();
+  };
+
+  const onPressOut = () => {
+      Animated.spring(scaleValue, {
+          toValue: 1, 
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 10,
+      }).start();
+  };
+
+  return (
+      <Pressable 
+          onPress={onPress} 
+          onPressIn={onPressIn} 
+          onPressOut={onPressOut}
+          style={wrapperStyle}
+          {...props} 
+      >
+          <Animated.View style={[style, { transform: [{ scale: scaleValue }] }]}>
+              {children}
+          </Animated.View>
+      </Pressable>
+  );
+};
 
 export default function EditProfileScreen() {
   const { colors, isDark } = useTheme();
@@ -170,7 +209,6 @@ export default function EditProfileScreen() {
         formData.append('email', email);
         formData.append('phone_number', '+90' + phoneRaw);
 
-        // Append image only if changed and it's a new local file
         if (profilePic && profilePic !== initialData.profilePic && !profilePic.startsWith('http')) {
             const filename = profilePic.split('/').pop();
             const match = /\.(\w+)$/.exec(filename);
@@ -190,33 +228,56 @@ export default function EditProfileScreen() {
         });
         
         if (response.ok) {
-            Alert.alert("Başarılı", "Profiliniz güncellendi.");
-            // Update initial state
-            setInitialData({
-                username: username,
-                email: email,
-                phone: phoneRaw,
-                profilePic: profilePic
-            });
+            // FIX: Navigate back on success
+            Alert.alert("Başarılı", "Profiliniz güncellendi.", [
+                { text: "Tamam", onPress: () => router.back() }
+            ]);
         } else {
+            // Translation: Update failed
             Alert.alert("Hata", "Güncelleme başarısız oldu.");
         }
 
     } catch (error) {
         console.error(error);
+        // Translation: Server error
         Alert.alert("Hata", "Sunucu hatası.");
     } finally {
         setSaving(false);
     }
   };
 
+
+  // --- BUTTON COLOR LOGIC ---
+  const getSaveButtonStyles = () => {
+    if (!isDark) {
+        // Requirement 4: Light Mode
+        // Active: BG #000, Text #fff
+        // Inactive: BG #fff, Text #000
+        return {
+            bg: isSaveActive ? '#000000' : '#ffffff',
+            text: isSaveActive ? '#ffffff' : '#000000',
+            border: '#000000' // Add border for inactive state visibility
+        };
+    } else {
+        // Dark Mode (Consistent with Home)
+        return {
+            bg: isSaveActive ? '#ffffff' : '#333333',
+            text: isSaveActive ? '#000000' : '#888888',
+            border: '#333333'
+        };
+    }
+};
+
+const saveBtnStyle = getSaveButtonStyles();
+
   return (
     <LinearGradient 
-      colors={colors.gradient} 
+      colors={isDark ? ['#4e4e4e', '#1a1a1a'] : ['#ffffff', '#d3d3d3']} 
       style={editProfileStyles.container}
     >
       <StatusBar 
-        backgroundColor={colors.headerBg} 
+        // Match Header Color logic (#1a1a1a or #808080)
+        backgroundColor={isDark ? '#1a1a1a' : '#808080'} 
         barStyle={isDark ? "light-content" : "dark-content"} 
       />
 
@@ -238,28 +299,31 @@ export default function EditProfileScreen() {
       {/* HEADER */}
       <View style={editProfileStyles.headerContainer}>
         <TouchableOpacity style={editProfileStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
+          <Ionicons name="chevron-back" size={32} color='#fff' />
         </TouchableOpacity>
         
         <Text style={editProfileStyles.headerTitle}>Profili Düzenle</Text>
 
         {/* SAVE BUTTON */}
-        <TouchableOpacity 
-            style={[editProfileStyles.saveButton, !isSaveActive && editProfileStyles.saveButtonDisabled]}
+        <ScaleButton 
+            style={[
+                editProfileStyles.saveButton, 
+                { 
+                    backgroundColor: saveBtnStyle.bg,
+                    borderWidth: 0,
+                }
+            ]}
             onPress={handleSave}
             disabled={!isSaveActive || saving}
         >
             {saving ? (
-                <ActivityIndicator size="small" color={colors.tint} />
+                <ActivityIndicator size="small" color={saveBtnStyle.text} />
             ) : (
-                <Text style={[
-                    editProfileStyles.saveButtonText, 
-                    isSaveActive ? editProfileStyles.saveTextActive : editProfileStyles.saveTextInactive
-                ]}>
+                <Text style={[editProfileStyles.saveButtonText, { color: saveBtnStyle.text }]}>
                     Kaydet
                 </Text>
             )}
-        </TouchableOpacity>
+        </ScaleButton>
       </View>
 
       {/* KEYBOARD AVOIDING VIEW WRAPPER FOR SCROLL CONTENT */}
@@ -297,6 +361,8 @@ export default function EditProfileScreen() {
                                 onChangeText={setUsername}
                                 placeholder="Kullanıcı Adı"
                                 placeholderTextColor={colors.textSecondary}
+                                // Requirement 7: Caret color matches text color
+                                selectionColor={colors.textPrimary} 
                             />
                         </View>
 
@@ -306,13 +372,14 @@ export default function EditProfileScreen() {
                             <TextInput 
                                 style={editProfileStyles.inputField}
                                 value={email}
-                                onChangeText={handleEmailChange} // CHANGED: Use new handler
+                                onChangeText={handleEmailChange} 
                                 placeholder="Email Adresi"
                                 placeholderTextColor={colors.textSecondary}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
+                                // Requirement 7: Caret color matches text color
+                                selectionColor={colors.textPrimary}
                             />
-                            {/* NEW: Error Message */}
                             {!isEmailValid && (
                                 <Text style={editProfileStyles.errorText}>Geçerli bir e-posta girin (@.com)</Text>
                             )}
