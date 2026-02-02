@@ -352,7 +352,7 @@ export const getGroupDetailsStyles = (colors) => {
     paddingHorizontal: 15, 
     paddingVertical: 8,
     borderRadius: 15,
-    width: 75,
+    width: 80,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
@@ -378,7 +378,7 @@ export const getGroupDetailsStyles = (colors) => {
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 25, // Oval shape matching your design
-    width: 180,
+    width: 170,
   },
 
   // Notification Button Colors

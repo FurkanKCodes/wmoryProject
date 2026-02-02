@@ -958,7 +958,7 @@ export default function MediaGalleryScreen() {
                         <Ionicons name="chevron-back" size={32} color='#fff' />
                     </TouchableOpacity>
                     {/* Select Button */}
-                    <ScaleButton style={{marginLeft: -65}} onPress={toggleSelectionMode}>
+                    <ScaleButton style={{marginLeft: -55}} onPress={toggleSelectionMode}>
                         <Text style={{color:'#fff', fontWeight: '600', fontSize: 16}}>Seç</Text>
                     </ScaleButton>
                     <Text style={[mediaStyles.headerTitle, {marginLeft: -40}]}>Medya</Text>
@@ -1096,7 +1096,7 @@ export default function MediaGalleryScreen() {
                         ]}
                         pointerEvents={showControls ? 'auto' : 'none'}
                     >
-                        <TouchableOpacity style={mediaStyles.controlButton} onPress={() => setViewerVisible(false)}>
+                        <TouchableOpacity style={[mediaStyles.controlButton, {marginLeft: -10}]} onPress={() => setViewerVisible(false)}>
                             <Ionicons name="chevron-back" size={28} color="#fff" />
                         </TouchableOpacity>
 

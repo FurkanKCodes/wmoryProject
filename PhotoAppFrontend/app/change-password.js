@@ -8,7 +8,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import API_URL from '../config';
 // Re-using edit profile styles for consistent look
-import editProfileStyles from '../styles/editProfileStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { getEditProfileStyles } from '../styles/editProfileStyles';
@@ -114,7 +113,6 @@ export default function ChangePasswordScreen() {
         return {
             bg: isSaveActive ? '#ffffff' : '#333333',
             text: isSaveActive ? '#000000' : '#888888',
-            border: '#333333'
         };
     }
 };
@@ -190,8 +188,6 @@ return (
               editProfileStyles.saveButton, 
               { 
                   backgroundColor: saveBtnStyle.bg,
-                  borderWidth: isSaveActive ? 0 : 1,
-                  borderColor: saveBtnStyle.border
               }
           ]}
           onPress={handleSave}

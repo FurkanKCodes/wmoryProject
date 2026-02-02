@@ -36,6 +36,7 @@ export const getMediaStyles = (colors) => {
     // Optional: make back button hit area larger
     width: 40,
     height: 40,
+    marginLeft: -10,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
