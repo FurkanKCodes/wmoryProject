@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   View, Text, Image, TouchableOpacity, FlatList, Alert, 
   ActivityIndicator, StatusBar, Modal, Dimensions, ScrollView,
-  TouchableWithoutFeedback, Platform, ActionSheetIOS, SectionList, Animated 
+  TouchableWithoutFeedback, Platform, ActionSheetIOS, SectionList, Animated, Pressable
 } from 'react-native';
 import Reanimated, { 
     useSharedValue, 
@@ -24,7 +24,6 @@ import * as MediaLibrary from 'expo-media-library';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 import API_URL from '../config';
-import mediaStyles from '../styles/mediaStyles';
 import NetInfo from '@react-native-community/netinfo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
@@ -127,7 +126,44 @@ const ZoomableImage = ({ uri, onPress, onZoomChange }) => {
         </Reanimated.View>
       </GestureDetector>
     );
-  };
+};
+
+const ScaleButton = ({ onPress, style, children, wrapperStyle, ...props }) => {
+    const scaleValue = useRef(new Animated.Value(1)).current;
+  
+    const onPressIn = () => {
+        if (props.disabled) return;
+        Animated.spring(scaleValue, {
+            toValue: 0.96,
+            useNativeDriver: true,
+            speed: 50,
+            bounciness: 10,
+        }).start();
+    };
+  
+    const onPressOut = () => {
+        Animated.spring(scaleValue, {
+            toValue: 1, 
+            useNativeDriver: true,
+            speed: 50,
+            bounciness: 10,
+        }).start();
+    };
+  
+    return (
+        <Pressable 
+            onPress={onPress} 
+            onPressIn={onPressIn} 
+            onPressOut={onPressOut}
+            style={wrapperStyle}
+            {...props} 
+        >
+            <Animated.View style={[style, { transform: [{ scale: scaleValue }] }]}>
+                {children}
+            </Animated.View>
+        </Pressable>
+    );
+};
 
 export default function MediaGalleryScreen() {
     // --- THEME HOOK ---
@@ -852,11 +888,11 @@ export default function MediaGalleryScreen() {
     // Gesture Handler Root is required for gestures to work
     <GestureHandlerRootView style={{ flex: 1 }}>
         <LinearGradient 
-            colors={colors.gradient}
+            colors={isDark ? ['#4e4e4e', '#1a1a1a'] : ['#ffffff', '#d3d3d3']} 
             style={mediaStyles.container}
         >
         <StatusBar 
-            backgroundColor={colors.headerBg} 
+            backgroundColor={isDark ? '#1a1a1a' : '#55efe1'}
             barStyle={isDark ? "light-content" : "dark-content"} 
         />
         
@@ -864,16 +900,16 @@ export default function MediaGalleryScreen() {
         <View style={mediaStyles.headerContainer}>
             {isSelectionMode ? (
             <>
-                <TouchableOpacity onPress={toggleSelectionMode}>
-                    <Text style={{color: colors.textPrimary, fontSize:16, fontWeight:'600'}}>İptal</Text>
-                </TouchableOpacity>
+                <ScaleButton onPress={toggleSelectionMode}>
+                    <Text style={{color: '#fff', fontSize:16, fontWeight:'600'}}>İptal</Text>
+                </ScaleButton>
                 
                 <Text style={mediaStyles.headerTitle}>{selectedIds.length} Seçildi</Text>
                 
                 <View style={{ zIndex: 200 }}> 
                     {/* 3 Dot Button */}
                     <TouchableOpacity onPress={handleBulkActionPress}>
-                        <Ionicons name="ellipsis-vertical" size={24} color={colors.textPrimary} />
+                        <Ionicons name="ellipsis-vertical" size={24} color='#fff' />
                     </TouchableOpacity>
 
                     {/* NEW: Custom Bulk Options Menu */}
@@ -917,22 +953,24 @@ export default function MediaGalleryScreen() {
             </>
             ) : (
                 <>
+                    {/* Back Button */}
                     <TouchableOpacity style={mediaStyles.backButton} onPress={() => router.back()}>
-                        <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
+                        <Ionicons name="chevron-back" size={32} color='#fff' />
                     </TouchableOpacity>
-                    <Text style={mediaStyles.headerTitle}>Medya</Text>
+                    {/* Select Button */}
+                    <ScaleButton style={{marginLeft: -65}} onPress={toggleSelectionMode}>
+                        <Text style={{color:'#fff', fontWeight: '600', fontSize: 16}}>Seç</Text>
+                    </ScaleButton>
+                    <Text style={[mediaStyles.headerTitle, {marginLeft: -40}]}>Medya</Text>
                     <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                        {/* FİLTRE BUTONU */}
-                        <TouchableOpacity style={{marginRight: 15}} onPress={handleOpenFilter}>
-                            <Ionicons name="filter" size={24} color={colors.textPrimary} />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={{marginRight: 15}} onPress={toggleSelectionMode}>
-                            <Text style={{color:'#fff', fontWeight: '600', fontSize: 16}}>Seç</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={mediaStyles.addButton} onPress={handleUpload}>
-                            {uploading ? <ActivityIndicator color={colors.textPrimary} /> : <Ionicons name="add" size={32} color= {colors.tint} />}
-                        </TouchableOpacity>
+                        {/* filter Button */}
+                        <ScaleButton style={{marginRight: 20}} onPress={handleOpenFilter}>
+                            <Ionicons name="filter" size={24} color='#fff' />
+                        </ScaleButton>
+                        {/* Add Button */}
+                        <ScaleButton style={mediaStyles.addButton} onPress={handleUpload}>
+                            {uploading ? <ActivityIndicator color={isDark ? '#fff' : '#000'} /> : <Ionicons name="add" size={32} color= {isDark ? '#fff' : '#000'} />}
+                        </ScaleButton>
                     </View>
                 </>
             )}
@@ -941,7 +979,7 @@ export default function MediaGalleryScreen() {
         {/* TIMELINE LIST (SectionList with Pinch Gesture) */}
         <View style={{ flex: 1 }}> 
             {loading ? (
-                <ActivityIndicator size="large" color="#FFF" style={{ marginTop: 50 }} />
+                <ActivityIndicator size="large" color={isDark ? '#fff' : '#000'} style={{ marginTop: 50 }} />
             ) : (
                 <GestureDetector gesture={pinchGesture}>
                     <SectionList
@@ -977,7 +1015,7 @@ export default function MediaGalleryScreen() {
             )}
         </View>
 
-        {/* --- FILTER MODAL (YENİ EKLENDİ) --- */}
+        {/* --- FILTER MODAL --- */}
         <Modal 
             visible={filterModalVisible} 
             transparent={true} 
@@ -998,14 +1036,14 @@ export default function MediaGalleryScreen() {
                         <TouchableOpacity style={mediaStyles.filterRow} onPress={() => toggleMemberFilter('all')}>
                             <View style={{flexDirection:'row', alignItems:'center'}}>
                                 <View style={mediaStyles.filterAvatarPlaceholder}>
-                                    <Ionicons name="people" size={20} color={colors.textPrimary} />
+                                    <Ionicons name="people" size={20} color={isDark ? '#000' : '#fff'} />
                                 </View>
                                 <Text style={mediaStyles.filterName}>Herkes</Text>
                             </View>
                             <Ionicons 
                                 name={isAllSelected ? "checkbox" : "square-outline"} 
                                 size={24} 
-                                color={isAllSelected ? colors.tint : colors.iconDefault} 
+                                color={isAllSelected ? (isDark ? '#fff' : '#2c2c2c') : (isDark ? '#ccc' : '#2c2c2c')} 
                             />
                         </TouchableOpacity>
 
@@ -1024,7 +1062,7 @@ export default function MediaGalleryScreen() {
                                     <Ionicons 
                                         name={isSelected ? "checkbox" : "square-outline"} 
                                         size={24} 
-                                        color={isSelected ? "#FFF" : "#ccc"} 
+                                        color={isSelected ? (isDark ? '#fff' : '#2c2c2c') : (isDark ? '#ccc' : '#2c2c2c')} 
                                     />
                                 </TouchableOpacity>
                             );
@@ -1066,11 +1104,6 @@ export default function MediaGalleryScreen() {
                             <Ionicons name="ellipsis-vertical" size={28} color="#fff" />
                         </TouchableOpacity>
                     </Animated.View>
-
-                    {/* REMOVED: The general transparent overlay for 'showOptions'.
-                        REASON: The 'toggleControls' function now handles closing the menu
-                        when the image is tapped, preventing the UI from hiding simultaneously.
-                    */}
 
                     {/* --- OPTIONS MENU (Animated) --- */}
                     {showOptions && showControls && (

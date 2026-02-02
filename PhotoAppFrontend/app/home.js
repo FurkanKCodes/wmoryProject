@@ -10,8 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker'; 
 // EKLENDİ: İnternet kontrolü için kütüphane
 import NetInfo from '@react-native-community/netinfo';
-import API_URL from '../config'; 
-import homeStyles from '../styles/homeStyles'; 
+import API_URL from '../config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { getHomeStyles } from '../styles/homeStyles';
@@ -498,7 +497,7 @@ export default function HomeScreen() {
             onPress={() => setModalVisible(true)}
         >
             {/* Icon Color: Light Mode #a9a9a9, Dark Mode #fff */}
-            <Ionicons name="add" size={30} color={isDark ? '#ffffff' : '#a9a9a9'} />
+            <Ionicons name="add" size={30} color={isDark ? '#fff' : '#000'} />
         </ScaleButton>
       </View>
 
@@ -600,7 +599,7 @@ export default function HomeScreen() {
                                   onPress={handleCreateGroup}
                                   disabled={actionLoading || !isCreateEnabled}
                                 >
-                                  {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={[homeStyles.actionButtonText, {color: createBtnStyle.text}]}>Oluştur</Text>}
+                                  {actionLoading ? <ActivityIndicator color={isDark ? '#ffffff' : '#000000'} /> : <Text style={[homeStyles.actionButtonText, {color: createBtnStyle.text}]}>Oluştur</Text>}
                                 </ScaleButton>
                             </View>
                         ) : (
@@ -621,7 +620,7 @@ export default function HomeScreen() {
                                   onPress={handleJoinGroup}
                                   disabled={actionLoading || !isJoinEnabled}
                                 >
-                                  {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={[homeStyles.actionButtonText, {color: joinBtnStyle.text}]}>Katıl</Text>}
+                                  {actionLoading ? <ActivityIndicator color={isDark ? '#ffffff' : '#000000'} /> : <Text style={[homeStyles.actionButtonText, {color: joinBtnStyle.text}]}>Katıl</Text>}
                                 </ScaleButton>
                             </View>
                         )}
@@ -656,7 +655,7 @@ export default function HomeScreen() {
       {/* --- GROUP LIST --- */}
       <View style={homeStyles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color="#ffffff" style={{ marginTop: 50 }} />
+          <ActivityIndicator size="large" color={isDark ? '#ffffff' : '#000000'} style={{ marginTop: 50 }} />
         ) : (
           <FlatList
             data={filteredData}

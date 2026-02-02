@@ -107,7 +107,7 @@ export const getHomeStyles = (colors) => {
       fontSize: 22,
       fontWeight: 'bold',
       // Light: Black text
-      color: isDark ? colors.textPrimary : '#000000',
+      color: isDark ? colors.textPrimary : '#fff',
     },
     memberListContainer: {
       marginTop: 10, 

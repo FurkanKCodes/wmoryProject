@@ -1,16 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Text, View, TextInput, TouchableOpacity, Alert, 
-  ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, Modal 
+  ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, Modal,
+  Animated, Pressable 
 } from 'react-native';
 import { useRouter } from 'expo-router'; 
 import auth from '@react-native-firebase/auth'; 
-import API_URL from '../config'; 
-import authStyles from '../styles/authStyles'; 
+import API_URL from '../config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { getAuthStyles } from '../styles/authStyles';
+
+const ScaleButton = ({ onPress, style, children, wrapperStyle, ...props }) => {
+  const scaleValue = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+      if (props.disabled) return;
+      Animated.spring(scaleValue, {
+          toValue: 0.96, // Slight shrink effect
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 10,
+      }).start();
+  };
+
+  const onPressOut = () => {
+      Animated.spring(scaleValue, {
+          toValue: 1, 
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 10,
+      }).start();
+  };
+
+  return (
+      <Pressable 
+          onPress={onPress} 
+          onPressIn={onPressIn} 
+          onPressOut={onPressOut}
+          style={wrapperStyle} // Layout styles (width, margin) go here
+          {...props} 
+      >
+          <Animated.View style={[style, { transform: [{ scale: scaleValue }] }]}>
+              {children}
+          </Animated.View>
+      </Pressable>
+  );
+};
 
 export default function RegisterScreen() {
   const { colors, isDark } = useTheme();
@@ -152,7 +189,7 @@ export default function RegisterScreen() {
   return (
     // CHANGE: Added LinearGradient as the main wrapper matching Home screen
     <LinearGradient
-      colors={colors.gradient}
+      colors={isDark ? ['#4e4e4e', '#1a1a1a'] : ['#ffffff', '#d3d3d3']} 
       style={authStyles.container}
     >
       <KeyboardAvoidingView 
@@ -170,20 +207,22 @@ export default function RegisterScreen() {
             <TextInput
               style={authStyles.input}
               placeholder="Kullanıcı Adı"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={isDark ? '#545454' : '#666'}
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
+              selectionColor={isDark ? '#545454' : '#666'}
             />
 
             <TextInput
               style={authStyles.input}
               placeholder="E-posta Adresi"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={isDark ? '#545454' : '#666'}
               value={email}
               onChangeText={handleEmailChange}
               keyboardType="email-address"
               autoCapitalize="none"
+              selectionColor={isDark ? '#545454' : '#666'}
             />
             {!isEmailValid && (
                <Text style={authStyles.errorText}>Geçerli bir e-posta girin (.com)</Text>
@@ -194,11 +233,12 @@ export default function RegisterScreen() {
                <TextInput
                   style={authStyles.phoneInput}
                   placeholder="Telefon Numarası (555...)"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor={isDark ? '#545454' : '#666'}
                   value={phoneNumber}
                   onChangeText={handlePhoneChange}
                   keyboardType="number-pad"
                   maxLength={10} 
+                  selectionColor={isDark ? '#545454' : '#666'}
                />
             </View>
             {!isPhoneValid && (
@@ -208,10 +248,11 @@ export default function RegisterScreen() {
             <TextInput
               style={authStyles.input}
               placeholder="Şifre"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={isDark ? '#545454' : '#666'}
               value={password}
               onChangeText={handlePasswordChange}
               secureTextEntry
+              selectionColor={isDark ? '#545454' : '#666'}
             />
             {!isPasswordValid && (
                <Text style={authStyles.errorText}>En az 6 karakter olmalı</Text>
@@ -220,12 +261,11 @@ export default function RegisterScreen() {
 
           {/* --- CHECKBOX AREA --- */}
           <View style={authStyles.checkboxContainer}>
-            <TouchableOpacity onPress={() => setIsAgreed(!isAgreed)}>
+            <ScaleButton onPress={() => setIsAgreed(!isAgreed)}>
               <View style={[authStyles.checkbox, isAgreed && authStyles.checkboxSelected]}>
-                {/* Eğer onaylandıysa (isAgreed true ise) içine SİYAH TİK koy */}
-                {isAgreed && <Ionicons name="checkmark" size={18} color={isAgreed ? colors.tint : colors.textSecondary} />}
+                {isAgreed && <Ionicons name="checkmark" size={18} color={isAgreed ? (isDark ? '#000' : '#fff') : colors.textSecondary} />}
               </View>
-            </TouchableOpacity>
+            </ScaleButton>
 
               <View style={authStyles.checkboxTextContainer}>
                   <TouchableOpacity onPress={() => setShowTermsModal(true)}>
@@ -239,17 +279,17 @@ export default function RegisterScreen() {
               </View>
           </View>
 
-          <TouchableOpacity 
+          <ScaleButton 
               style={[authStyles.button, (!isRegisterEnabled || loading) && authStyles.buttonDisabled]} 
               onPress={handleSendSMS} 
               disabled={!isRegisterEnabled || loading}
           >
             {loading ? (
-              <ActivityIndicator color={colors.tint} />
+              <ActivityIndicator color={isDark ? '#ffffff' : '#000000'} />
             ) : (
               <Text style={authStyles.buttonText}>Kayıt Ol</Text>
             )}
-          </TouchableOpacity>
+          </ScaleButton>
 
           <TouchableOpacity onPress={() => router.back()} style={authStyles.linkContainer}>
             <Text style={authStyles.linkText}>Zaten hesabın var mı? Giriş Yap</Text>
@@ -269,16 +309,17 @@ export default function RegisterScreen() {
                 <TextInput
                   style={authStyles.modalInput}
                   placeholder="123456"
-                  placeholderTextColor={colors.textSecondary} // Darker placeholder for better contrast on light modal input
+                  placeholderTextColor={isDark ? '#545454' : '#666'} // Darker placeholder for better contrast on light modal input
                   value={verificationCode}
                   onChangeText={setVerificationCode}
                   keyboardType="number-pad"
                   maxLength={6}
                   autoFocus={true}
+                  selectionColor={isDark ? '#545454' : '#666'}
                 />
-                <TouchableOpacity style={authStyles.modalButton} onPress={verifyCodeAndRegister} disabled={loading}>
-                   {loading ? <ActivityIndicator color={colors.tint} /> : <Text style={authStyles.buttonText}>Doğrula ve Tamamla</Text>}
-                </TouchableOpacity>
+                <ScaleButton style={authStyles.modalButton} onPress={verifyCodeAndRegister} disabled={loading}>
+                   {loading ? <ActivityIndicator color={isDark ? '#000' : '#fff'}/> : <Text style={{ color: isDark ? '#000' : '#fff', fontSize: 18, fontWeight: '600' }}>Doğrula ve Tamamla</Text>}
+                </ScaleButton>
                 <TouchableOpacity style={authStyles.modalCancelButton} onPress={() => { setModalVisible(false); setLoading(false); }}>
                   <Text style={authStyles.modalCancelText}>Vazgeç</Text>
                 </TouchableOpacity>
@@ -294,9 +335,9 @@ export default function RegisterScreen() {
                       <ScrollView style={authStyles.docScrollView}>
                           <Text style={authStyles.docText}>{termsOfServiceText}</Text>
                       </ScrollView>
-                      <TouchableOpacity style={authStyles.docCloseButton} onPress={() => setShowTermsModal(false)}>
-                          <Text style={authStyles.buttonText}>Kapat</Text>
-                      </TouchableOpacity>
+                      <ScaleButton style={authStyles.docCloseButton} onPress={() => setShowTermsModal(false)}>
+                          <Text style={{ color: isDark ? '#000' : '#fff', fontSize: 18, fontWeight: '600' }}>Kapat</Text>
+                      </ScaleButton>
                   </View>
               </View>
           </Modal>
@@ -310,7 +351,7 @@ export default function RegisterScreen() {
                           <Text style={authStyles.docText}>{privacyPolicyText}</Text>
                       </ScrollView>
                       <TouchableOpacity style={authStyles.docCloseButton} onPress={() => setShowPrivacyModal(false)}>
-                          <Text style={authStyles.buttonText}>Kapat</Text>
+                          <Text style={{ color: isDark ? '#000' : '#fff', fontSize: 18, fontWeight: '600' }}>Kapat</Text>
                       </TouchableOpacity>
                   </View>
               </View>

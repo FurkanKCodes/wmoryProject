@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, 
-  ActivityIndicator, Image, StatusBar, KeyboardAvoidingView, 
+  ActivityIndicator, Image, StatusBar, KeyboardAvoidingView, Animated, Pressable,
   Platform, ScrollView 
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -22,6 +22,43 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+const ScaleButton = ({ onPress, style, children, wrapperStyle, ...props }) => {
+  const scaleValue = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+      if (props.disabled) return;
+      Animated.spring(scaleValue, {
+          toValue: 0.96, // Slight shrink effect
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 10,
+      }).start();
+  };
+
+  const onPressOut = () => {
+      Animated.spring(scaleValue, {
+          toValue: 1, 
+          useNativeDriver: true,
+          speed: 50,
+          bounciness: 10,
+      }).start();
+  };
+
+  return (
+      <Pressable 
+          onPress={onPress} 
+          onPressIn={onPressIn} 
+          onPressOut={onPressOut}
+          style={wrapperStyle} // Layout styles (width, margin) go here
+          {...props} 
+      >
+          <Animated.View style={[style, { transform: [{ scale: scaleValue }] }]}>
+              {children}
+          </Animated.View>
+      </Pressable>
+  );
+};
 
 export default function LoginScreen() {
   // --- THEME HOOK ---
@@ -175,13 +212,10 @@ export default function LoginScreen() {
 
   return (
     <LinearGradient
-      colors={colors.gradient} 
+      colors={isDark ? ['#4e4e4e', '#1a1a1a'] : ['#ffffff', '#d3d3d3']} 
       style={{ flex: 1 }}
     >
-      <StatusBar 
-        barStyle={isDark ? "light-content" : "dark-content"} 
-        backgroundColor={colors.headerBg} // Android için arka plan
-      />
+      <StatusBar backgroundColor={isDark ? '#1a1a1a' : '#55efe1'} barStyle={isDark ? "light-content" : "dark-content"} />
 
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
@@ -200,32 +234,34 @@ export default function LoginScreen() {
 
           <View style={styles.formContainer}>
             
-            {/* --- TELEFON GİRİŞ ALANI --- */}
+            {/* --- Phone Number Region --- */}
             <View style={styles.phoneInputContainer}>
               <Text style={styles.countryCode}>+90</Text>
               <TextInput
                 style={styles.phoneInput}
                 placeholder="Telefon Numarası (555...)"
-                placeholderTextColor={colors.textSecondary} // Placeholder rengi (daha koyu gri)
+                placeholderTextColor={isDark ? '#545454' : '#666'} 
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 keyboardType="number-pad"
                 maxLength={10} 
+                selectionColor={isDark ? '#545454' : '#666'}
               />
             </View>
 
             <TextInput
               style={styles.input}
               placeholder="Şifre"
-              placeholderTextColor={colors.textSecondary} // Placeholder rengi
+              placeholderTextColor={isDark ? '#545454' : '#666'} 
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              selectionColor={isDark ? '#545454' : '#666'}
             />
 
-            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+            <ScaleButton style={styles.button} onPress={handleLogin} disabled={loading}>
               {loading ? <ActivityIndicator color={colors.background} /> : <Text style={styles.buttonText}>Giriş Yap</Text>}
-            </TouchableOpacity>
+            </ScaleButton>
 
             <TouchableOpacity onPress={() => router.push('/ForgotPasswordScreen')} style={{marginBottom: 15}}>
               <Text style={styles.linkText}>Şifremi Unuttum</Text>
@@ -242,7 +278,11 @@ export default function LoginScreen() {
 }
 
 // Dynamic Style Generator
-const getStyles = (colors) => StyleSheet.create({
+const getStyles = (colors) => {
+
+  const isDark = colors.type === 'dark';
+
+  return StyleSheet.create({
   scrollContainer: { 
     flexGrow: 1, 
     justifyContent: 'center', 
@@ -270,14 +310,14 @@ const getStyles = (colors) => StyleSheet.create({
   // Normal Input Style
   input: { 
     height: 50, 
-    borderColor: colors.border, 
+    borderColor: isDark ? '#444' : '#2c2c2c',
     borderWidth: 1, 
     borderRadius: 8, 
     paddingHorizontal: 15, 
-    marginBottom: 15, 
+    marginBottom: 15,
     fontSize: 16, 
-    backgroundColor: colors.inputBg, // Dynamic Input Background
-    color: colors.textPrimary, // Dynamic Input Text
+    backgroundColor: '#d3d3d3', // Dynamic Input Background
+    color: isDark ? '#545454' : '#666', // Dynamic Input Text
   },
 
   // Phone Input Container
@@ -285,24 +325,24 @@ const getStyles = (colors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 50,
-    borderColor: colors.border,
+    borderColor: isDark ? '#000' : '#2c2c2c',
     borderWidth: 1,
     borderRadius: 8,
-    backgroundColor: colors.inputBg, // Dynamic Input Background
+    backgroundColor: '#d3d3d3', // Dynamic Input Background
     paddingHorizontal: 15,
     marginBottom: 15
   },
   countryCode: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.textPrimary, 
+    color: '#000', 
     marginRight: 10
   },
   phoneInput: {
     flex: 1,
     height: '100%',
     fontSize: 16,
-    color: colors.textPrimary 
+    color: isDark ? '#545454' : '#666' 
   },
   
   // Login Button
@@ -330,3 +370,4 @@ const getStyles = (colors) => StyleSheet.create({
     marginTop: 10,
   },
 });
+};

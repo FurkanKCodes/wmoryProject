@@ -2,7 +2,11 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-export const getAuthStyles = (colors) => StyleSheet.create({
+export const getAuthStyles = (colors) => {
+
+  const isDark = colors.type === 'dark';
+
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background, // Dark Theme Background
@@ -25,65 +29,66 @@ export const getAuthStyles = (colors) => StyleSheet.create({
     marginBottom: 20,
   },
   input: {
-    backgroundColor: colors.inputBg, // Light Gray Box (Requested Style)
+    backgroundColor: '#d3d3d3', // Light Gray Box (Requested Style)
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: colors.border, // Darker border
+    borderColor: isDark ? '#000' : '#2c2c2c', // Darker border
     fontSize: 16,
     width: '100%',
-    color: colors.textPrimary, // Black Text inside light box
+    color: isDark ? '#545454' : '#666', // Black Text inside light box
   },
   
   // --- PHONE INPUT STYLES ---
   phoneContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.inputBg, // Light Gray Box
+    backgroundColor: '#d3d3d3', // Light Gray Box
     borderRadius: 10,
-    marginBottom: 5, 
+    marginBottom: 15, 
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: isDark ? '#000' : '#2c2c2c',
     width: '100%',
   },
   phonePrefix: {
     paddingLeft: 15,
     paddingRight: 10,
     fontSize: 16,
-    color: colors.textPrimary, // Black Text
+    color: '#000', // Black Text
     fontWeight: '600',
   },
   phoneInput: {
     flex: 1,
     padding: 15,
     fontSize: 16,
-    color: colors.textPrimary, // Black Text
+    color: isDark ? '#545454' : '#666', // Black Text
   },
   errorText: {
     color: '#FF3B30', // Bright Red
     fontSize: 12,
     marginBottom: 10, 
+    marginTop: -5,
     marginLeft: 5,
     alignSelf: 'flex-start',
   },
 
   // Button Styles
   button: {
-    backgroundColor: colors.textPrimary, // Black Button
+    backgroundColor: '#000', // Black Button
     padding: 15,
     borderRadius: 25, // Rounded corners consistent with Login
-    width: '100%',
+    width: 380,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: isDark ? colors.border : '#a9a9a9',
   },
   buttonDisabled: {
-    backgroundColor: colors.border, // Dark gray when disabled
+    backgroundColor: isDark ? colors.border : '#a9a9a9', // Dark gray when disabled
     opacity: 0.7,
   },
   buttonText: {
-    color: colors.textPrimary,
+    color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
@@ -129,8 +134,8 @@ export const getAuthStyles = (colors) => StyleSheet.create({
     textAlign: 'center',
   },
   modalInput: {
-    width: '100%',
-    backgroundColor: colors.inputBg, // Light Gray Box
+    width: 240,
+    backgroundColor: '#d3d3d3', // Light Gray Box
     padding: 15,
     borderRadius: 10,
     fontSize: 18,
@@ -138,10 +143,10 @@ export const getAuthStyles = (colors) => StyleSheet.create({
     marginBottom: 20,
     letterSpacing: 5, 
     fontWeight: 'bold',
-    color: colors.textPrimary, // Black Text
+    color: isDark ? '#545454' : '#666', // Black Text
   },
   modalButton: {
-    backgroundColor: colors.textPrimary, // Verification action can remain Blue or Black
+    backgroundColor: isDark ? '#a9a9a9' : '#707070', // Verification action can remain Blue or Black
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 10,
@@ -232,7 +237,7 @@ export const getAuthStyles = (colors) => StyleSheet.create({
     lineHeight: 22,
   },
   docCloseButton: {
-    backgroundColor: colors.textPrimary, // Black Button
+    backgroundColor: isDark ? '#a9a9a9' : '#707070', // Black Button
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
@@ -240,3 +245,4 @@ export const getAuthStyles = (colors) => StyleSheet.create({
     borderColor: colors.border,
   },
 });
+};

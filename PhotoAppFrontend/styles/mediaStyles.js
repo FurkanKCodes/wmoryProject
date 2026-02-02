@@ -2,7 +2,11 @@ import { StyleSheet, Platform, StatusBar, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-export const getMediaStyles = (colors) => StyleSheet.create({
+export const getMediaStyles = (colors) => {
+
+  const isDark = colors.type === 'dark';
+
+  return StyleSheet.create({
   container: {
     flex: 1,
     // Dark background consistent with Home page
@@ -15,7 +19,7 @@ export const getMediaStyles = (colors) => StyleSheet.create({
     paddingBottom: 15,
     paddingHorizontal: 20,
     // Home header color (Darkest Gray)
-    backgroundColor: colors.headerBg, 
+    backgroundColor: isDark ? '#1a1a1a' : '#808080', 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -37,7 +41,7 @@ export const getMediaStyles = (colors) => StyleSheet.create({
   },
   headerTitle: {
     // White text like Home
-    color: colors.textPrimary,
+    color: isDark ? colors.textPrimary : '#ffffff',
     fontSize: 27, // Matched with Home font size
     fontWeight: 'bold',
   },
@@ -47,7 +51,7 @@ export const getMediaStyles = (colors) => StyleSheet.create({
     height: 40,
     borderRadius: 20,
     // Black background
-    backgroundColor: '#000000',
+    backgroundColor: isDark ? '#000' : '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -186,7 +190,7 @@ export const getMediaStyles = (colors) => StyleSheet.create({
       height: 36,
       borderRadius: 18,
       marginRight: 10,
-      backgroundColor: '#FFF',
+      backgroundColor: isDark ? '#fff' : '#d3d3d3',
       alignItems: 'center',
       justifyContent: 'center',
   },
@@ -346,3 +350,4 @@ export const getMediaStyles = (colors) => StyleSheet.create({
     textAlign: 'center',
   },
 });
+};

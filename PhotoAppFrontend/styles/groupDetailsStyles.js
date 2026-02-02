@@ -17,7 +17,7 @@ export const getGroupDetailsStyles = (colors) => {
     paddingBottom: 15,
     paddingHorizontal: 20,
     // Home header color
-    backgroundColor: colors.headerBg,
+    backgroundColor: isDark ? '#1a1a1a' : '#808080',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -37,7 +37,7 @@ export const getGroupDetailsStyles = (colors) => {
     justifyContent: 'center',
   },
   headerTitle: {
-    color: colors.textPrimary,
+    color: isDark ? colors.textPrimary : '#ffffff',
     // Same font size as Home
     fontSize: 27,
     fontWeight: 'bold',
@@ -53,7 +53,7 @@ export const getGroupDetailsStyles = (colors) => {
     paddingVertical: 20,
     borderBottomWidth: 1,
     // Border color darkened
-    borderBottomColor: colors.border,
+    borderBottomColor: isDark? '#444' : '#a9a9a9',
   },
   largeGroupImage: {
     width: 100,
@@ -73,7 +73,7 @@ export const getGroupDetailsStyles = (colors) => {
   groupDescriptionText: {
       fontSize: 14,
       // Light gray text
-      color: '#cccccc',
+      color: isDark ? '#ccc' : '#949494',
       textAlign: 'center',
       paddingHorizontal: 30,
       marginBottom: 10,
@@ -89,7 +89,7 @@ export const getGroupDetailsStyles = (colors) => {
     borderColor: colors.border,
   },
   editGroupText: {
-    color: colors.textPrimary,
+    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -111,7 +111,7 @@ export const getGroupDetailsStyles = (colors) => {
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     // Border color darkened
-    borderBottomColor: colors.border,
+    borderBottomColor: isDark ? '#444' : '#a9a9a9',
     zIndex: 1, 
   },
   memberImage: {
@@ -162,13 +162,13 @@ export const getGroupDetailsStyles = (colors) => {
       minWidth: 140,
       zIndex: 1000,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: isDark? '#444' : '#a9a9a9',
   },
   popupMenuItem: {
       paddingVertical: 10,
       paddingHorizontal: 15,
       borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      borderBottomColor: isDark? '#444' : '#a9a9a9',
   },
   popupMenuText: {
       fontSize: 14,
@@ -210,7 +210,7 @@ export const getGroupDetailsStyles = (colors) => {
     alignItems: 'center',
     justifyContent: 'space-between',
     // Same color as Header
-    backgroundColor: colors.headerBg, 
+    backgroundColor: isDark ? '#1a1a1a' : '#808080', 
   },
   editHeaderTitle: {
     fontSize: 18,
@@ -219,26 +219,26 @@ export const getGroupDetailsStyles = (colors) => {
     marginLeft: 30, 
   },
   saveButton: {
-    width: 70, // "Kaydet" yazısı sığsın diye biraz geniş
+    width: 70, 
     paddingVertical: 6,
-    backgroundColor: '#000', // Siyah buton
+    backgroundColor: isDark ? '#000' : '#fff',
     borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
   },
   saveButtonDisabled: {
     opacity: 0.7, 
-    backgroundColor: colors.cardBg, // Pasifken gri arka plan
+    backgroundColor: colors.cardBg, 
   },
   saveButtonText: {
     fontSize: 14,
     fontWeight: 'bold',
   },
   saveTextActive: {
-    color: '#FFF', // Aktifken yazı beyaz
+    color: isDark ? '#FFF' : '#000', 
   },
   saveTextInactive: {
-    color: '#fff', // Pasifken yazı siyah (gri buton üstüne)
+    color: isDark ? '#fff' : '#808080',
   },
   editContent: {
     alignItems: 'center',
@@ -256,7 +256,7 @@ export const getGroupDetailsStyles = (colors) => {
   },
   changePhotoText: {
     marginTop: 10,
-    color: '#FFF',
+    color: isDark ? '#FFF' : '#000',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -266,8 +266,8 @@ export const getGroupDetailsStyles = (colors) => {
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
-    color: '#FFF',
+    fontSize: 20,
+    color: isDark ? '#FFF' : '#000',
     marginBottom: 5,
   },
   input: {
@@ -292,7 +292,7 @@ export const getGroupDetailsStyles = (colors) => {
   },
   toggleLabel: {
     fontSize: 12,
-    color: '#cccccc',
+    color: isDark ? '#ccc' : '#3f3f3f',
   },
   toggleStatus: {
     fontSize: 10,
@@ -306,7 +306,7 @@ export const getGroupDetailsStyles = (colors) => {
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: isDark? '#444' : '#a9a9a9',
   },
   requestImage: {
     width: 40,
@@ -348,7 +348,7 @@ export const getGroupDetailsStyles = (colors) => {
     marginLeft: 10,
   },
   mediaButton: {
-    backgroundColor: '#000', // Black button consistent with Home
+    backgroundColor: isDark ? '#000' : '#fff', // Black button consistent with Home
     paddingHorizontal: 15, 
     paddingVertical: 8,
     borderRadius: 15,
@@ -383,10 +383,10 @@ export const getGroupDetailsStyles = (colors) => {
 
   // Notification Button Colors
   btnNotificationOn: {
-    backgroundColor: '#E0E0E0', // Light Gray
+    backgroundColor: isDark? '#E0E0E0' : '#fff', // Light Gray
   },
   btnNotificationOff: {
-    backgroundColor: colors.border, // Darker Gray (When disabled)
+    backgroundColor: isDark? '#444' : '#949494', // Darker Gray (When disabled)
   },
 
   // Delete Group Button (Bottom Center)

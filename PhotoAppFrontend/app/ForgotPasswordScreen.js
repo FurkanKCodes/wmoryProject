@@ -6,7 +6,6 @@ import {
 import { useRouter } from 'expo-router'; 
 import auth from '@react-native-firebase/auth'; 
 import API_URL from '../config'; 
-import authStyles from '../styles/authStyles'; 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { getAuthStyles } from '../styles/authStyles';
@@ -135,11 +134,12 @@ export default function ForgotPasswordScreen() {
                <TextInput
                   style={authStyles.phoneInput}
                   placeholder="555 XXX XX XX"
-                  placeholderTextColor={colors.textSecondary} // Darker placeholder
+                  placeholderTextColor={isDark ? '#545454' : '#666'} // Darker placeholder
                   value={phoneNumber}
                   onChangeText={handlePhoneChange}
                   keyboardType="number-pad"
                   maxLength={10} 
+                  selectionColor={isDark ? '#545454' : '#666'}
                />
             </View>
           </View>
@@ -169,21 +169,23 @@ export default function ForgotPasswordScreen() {
                 
                 <TextInput
                   style={authStyles.modalInput}
-                  placeholder="Kod (123456)"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholder="Kod(123456)"
+                  placeholderTextColor={isDark ? '#545454' : '#666'}
                   value={verificationCode}
                   onChangeText={setVerificationCode}
                   keyboardType="number-pad"
                   maxLength={6}
+                  selectionColor={isDark ? '#545454' : '#666'}
                 />
 
                 <TextInput
                   style={[authStyles.input, {width:'100%', marginBottom:20}]} 
                   placeholder="Yeni Şifre"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor={isDark ? '#545454' : '#666'}
                   value={newPassword}
                   onChangeText={setNewPassword}
                   secureTextEntry
+                  selectionColor={isDark ? '#545454' : '#666'}
                 />
 
                 <TouchableOpacity 
@@ -191,7 +193,7 @@ export default function ForgotPasswordScreen() {
                   onPress={handleVerifyAndReset}
                   disabled={loading}
                 >
-                   {loading ? <ActivityIndicator color="#fff" /> : <Text style={authStyles.buttonText}>Şifreyi Değiştir</Text>}
+                   {loading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: isDark ? '#000' : '#fff', fontSize: 18, fontWeight: '600' }}>Şifreyi Değiştir</Text>}
                 </TouchableOpacity>
 
                 <TouchableOpacity 

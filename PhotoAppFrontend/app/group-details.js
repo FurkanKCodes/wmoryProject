@@ -431,13 +431,13 @@ export default function GroupDetailsScreen() {
       {/* --- HEADER --- */}
       <View style={groupDetailsStyles.headerContainer}>
         <TouchableOpacity style={groupDetailsStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
+          <Ionicons name="chevron-back" size={32} color='#fff' />
         </TouchableOpacity>
         {/* Show group name or empty if loading */}
         <Text style={groupDetailsStyles.headerTitle} numberOfLines={1}>{groupDetails?.group_name}</Text>
         {/* Right: Animated Media Button (No Border) */}
         <ScaleButton style={groupDetailsStyles.mediaButton} onPress={() => router.push({ pathname: '/media-gallery', params: { groupId, userId } })}>
-            <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Medya</Text>
+            <Text style={{ color: isDark ? '#FFF' : '#000', fontWeight: 'bold' }}>Medya</Text>
         </ScaleButton>
       </View>
 
@@ -464,10 +464,10 @@ export default function GroupDetailsScreen() {
                 </Text>
                 
                 <TouchableOpacity onPress={copyGroupCode} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 8 }}>
-                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFF', marginRight: 5 }}>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? '#FFF' : "#000", marginRight: 5 }}>
                         {groupDetails?.group_code}
                     </Text>
-                    <Ionicons name="copy-outline" size={18} color="#FFF" />
+                    <Ionicons name="copy-outline" size={18} color={isDark ? '#FFF' : "#000"} />
                 </TouchableOpacity>
 
                 {isAdmin && (
@@ -514,9 +514,9 @@ export default function GroupDetailsScreen() {
                         <Ionicons 
                             name={notificationsEnabled ? "notifications" : "notifications-off"} 
                             size={20} 
-                            color={notificationsEnabled ? colors.textPrimary : colors.textSecondary} 
+                            color={notificationsEnabled ? '#000' : '#fff'} 
                         />
-                        <Text style={[groupDetailsStyles.actionButtonText, { color: notificationsEnabled ? colors.textPrimary : colors.textSecondary }]}>
+                        <Text style={[groupDetailsStyles.actionButtonText, { color: notificationsEnabled ? '#000' : '#fff' }]}>
                             {notificationsEnabled ? "Bildirimler Açık" : "Bildirimler Kapalı"}
                         </Text>
                     </ScaleButton>
@@ -528,7 +528,7 @@ export default function GroupDetailsScreen() {
                         onPress={handleLeaveGroup}
                     >
                         <Ionicons name="log-out-outline" size={20} color="#fff" />
-                        <Text style={groupDetailsStyles.textWhite}>Ayrıl</Text>
+                        <Text style={[groupDetailsStyles.textWhite, {color: '#fff'}]}>Ayrıl</Text>
                     </ScaleButton>
                 </View>
 
@@ -539,7 +539,7 @@ export default function GroupDetailsScreen() {
                         onPress={handleDeleteGroup}
                     >
                         <Ionicons name="trash-outline" size={20} color="#fff" />
-                        <Text style={groupDetailsStyles.textWhite}>Grubu Sil</Text>
+                        <Text style={[groupDetailsStyles.textWhite, {color: '#fff'}]}>Grubu Sil</Text>
                     </ScaleButton>
                 )}
             </View>
@@ -558,6 +558,11 @@ export default function GroupDetailsScreen() {
 
       {/* EDIT MODAL */}
       <Modal visible={editModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditModalVisible(false)}>
+      <LinearGradient 
+      colors={isDark ? ['#4e4e4e', '#1a1a1a'] : ['#ffffff', '#d3d3d3']} 
+      style={groupDetailsStyles.container}
+      >
+      <StatusBar backgroundColor={isDark ? '#1a1a1a' : '#55efe1'} barStyle={isDark ? "light-content" : "dark-content"} />
         <View style={groupDetailsStyles.editModalContainer}>
             <View style={groupDetailsStyles.editModalHeader}>
                 <TouchableOpacity onPress={() => setEditModalVisible(false)}><Ionicons name="chevron-back" size={30} color='#fff' /></TouchableOpacity>
@@ -594,7 +599,7 @@ export default function GroupDetailsScreen() {
                     </View>
                     <View style={groupDetailsStyles.inputContainer}>
                         <Text style={groupDetailsStyles.inputLabel}>Grup Adı:</Text>
-                        <TextInput style={groupDetailsStyles.input} value={editName} onChangeText={onNameChange} placeholder="Grup adı" placeholderTextColor={colors.textSecondary} />
+                        <TextInput style={groupDetailsStyles.input} value={editName} onChangeText={onNameChange} placeholder="Grup adı" placeholderTextColor={colors.textSecondary} selectionColor={isDark ? "#ffffff" : "#000000"}/>
                     </View>
                     {/* DESCRIPTION EDIT FIELD */}
                     <View style={groupDetailsStyles.inputContainer}>
@@ -607,11 +612,13 @@ export default function GroupDetailsScreen() {
                             placeholderTextColor={colors.textSecondary}
                             maxLength={255}
                             multiline
+                            selectionColor={isDark ? "#ffffff" : "#000000"}
                         />
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
         </View>
+      </LinearGradient>
       </Modal>
     </LinearGradient>
   );
