@@ -2,7 +2,9 @@ import { StyleSheet, StatusBar, Platform, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-export const getGroupDetailsStyles = (colors) => StyleSheet.create({
+export const getGroupDetailsStyles = (colors) => {
+  const isDark = colors.type === 'dark';
+  return StyleSheet.create({
   container: {
     flex: 1,
     // Dark background consistent with Home page
@@ -42,7 +44,7 @@ export const getGroupDetailsStyles = (colors) => StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     // Right margin to center title since back button is on left
-    marginRight: 30, 
+    marginLeft: 30, 
   },
   
   // --- GROUP INFO ---
@@ -58,9 +60,7 @@ export const getGroupDetailsStyles = (colors) => StyleSheet.create({
     height: 100,
     borderRadius: 50,
     marginBottom: 10,
-    backgroundColor: '#555', // Gray background if no image
-    borderWidth: 2,
-    borderColor: colors.textPrimary,
+    backgroundColor: '#555',
   },
   groupNameText: {
     fontSize: 22,
@@ -120,8 +120,6 @@ export const getGroupDetailsStyles = (colors) => StyleSheet.create({
     borderRadius: 25,
     marginRight: 15,
     backgroundColor: '#555',
-    borderWidth: 1,
-    borderColor: '#fff',
   },
   memberInfo: {
     flex: 1,
@@ -187,7 +185,7 @@ export const getGroupDetailsStyles = (colors) => StyleSheet.create({
   },
   modalCloseButton: {
     position: 'absolute',
-    top: 50,
+    top: Platform.OS === 'ios' ? 65 : StatusBar.currentHeight + 25,
     left: 20,
     zIndex: 10,
     padding: 10,
@@ -205,7 +203,7 @@ export const getGroupDetailsStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.background,
   },
   editModalHeader: {
-    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
+    paddingTop: Platform.OS === 'ios' ? 65 : StatusBar.currentHeight + 25,
     paddingBottom: 15,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -218,6 +216,7 @@ export const getGroupDetailsStyles = (colors) => StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#fff', 
+    marginLeft: 30, 
   },
   saveButton: {
     width: 70, // "Kaydet" yazısı sığsın diye biraz geniş
@@ -239,7 +238,7 @@ export const getGroupDetailsStyles = (colors) => StyleSheet.create({
     color: '#FFF', // Aktifken yazı beyaz
   },
   saveTextInactive: {
-    color: '#000', // Pasifken yazı siyah (gri buton üstüne)
+    color: '#fff', // Pasifken yazı siyah (gri buton üstüne)
   },
   editContent: {
     alignItems: 'center',
@@ -254,8 +253,6 @@ export const getGroupDetailsStyles = (colors) => StyleSheet.create({
     height: 120,
     borderRadius: 60,
     backgroundColor: '#555',
-    borderWidth: 2,
-    borderColor: '#fff',
   },
   changePhotoText: {
     marginTop: 10,
@@ -353,10 +350,11 @@ export const getGroupDetailsStyles = (colors) => StyleSheet.create({
   mediaButton: {
     backgroundColor: '#000', // Black button consistent with Home
     paddingHorizontal: 15, 
-    paddingVertical: 8, 
+    paddingVertical: 8,
     borderRadius: 15,
-    borderWidth: 1,
-    borderColor: colors.border,
+    width: 75,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   
   // --- BOTTOM ACTION AREA ---
@@ -380,6 +378,7 @@ export const getGroupDetailsStyles = (colors) => StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 25, // Oval shape matching your design
+    width: 180,
   },
 
   // Notification Button Colors
@@ -415,3 +414,4 @@ export const getGroupDetailsStyles = (colors) => StyleSheet.create({
     fontSize: 14,
   },
 });
+}

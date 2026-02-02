@@ -1,20 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  View, Text, Image, TouchableOpacity, StatusBar, 
-  ScrollView, ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform, Switch 
-} from 'react-native';
+    View, Text, Image, TouchableOpacity, StatusBar, 
+    ScrollView, ActivityIndicator, Modal, TextInput, Alert, 
+    KeyboardAvoidingView, Platform, Switch, Animated, Pressable, TouchableWithoutFeedback 
+  } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker'; 
 import * as Clipboard from 'expo-clipboard'; 
 import API_URL from '../config';
-import groupDetailsStyles from '../styles/groupDetailsStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { getGroupDetailsStyles } from '../styles/groupDetailsStyles';
 
 const defaultGroupImage = require('../assets/no-pic.jpg'); 
 const defaultUserImage = require('../assets/no-pic.jpg');
+
+// --- HELPER: ANIMATED SCALE BUTTON ---
+const ScaleButton = ({ onPress, style, children, wrapperStyle, ...props }) => {
+    const scaleValue = useRef(new Animated.Value(1)).current;
+  
+    const onPressIn = () => {
+        if (props.disabled) return;
+        Animated.spring(scaleValue, {
+            toValue: 0.96,
+            useNativeDriver: true,
+            speed: 50,
+            bounciness: 10,
+        }).start();
+    };
+  
+    const onPressOut = () => {
+        Animated.spring(scaleValue, {
+            toValue: 1, 
+            useNativeDriver: true,
+            speed: 50,
+            bounciness: 10,
+        }).start();
+    };
+  
+    return (
+        <Pressable 
+            onPress={onPress} 
+            onPressIn={onPressIn} 
+            onPressOut={onPressOut}
+            style={wrapperStyle}
+            {...props} 
+        >
+            <Animated.View style={[style, { transform: [{ scale: scaleValue }] }]}>
+                {children}
+            </Animated.View>
+        </Pressable>
+    );
+};
 
 export default function GroupDetailsScreen() {
     // --- THEME HOOK ---
@@ -385,31 +423,29 @@ export default function GroupDetailsScreen() {
 
   return (
     <LinearGradient 
-      colors={colors.gradient} 
+      colors={isDark ? ['#4e4e4e', '#1a1a1a'] : ['#ffffff', '#d3d3d3']} 
       style={groupDetailsStyles.container}
     >
-      <StatusBar 
-        backgroundColor={colors.headerBg} 
-        barStyle={isDark ? "light-content" : "dark-content"} 
-      />
-
+      <StatusBar backgroundColor={isDark ? '#1a1a1a' : '#55efe1'} barStyle={isDark ? "light-content" : "dark-content"} />
+      
       {/* --- HEADER --- */}
       <View style={groupDetailsStyles.headerContainer}>
         <TouchableOpacity style={groupDetailsStyles.backButton} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
         </TouchableOpacity>
         {/* Show group name or empty if loading */}
-        <Text style={groupDetailsStyles.headerTitle}>{groupDetails?.group_name}</Text>
-        <TouchableOpacity style={groupDetailsStyles.mediaButton} onPress={() => router.push({ pathname: '/media-gallery', params: { groupId, userId } })}>
+        <Text style={groupDetailsStyles.headerTitle} numberOfLines={1}>{groupDetails?.group_name}</Text>
+        {/* Right: Animated Media Button (No Border) */}
+        <ScaleButton style={groupDetailsStyles.mediaButton} onPress={() => router.push({ pathname: '/media-gallery', params: { groupId, userId } })}>
             <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Medya</Text>
-        </TouchableOpacity>
+        </ScaleButton>
       </View>
 
       {/* --- LOADING STATE CONTROL --- */}
       {loading ? (
           // Loading View: Centered white spinner on dark background
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <ActivityIndicator size="large" color={colors.tint} />
+              <ActivityIndicator size="large" color='#fff' />
           </View>
       ) : (
           // Content View: Your existing ScrollView content
@@ -435,9 +471,9 @@ export default function GroupDetailsScreen() {
                 </TouchableOpacity>
 
                 {isAdmin && (
-                    <TouchableOpacity onPress={handleEditGroupPress} style={groupDetailsStyles.editGroupButton}>
+                    <ScaleButton onPress={handleEditGroupPress} style={groupDetailsStyles.editGroupButton}>
                         <Text style={groupDetailsStyles.editGroupText}>Grubu Düzenle</Text>
-                    </TouchableOpacity>
+                    </ScaleButton>
                 )}
             </View>
 
@@ -468,7 +504,7 @@ export default function GroupDetailsScreen() {
                 <View style={groupDetailsStyles.rowButtons}>
                     
                     {/* NOTIFICATION BUTTON */}
-                    <TouchableOpacity 
+                    <ScaleButton 
                         style={[
                             groupDetailsStyles.baseActionButton, 
                             notificationsEnabled ? groupDetailsStyles.btnNotificationOn : groupDetailsStyles.btnNotificationOff
@@ -483,28 +519,28 @@ export default function GroupDetailsScreen() {
                         <Text style={[groupDetailsStyles.actionButtonText, { color: notificationsEnabled ? colors.textPrimary : colors.textSecondary }]}>
                             {notificationsEnabled ? "Bildirimler Açık" : "Bildirimler Kapalı"}
                         </Text>
-                    </TouchableOpacity>
+                    </ScaleButton>
 
                     {/* LEAVE GROUP BUTTON */}
                     {/* Using baseActionButton for shape, keeping manual black background to match existing style */}
-                    <TouchableOpacity 
+                    <ScaleButton 
                         style={[groupDetailsStyles.baseActionButton, { backgroundColor: '#000000' }]} 
                         onPress={handleLeaveGroup}
                     >
                         <Ionicons name="log-out-outline" size={20} color="#fff" />
                         <Text style={groupDetailsStyles.textWhite}>Ayrıl</Text>
-                    </TouchableOpacity>
+                    </ScaleButton>
                 </View>
 
                 {/* BOTTOM ROW: Delete Group (Admin Only & Centered) */}
                 {isAdmin && (
-                    <TouchableOpacity 
+                    <ScaleButton 
                         style={groupDetailsStyles.deleteButtonCentered} 
                         onPress={handleDeleteGroup}
                     >
                         <Ionicons name="trash-outline" size={20} color="#fff" />
                         <Text style={groupDetailsStyles.textWhite}>Grubu Sil</Text>
-                    </TouchableOpacity>
+                    </ScaleButton>
                 )}
             </View>
           </ScrollView>
@@ -514,7 +550,7 @@ export default function GroupDetailsScreen() {
       <Modal visible={isImageModalVisible} transparent={true} animationType="fade" onRequestClose={() => setImageModalVisible(false)}>
         <View style={groupDetailsStyles.modalContainer}>
             <TouchableOpacity style={groupDetailsStyles.modalCloseButton} onPress={() => setImageModalVisible(false)}>
-                <Ionicons name="chevron-back" size={32} color={colors.textPrimary} />
+                <Ionicons name="chevron-back" size={32} color='#fff'/>
             </TouchableOpacity>
             {selectedImage && <Image source={selectedImage} style={groupDetailsStyles.fullScreenImage} />}
         </View>
@@ -524,9 +560,9 @@ export default function GroupDetailsScreen() {
       <Modal visible={editModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditModalVisible(false)}>
         <View style={groupDetailsStyles.editModalContainer}>
             <View style={groupDetailsStyles.editModalHeader}>
-                <TouchableOpacity onPress={() => setEditModalVisible(false)}><Ionicons name="chevron-back" size={30} color={colors.textPrimary} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => setEditModalVisible(false)}><Ionicons name="chevron-back" size={30} color='#fff' /></TouchableOpacity>
                 <Text style={groupDetailsStyles.editHeaderTitle}>Grubu Düzenle</Text>
-                <TouchableOpacity 
+                <ScaleButton
                     style={[
                         groupDetailsStyles.saveButton, 
                         (!hasChanges || saving) && groupDetailsStyles.saveButtonDisabled
@@ -535,7 +571,7 @@ export default function GroupDetailsScreen() {
                     disabled={!hasChanges || saving}
                 >
                     {saving ? (
-                        <ActivityIndicator size="small" color="#007AFF" />
+                        <ActivityIndicator size="small" color="#fff" />
                     ) : (
                         <Text style={[
                             groupDetailsStyles.saveButtonText, 
@@ -544,7 +580,7 @@ export default function GroupDetailsScreen() {
                             Kaydet
                         </Text>
                     )}
-                </TouchableOpacity>
+                </ScaleButton>
             </View>
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={groupDetailsStyles.editContent}>
