@@ -40,8 +40,9 @@ export const getHomeStyles = (colors) => {
     headerTitle: {
       // Dark: Existing color (usually white), Light: White
       color: isDark ? colors.textPrimary : '#ffffff',
-      fontSize: 27, 
+      fontSize: 27,
       fontWeight: 'bold',
+      fontFamily: 'LeagueSpartan',
     },
     addButton: {
       width: 40, 

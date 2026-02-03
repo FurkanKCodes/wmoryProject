@@ -229,7 +229,7 @@ export default function LoginScreen() {
           
           <View style={styles.logoContainer}>
             <Image source={require('../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
-            <Text style={styles.title}>İsimÇokZor</Text>
+            <Text style={styles.title}>wmory</Text>
           </View>
 
           <View style={styles.formContainer}>
@@ -302,6 +302,7 @@ const getStyles = (colors) => {
     fontWeight: 'bold',
     color: colors.textPrimary, // Dynamic text color
     marginBottom: 10,
+    fontFamily: 'Quicksand',
   },
   formContainer: {
     width: '100%'

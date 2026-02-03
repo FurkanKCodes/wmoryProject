@@ -333,7 +333,7 @@ export default function HomeScreen() {
         />
       </TouchableOpacity>
       
-      <Text style={homeStyles.headerTitle}>AllSent</Text>
+      <Text style={homeStyles.headerTitle}>wmory</Text>
       
       {/* Add Button */}
       <TouchableOpacity style={homeStyles.addButton} onPress={() => setModalVisible(true)}>
@@ -489,7 +489,7 @@ export default function HomeScreen() {
             />
         </ScaleButton>
         
-        <Text style={homeStyles.headerTitle}>AllSent</Text>
+        <Text style={homeStyles.headerTitle}>wmory</Text>
         
         {/* Add Button */}
         <ScaleButton 

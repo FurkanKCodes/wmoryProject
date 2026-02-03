@@ -1,7 +1,29 @@
 import { Stack } from 'expo-router';
-import { ThemeProvider } from '../context/ThemeContext'; // <--- Import Context
+import { ThemeProvider } from '../context/ThemeContext';
+import { useFonts } from 'expo-font'; 
+import * as SplashScreen from 'expo-splash-screen'; 
+import { useEffect } from 'react'; 
+
+SplashScreen.preventAutoHideAsync();
 
 export default function Layout() {
+
+  const [fontsLoaded, error] = useFonts({
+    'LeagueSpartan': require('../assets/fonts/LeagueSpartan.ttf'), 
+    'Quicksand': require('../assets/fonts/Quicksand.ttf'),
+  });
+
+  useEffect(() => {
+    if (error) throw error;
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, error]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     // Wrap the entire app with ThemeProvider
     <ThemeProvider>
