@@ -41,7 +41,6 @@ export const getHomeStyles = (colors) => {
       // Dark: Existing color (usually white), Light: White
       color: isDark ? colors.textPrimary : '#ffffff',
       fontSize: 27,
-      fontWeight: 'bold',
       fontFamily: 'LeagueSpartan',
     },
     addButton: {

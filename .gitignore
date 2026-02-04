@@ -2,17 +2,17 @@
 .DS_Store
 
 # --- Backend (Python/Flask - PhotoGroupApp) ---
-venv/
-__pycache__/
-*.pyc
-.env
-uploads/
+WmoryBackend/venv/
+WmoryBackend/__pycache__/
+WmoryBackend/*.pyc
+WmoryBackend/.env
+WmoryBackend/uploads/
 
 # --- Frontend (React Native - PhotoAppFrontend) ---
-PhotoAppFrontend/node_modules/
-PhotoAppFrontend/.expo/
-PhotoAppFrontend/dist/
-PhotoAppFrontend/web-build/
-PhotoAppFrontend/npm-debug.log
-PhotoAppFrontend/yarn-error.log
-PhotoAppFrontend/config.js
+WmoryMobile/node_modules/
+WmoryMobile/.expo/
+WmoryMobile/dist/
+WmoryMobile/web-build/
+WmoryMobile/npm-debug.log
+WmoryMobile/yarn-error.log
+WmoryMobile/config.js

@@ -366,7 +366,7 @@ export default function RegisterScreen() {
 // --- EXACT TEXT CONTENT FROM UPLOADED PDFS ---
 
 const privacyPolicyText = `GİZLİLİK POLİTİKASI
-Son Güncelleme: 27/12/2025
+Son Güncelleme: 04/02/2026 
 
 1. Amaç
 Bu Gizlilik Politikası, Uygulama'yı kullanan Kullanıcıların kişisel verilerinin hangi amaçlarla
@@ -422,7 +422,7 @@ Veriler, hizmetin sunulması için gerekli süre boyunca ve ilgili mevzuatta ön
 
 9. Kullanıcı Hakları
 Kullanıcılar; verilerine erişme, düzeltme, silme, işleme itiraz etme gibi haklarını ilgili mevzuat
-kapsamında kullanabilir. Talepler için iletişim:
+kapsamında kullanabilir. Talepler için iletişim: help@wmory.com
 
 10. Politika Değişiklikleri
 Bu politika güncellenebilir. Güncellemeler Uygulama içinde yayınlandığı tarihten itibaren
@@ -466,7 +466,7 @@ Admin atanabilir.
 5. Planlar, Kullanım Limitleri ve Ücretlendirme
 Uygulama'da planlar ve günlük yükleme limitleri aşağıdaki şekilde sunulur:
 • Free Plan: Günlük en fazla 10 fotoğraf ve 2 video yükleme.
-• Pro Plan: Günlük en fazla 50 fotoğraf ve 10 video yükleme.
+• Pro Plan: Günlük en fazla 50 fotoğraf ve 5 video yükleme.
 Plan içerikleri, limitler ve fiyatlandırma Uygulama içinde ayrıca gösterilebilir ve güncellenebilir.
 Kullanıcı, güncel plan koşullarını Uygulama içinden takip etmekle yükümlüdür.
 
@@ -509,7 +509,7 @@ Sağlayıcı, bu Sözleşme'yi güncelleyebilir. Güncellemeler Uygulama üzerin
 tarihten itibaren geçerli olur.
 
 12. İletişim
-Sözleşme ile ilgili talepler için:
+Sözleşme ile ilgili talepler için: help@wmory.com
 
 Kabul Beyanı: Kayıt sırasında "Kullanıcı Sözleşmesi'ni okuduğumu ve kabul ettiğimi onay-
 larım. `;

@@ -6,14 +6,17 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import Blueprint, request, jsonify, current_app, url_for
 from db import get_db_connection
+from dotenv import load_dotenv
 
 admin_bp = Blueprint('admin', __name__)
+
+load_dotenv()
 
 # --- EMAIL CONFIGURATION (GMAIL SMTP) ---
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-SENDER_EMAIL = "furkankozen22@gmail.com"  
-SENDER_PASSWORD = "xjgwmfxgqblniasv" 
+SENDER_EMAIL = "info@wmory.com"  
+SENDER_PASSWORD = os.getenv("INFO_MAIL_PASSWORD")
 
 def send_verification_email(to_email, code):
     try:

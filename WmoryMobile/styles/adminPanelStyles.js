@@ -78,7 +78,7 @@ export const getAdminPanelStyles = (colors) => {
         color: colors.textPrimary,
     },
     authButton: {
-        width: '100%',
+        width: 200,
         backgroundColor: isDark ? '#000000' : '#2c2c2c', // Dark/Light contrast
         paddingVertical: 15,
         borderRadius: 10,
@@ -287,9 +287,11 @@ export const getAdminPanelStyles = (colors) => {
     },
     btnDismiss: {
       backgroundColor: '#555555',
+      width: 150,
     },
     btnDelete: {
       backgroundColor: '#FF9500', 
+      width: 150,
     },
     btnBan: {
       backgroundColor: colors.danger,

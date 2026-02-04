@@ -8,10 +8,10 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_URL from '../config'; 
-import profileStyles from '../styles/profileStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext'; 
 import { getProfileStyles } from '../styles/profileStyles';
+import * as Clipboard from 'expo-clipboard';
 
 const defaultProfileImage = require('../assets/no-pic.jpg');
 
@@ -262,6 +262,12 @@ export default function ProfileScreen() {
     );
   };
 
+  // --- HELP & SUPPORT ACTION ---
+  const handleHelpSupport = async () => {
+    await Clipboard.setStringAsync("help@wmory.com");
+    Alert.alert("Bilgi", "Mail panoya kopyalandı.");
+  };
+
   const confirmDeleteAccount = async () => {
     try {
         const response = await fetch(`${API_URL}/delete-account?user_id=${userId}`, {
@@ -405,7 +411,7 @@ export default function ProfileScreen() {
         {/* --- SETTINGS LIST --- */}
         <View style={profileStyles.settingsContainer}>
           
-          {/* BLOCKED USERS */}
+          {/* BLOCKED USERS BUTTON */}
           <TouchableOpacity style={profileStyles.settingItem} onPress={handleOpenBlockedUsers}>
             <View style={profileStyles.settingLeft}>
               <Ionicons name="ban-outline" size={24} color="#555" style={profileStyles.settingIcon} />
@@ -414,6 +420,7 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={20} color={isDark ? "#ccc" : "#000"} />
           </TouchableOpacity>
 
+          {/* CHANGE PASSWORD BUTTON */}
           <TouchableOpacity style={profileStyles.settingItem} onPress={handleChangePassword}>
             <View style={profileStyles.settingLeft}>
               <Ionicons name="lock-closed-outline" size={24} color="#555" style={profileStyles.settingIcon} />
@@ -422,6 +429,7 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={20} color={isDark ? "#ccc" : "#000"} />
           </TouchableOpacity>
           
+          {/* THEME OPTION BUTTON */}
           <TouchableOpacity style={profileStyles.settingItem} onPress={() => setThemeModalVisible(true)}>
             <View style={profileStyles.settingLeft}>
               <Ionicons name="color-palette-outline" size={24} color={colors.iconDefault} style={{marginRight: 15}} />
@@ -436,6 +444,7 @@ export default function ProfileScreen() {
             </View>
           </TouchableOpacity>
 
+          {/* LOGOUT BUTTON */}
           <TouchableOpacity style={profileStyles.settingItem} onPress={handleLogout}>
             <View style={profileStyles.settingLeft}>
               <Ionicons name="log-out-outline" size={24} color="#007AFF" marginRight={15} />
@@ -443,10 +452,20 @@ export default function ProfileScreen() {
             </View>
           </TouchableOpacity>
 
+          {/* DELETE ACCOUNT BUTTON */}
           <TouchableOpacity style={profileStyles.settingItem} onPress={handleDeleteAccount}>
             <View style={profileStyles.settingLeft}>
               <Ionicons name="trash-outline" size={24} color="#FF3B30" marginRight={15} />
               <Text style={[profileStyles.settingText, profileStyles.deleteAccountText]}>Hesabı Sil</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* HELP & SUPPORT BUTTON */}
+          <TouchableOpacity style={profileStyles.settingItem} onPress={handleHelpSupport}>
+            <View style={profileStyles.settingLeft}>
+              {/* Using same color/style as Change Password for consistency */}
+              <Ionicons name="help-circle-outline" size={24} color="#555" style={profileStyles.settingIcon} />
+              <Text style={profileStyles.settingText}>Yardım ve Destek</Text>
             </View>
           </TouchableOpacity>
 
