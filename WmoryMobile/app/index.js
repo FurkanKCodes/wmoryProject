@@ -295,7 +295,8 @@ const getStyles = (colors) => {
   logo: {
     width: 100,
     height: 100,
-    marginBottom: 10
+    marginBottom: 10,
+    borderRadius: 25
   },
   title: {
     fontSize: 28,
