@@ -3,7 +3,7 @@ import {
   View, Text, Image, TouchableOpacity, FlatList, Alert, 
   ActivityIndicator, StatusBar, Modal, TextInput, Dimensions,
   KeyboardAvoidingView, Platform, ScrollView, Animated, Pressable,
-  TouchableWithoutFeedback 
+  TouchableWithoutFeedback, RefreshControl
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'; 
 import { Ionicons } from '@expo/vector-icons'; 
@@ -143,6 +143,22 @@ export default function HomeScreen() {
       setLoading(false);
     }
   };
+
+  // --- REFRESH STATE ---
+  const [refreshing, setRefreshing] = useState(false);
+
+  // --- REFRESH HANDLER ---
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Re-fetch data
+      await fetchData();
+    } catch (error) {
+      console.error("Refresh error:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [userId]);
 
   // Reload data when screen gains focus (e.g. returning from profile update)
   useFocusEffect(
@@ -661,7 +677,22 @@ export default function HomeScreen() {
             data={filteredData}
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderGroupItem}
-            contentContainerStyle={homeStyles.listContainer}
+            contentContainerStyle={[homeStyles.listContainer, { flexGrow: 1 }]}
+            alwaysBounceVertical={true}
+            overScrollMode="always" 
+
+            // --- ADDED: PULL TO REFRESH CONTROL ---
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                // Android color (Spinner color)
+                colors={[isDark ? '#000' : '#000000']} 
+                // iOS color (Spinner color)
+                tintColor={isDark ? '#000' : '#000000'} 
+              />
+            }
+
             ListEmptyComponent={
               searchQuery.length > 0 ? (
                 // SEARCH NO RESULT STATE

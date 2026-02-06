@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   View, Text, Image, TouchableOpacity, FlatList, Alert, 
   ActivityIndicator, StatusBar, Modal, Dimensions, ScrollView,
-  TouchableWithoutFeedback, Platform, ActionSheetIOS, SectionList, Animated, Pressable
+  TouchableWithoutFeedback, SectionList, Animated, Pressable, RefreshControl
 } from 'react-native';
 import Reanimated, { 
     useSharedValue, 
@@ -34,7 +34,7 @@ const defaultUserImage = require('../assets/no-pic.jpg');
 
 const COLUMN_OPTIONS = [2, 3, 4, 6, 8];
 
-// --- ANDROID & IOS COMPATIBLE ZOOM COMPONENT ---
+// --- ANDROID & IOS COMPATIBLE ZOOM COMPONENT (FIXED SCROLL) ---
 const ZoomableImage = ({ uri, onPress, onZoomChange }) => {
     const scale = useSharedValue(1);
     const savedScale = useSharedValue(1);
@@ -42,6 +42,10 @@ const ZoomableImage = ({ uri, onPress, onZoomChange }) => {
     const translateY = useSharedValue(0);
     const savedTranslateX = useSharedValue(0);
     const savedTranslateY = useSharedValue(0);
+
+    // YENİ: Zoom durumunu takip eden state
+    // Bu state sayesinde resim zoomlanmamışken Pan gesture'ı devre dışı bırakacağız.
+    const [isZoomed, setIsZoomed] = useState(false);
   
     // Pinch Handler (Zoom In/Out)
     const pinchGesture = Gesture.Pinch()
@@ -52,21 +56,28 @@ const ZoomableImage = ({ uri, onPress, onZoomChange }) => {
         scale.value = savedScale.value * e.scale;
       })
       .onEnd(() => {
-        if (scale.value < 1) {
-          // Reset to original size if zoomed out too much
+        // Eğer scale 1'in altına indiyse veya çok az büyüdüyse (1.1) normale döndür
+        if (scale.value < 1.1) {
           scale.value = withTiming(1);
           savedScale.value = 1;
           translateX.value = withTiming(0);
           translateY.value = withTiming(0);
-          runOnJS(onZoomChange)(true); // Enable FlatList scrolling
+          
+          // State güncellemeleri (JS thread'inde çalıştırılır)
+          runOnJS(setIsZoomed)(false);  // Pan gesture'ı kapat
+          runOnJS(onZoomChange)(true);  // FlatList kaydırmasını aç
         } else {
           savedScale.value = scale.value;
-          runOnJS(onZoomChange)(false); // Disable FlatList scrolling (Zoom active)
+          
+          runOnJS(setIsZoomed)(true);   // Pan gesture'ı aç
+          runOnJS(onZoomChange)(false); // FlatList kaydırmasını kapat
         }
       });
   
     // Pan Handler (Move image when zoomed in)
     const panGesture = Gesture.Pan()
+      .enabled(isZoomed) // KRİTİK NOKTA: Sadece zoom yapıldıysa çalışır!
+      .averageTouches(true)
       .onStart(() => {
           savedTranslateX.value = translateX.value;
           savedTranslateY.value = translateY.value;
@@ -88,11 +99,15 @@ const ZoomableImage = ({ uri, onPress, onZoomChange }) => {
           savedScale.value = 1;
           translateX.value = withTiming(0);
           translateY.value = withTiming(0);
+
+          runOnJS(setIsZoomed)(false);
           runOnJS(onZoomChange)(true);
         } else {
           // Quick zoom to 2x
           scale.value = withTiming(2);
           savedScale.value = 2;
+
+          runOnJS(setIsZoomed)(true);
           runOnJS(onZoomChange)(false);
         }
       });
@@ -103,9 +118,9 @@ const ZoomableImage = ({ uri, onPress, onZoomChange }) => {
         runOnJS(onPress)();
       });
   
-    // Compose Gestures
     const composed = Gesture.Simultaneous(pinchGesture, panGesture);
     const taps = Gesture.Exclusive(doubleTap, singleTap);
+    
     const gesture = Gesture.Simultaneous(composed, taps);
   
     const animatedStyle = useAnimatedStyle(() => ({
@@ -311,6 +326,21 @@ export default function MediaGalleryScreen() {
       setLoading(false);
     }
   };
+  // --- REFRESH STATE ---
+  const [refreshing, setRefreshing] = useState(false);
+
+  // --- REFRESH HANDLER ---
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Verileri ve filtreleri yeniden çek
+      await fetchData();
+    } catch (error) {
+      console.error("Refresh error:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -627,7 +657,7 @@ export default function MediaGalleryScreen() {
               { text: "Herkes için kaldır", style: 'destructive', onPress: () => processBulkRemove('delete') }
           ]);
       } else {
-          Alert.alert("Seçilenleri Gizle", "Seçilen medyaları galerinizden kaldırmak istiyor musunuz? (Başkasına ait medyalar sadece sizin için gizlenir)", [
+          Alert.alert("Seçilenleri Gizle", "Seçilen medyaları galerinizden kaldırmak istiyor musunuz?", [
               { text: "Vazgeç", style: "cancel" },
               { text: "Evet, Kaldır", onPress: () => processBulkRemove('hide') }
           ]);
@@ -769,15 +799,32 @@ export default function MediaGalleryScreen() {
     if (!hasInternet) return;
 
     try {
-        const response = await fetch(`${API_URL}/hide-photo`, {
+        // We use the '/bulk-action' endpoint logic even for a single item.
+        // Backend expects 'photo_ids' (array) and 'action_type'.
+        const response = await fetch(`${API_URL}/bulk-action`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, photo_id: photoId })
+            headers: { 
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true' 
+            },
+            body: JSON.stringify({ 
+                user_id: userId, 
+                photo_ids: [photoId], // Wrap the single ID in an array
+                action_type: 'hide'   // Explicitly send the action type
+            })
         });
+        
         if (response.ok) {
+            // Update UI locally without refreshing
             handlePostDeleteNavigation(photoId); 
+        } else {
+            const err = await response.json();
+            Alert.alert("Hata", err.error || "İşlem başarısız.");
         }
-    } catch (error) { console.error(error); }
+    } catch (error) { 
+        console.error(error); 
+        Alert.alert("Hata", "Sunucu hatası.");
+    }
   };
 
   const performDeletePhoto = async (photoId) => {
@@ -998,6 +1045,18 @@ export default function MediaGalleryScreen() {
                         viewabilityConfig={viewabilityConfig}
 
                         contentContainerStyle={{ paddingBottom: 100 }}
+
+                        // --- ADDED: PULL TO REFRESH CONTROL ---
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
+                                // Tema uyumlu renk ayarları
+                                colors={[isDark ? '#000' : '#000000']} // Android
+                                tintColor={isDark ? '#000' : '#000000'} // iOS
+                            />
+                        }
+
                         ListEmptyComponent={
                             <View style={{alignItems:'center', marginTop: 50}}>
                                 <Text style={{color: colors.textSecondary}}>Henüz medya yok.</Text>

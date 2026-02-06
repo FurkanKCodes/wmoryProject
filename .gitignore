@@ -7,6 +7,7 @@ WmoryBackend/__pycache__/
 WmoryBackend/*.pyc
 WmoryBackend/.env
 WmoryBackend/uploads/
+WmoryBackend/serviceAccountKey.json
 
 # --- Frontend (React Native - PhotoAppFrontend) ---
 WmoryMobile/node_modules/

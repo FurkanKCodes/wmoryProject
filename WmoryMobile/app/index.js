@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, 
   ActivityIndicator, Image, StatusBar, KeyboardAvoidingView, Animated, Pressable,
-  Platform, ScrollView 
+  Platform, ScrollView, Modal
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
@@ -67,23 +67,119 @@ export default function LoginScreen() {
   const styles = getStyles(colors);
   const router = useRouter();
   
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [password, setPassword] = useState('');
+  // --- STATES ---
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState(''); // Error state for validation
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true); 
+  const [checkingSession, setCheckingSession] = useState(true);
+  
+  // Modal & Verification States
+  const [modalVisible, setModalVisible] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+
+  // --- VALIDATION LOGIC ---
+  const validateEmail = (text) => {
+    setEmail(text);
+    // Regex for basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (text.length > 0 && !emailRegex.test(text)) {
+      setEmailError('Lütfen geçerli bir email giriniz');
+    } else {
+      setEmailError('');
+    }
+  };
+
+  // --- STEP 1: SEND CODE (LOGIN) ---
+  const handleLoginPress = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!email || !emailRegex.test(email)) {
+      setEmailError('Lütfen geçerli bir email giriniz');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/send-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), type: 'login' }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        setModalVisible(true); // Open Verification Modal
+      } else {
+        Alert.alert('Hata', data.error || 'Giriş yapılamadı.');
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Hata', 'Sunucuya bağlanılamadı.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- STEP 2: VERIFY CODE & LOGIN ---
+  const handleVerifyCode = async () => {
+    if (verificationCode.length !== 6) {
+      Alert.alert('Hata', 'Lütfen 6 haneli kodu girin.');
+      return;
+    }
+
+    setVerifying(true);
+    try {
+      const response = await fetch(`${API_URL}/verify-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), code: verificationCode }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        // Save Session
+        await AsyncStorage.setItem('user_id', data.user_id.toString());
+
+        setModalVisible(false);
+        // Redirect to Home
+
+        try {
+          const token = await registerForPushNotificationsAsync();
+          if (token) {
+              await updatePushToken(data.user_id, token);
+          }
+        } catch (tokenErr) {
+          console.log("Token süreci hatası:", tokenErr);
+        }
+
+        Alert.alert('Başarılı', 'Giriş yapıldı!');
+        router.replace({ pathname: '/home', params: { userId: data.user_id } });
+      } else {
+        Alert.alert('Hata', data.error || 'Kod hatalı.');
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Doğrulama yapılamadı.');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   // --- CHECK SESSION ON MOUNT ---
   useEffect(() => {
     const checkLogin = async () => {
       try {
-        const userSession = await AsyncStorage.getItem('user_session');
-        if (userSession) {
-          const user = JSON.parse(userSession);
-          router.replace({ pathname: '/home', params: { userId: user.id } });
+        // CHANGED: Look for 'user_id' directly instead of 'user_session' object
+        const userId = await AsyncStorage.getItem('user_id');
+        
+        if (userId) {
+          // If userId exists, user is logged in. Redirect to Home.
+          router.replace({ pathname: '/home', params: { userId: userId } });
         }
       } catch (error) {
         console.error("Session check failed:", error);
       } finally {
+        // Stop the loading spinner (ActivityIndicator)
         setCheckingSession(false);
       }
     };
@@ -150,58 +246,6 @@ export default function LoginScreen() {
       }
   };
 
-  const handleLogin = async () => {
-    if (!phoneNumber || !password) {
-      Alert.alert('Hata', 'Lütfen tüm alanları doldurun.');
-      return;
-    }
-
-    // Backend'e gönderirken başına +90 ekliyoruz
-    const formattedPhoneNumber = `+90${phoneNumber}`;
-
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/login`, {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true'
-        },
-        body: JSON.stringify({ phone_number: formattedPhoneNumber, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        const userData = {
-            id: data.user_id,
-            username: data.username,
-            profile_image: data.profile_image 
-        };
-        await AsyncStorage.setItem('user_session', JSON.stringify(userData));
-
-        try {
-            const token = await registerForPushNotificationsAsync();
-            if (token) {
-                await updatePushToken(data.user_id, token);
-            }
-        } catch (tokenErr) {
-            console.log("Token süreci hatası:", tokenErr);
-        }
-
-        Alert.alert('Başarılı', 'Giriş yapıldı!');
-        router.replace({ pathname: '/home', params: { userId: data.user_id } });
-      } else {
-        Alert.alert('Hata', data.error || 'Giriş başarısız.');
-      }
-    } catch (error) {
-      console.error("Login Error:", error);
-      Alert.alert('Hata', 'Bağlantı hatası.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (checkingSession) {
       return (
           <View style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'#fff'}}>
@@ -234,44 +278,70 @@ export default function LoginScreen() {
 
           <View style={styles.formContainer}>
             
-            {/* --- Phone Number Region --- */}
-            <View style={styles.phoneInputContainer}>
-              <Text style={styles.countryCode}>+90</Text>
+            <View style={styles.inputContainer}>
+              {/* EMAIL INPUT (Replaces Phone & Password) */}
               <TextInput
-                style={styles.phoneInput}
-                placeholder="Telefon Numarası (555...)"
-                placeholderTextColor={isDark ? '#545454' : '#666'} 
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                keyboardType="number-pad"
-                maxLength={10} 
+                style={[
+                  styles.input, 
+                  emailError ? { borderColor: 'red', borderWidth: 1 } : {} 
+                ]}
+                placeholder="E-posta Adresi"
+                placeholderTextColor={isDark ? '#545454' : '#666'}
+                value={email}
+                onChangeText={validateEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
                 selectionColor={isDark ? '#545454' : '#666'}
               />
+              {/* Error Message */}
+              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+
+              {/* LOGIN BUTTON */}
+              <ScaleButton style={styles.button} onPress={handleLoginPress} disabled={loading}>
+                {loading ? <ActivityIndicator color={isDark ? '#000' : '#fff'} /> : <Text style={styles.buttonText}>Giriş Yap</Text>}
+              </ScaleButton>
+            
+              <TouchableOpacity onPress={() => router.push('/register')} style={{ marginTop: 15, alignSelf: 'center' }}>
+                <Text style={styles.linkText}>Hesabın yok mu? Kayıt Ol</Text>
+              </TouchableOpacity>
             </View>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Şifre"
-              placeholderTextColor={isDark ? '#545454' : '#666'} 
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              selectionColor={isDark ? '#545454' : '#666'}
-            />
-
-            <ScaleButton style={styles.button} onPress={handleLogin} disabled={loading}>
-              {loading ? <ActivityIndicator color={colors.background} /> : <Text style={styles.buttonText}>Giriş Yap</Text>}
-            </ScaleButton>
-
-            <TouchableOpacity onPress={() => router.push('/ForgotPasswordScreen')} style={{marginBottom: 15}}>
-              <Text style={styles.linkText}>Şifremi Unuttum</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => router.push('/register')}>
-              <Text style={styles.linkText}>Hesabın yok mu? Kayıt Ol</Text>
-            </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {/* --- VERIFICATION MODAL (Added manually to match Register style) --- */}
+        <Modal visible={modalVisible} transparent={true} animationType="fade" onRequestClose={() => setModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.modalBg, borderColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Doğrulama Kodu</Text>
+              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                {email} adresine gönderilen kodu girin.
+              </Text>
+            
+              <TextInput
+                style={[styles.modalInput, { color: colors.textPrimary, borderColor: isDark ? '#555' : '#ddd', backgroundColor: isDark ? '#333' : '#f9f9f9' }]}
+                value={verificationCode}
+                onChangeText={setVerificationCode}
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholder="------"
+                placeholderTextColor={colors.textSecondary}
+                selectionColor={isDark ? "#ffffff" : "#000000"} 
+              />
+
+              <ScaleButton 
+                style={styles.modalButton} 
+                onPress={handleVerifyCode} 
+                disabled={verifying}
+              >
+                {verifying ? <ActivityIndicator color={isDark ? '#000' : '#fff'} /> : <Text style={styles.modalButtonText}>Doğrula</Text>}
+              </ScaleButton>
+
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setModalVisible(false)}>
+                <Text style={{ color: 'red', fontSize: 16 }}>Vazgeç</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
@@ -370,5 +440,65 @@ const getStyles = (colors) => {
     fontSize: 16,
     marginTop: 10,
   },
+
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginBottom: 10,
+    marginLeft: 5,
+    marginTop: -10, // Pull it closer to input
+  },
+  // Modal Styles (Copied logic from authStyles to keep file independent)
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    borderRadius: 20,
+    padding: 25,
+    alignItems: 'center',
+    borderWidth: 1,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalInput: {
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 10,
+    fontSize: 24,
+    textAlign: 'center',
+    letterSpacing: 5,
+    marginBottom: 20,
+  },
+  modalButton: {
+    backgroundColor: isDark ? '#a9a9a9' : '#707070', // Verification action can remain Blue or Black
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    width: 200,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalButtonText: {
+    color: isDark ? '#000' : '#fff', 
+    fontSize: 18, 
+    fontWeight: '600',
+  },
+  modalCancel: {
+    paddingVertical: 10,
+  }
 });
 };

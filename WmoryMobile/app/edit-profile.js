@@ -3,13 +3,12 @@ import {
   View, Text, Image, TouchableOpacity, TextInput, 
   StatusBar, Alert, ScrollView, ActivityIndicator, 
   KeyboardAvoidingView, Platform, PanResponder, Dimensions,
-  Animated, Pressable 
+  Animated, Pressable, Modal
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import API_URL from '../config';
-import editProfileStyles from '../styles/editProfileStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { getEditProfileStyles } from '../styles/editProfileStyles';
@@ -60,6 +59,10 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const userId = params.userId;
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   const { width } = Dimensions.get('window'); // Ekran genişliği
 
@@ -197,10 +200,76 @@ export default function EditProfileScreen() {
     }
   };
 
-  // --- SAVE ACTION ---
-  const handleSave = async () => {
+  // --- LOGIC: DECIDE IF VERIFICATION IS NEEDED ---
+  const handleSavePress = async () => {
     if (!isSaveActive) return;
 
+    // 1. Check if email has changed
+    if (email !== initialData.email) {
+        // Email changed: Send code first
+        setSaving(true);
+        try {
+            const response = await fetch(`${API_URL}/send-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.trim(), type: 'update' }),
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                setModalVisible(true); // Open Verification Modal
+            } else {
+                Alert.alert('Hata', data.error || 'Kod gönderilemedi.');
+            }
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Hata', 'Sunucu hatası.');
+        } finally {
+            setSaving(false);
+        }
+    } else {
+        // Email NOT changed: Update directly
+        performProfileUpdate();
+    }
+  };
+
+
+  // --- LOGIC: VERIFY CODE THEN UPDATE ---
+  const handleVerifyAndSave = async () => {
+    if (verificationCode.length !== 6) {
+        Alert.alert('Hata', 'Lütfen 6 haneli kodu girin.');
+        return;
+    }
+    
+    setVerifying(true);
+    try {
+        // 1. Verify Code
+        const verifyResponse = await fetch(`${API_URL}/verify-code`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim(), code: verificationCode, type: 'update' }),
+        });
+        
+        if (!verifyResponse.ok) {
+            const errData = await verifyResponse.json();
+            Alert.alert('Hata', errData.error || 'Kod hatalı.');
+            setVerifying(false);
+            return;
+        }
+
+        // 2. If Code Valid -> Proceed to Update Profile
+        setModalVisible(false); // Close modal
+        await performProfileUpdate(); // Call the actual update function
+
+    } catch (error) {
+        Alert.alert('Hata', 'İşlem sırasında hata oluştu.');
+    } finally {
+        setVerifying(false);
+    }
+  };
+
+  // --- LOGIC: ACTUAL API CALL (Moved from old handleSave) ---
+  const performProfileUpdate = async () => {
     setSaving(true);
     try {
         const formData = new FormData();
@@ -228,18 +297,15 @@ export default function EditProfileScreen() {
         });
         
         if (response.ok) {
-            // FIX: Navigate back on success
             Alert.alert("Başarılı", "Profiliniz güncellendi.", [
                 { text: "Tamam", onPress: () => router.back() }
             ]);
         } else {
-            // Translation: Update failed
             Alert.alert("Hata", "Güncelleme başarısız oldu.");
         }
 
     } catch (error) {
         console.error(error);
-        // Translation: Server error
         Alert.alert("Hata", "Sunucu hatası.");
     } finally {
         setSaving(false);
@@ -261,8 +327,8 @@ export default function EditProfileScreen() {
     } else {
         // Dark Mode (Consistent with Home)
         return {
-            bg: isSaveActive ? '#ffffff' : '#333333',
-            text: isSaveActive ? '#000000' : '#888888',
+            bg: isSaveActive ? '#000' : '#333333',
+            text: isSaveActive ? '#fff' : '#888888',
             border: '#333333'
         };
     }
@@ -313,7 +379,7 @@ const saveBtnStyle = getSaveButtonStyles();
                     borderWidth: 0,
                 }
             ]}
-            onPress={handleSave}
+            onPress={handleSavePress}
             disabled={!isSaveActive || saving}
         >
             {saving ? (
@@ -389,6 +455,46 @@ const saveBtnStyle = getSaveButtonStyles();
                 </View>
             )}
         </ScrollView>
+        {/* --- VERIFICATION MODAL --- */}
+        <Modal visible={modalVisible} transparent={true} animationType="fade" onRequestClose={() => setModalVisible(false)}>
+          <View style={editProfileStyles.modalOverlay}>
+            <View style={editProfileStyles.modalContainer}>
+              <Text style={editProfileStyles.modalTitle}>Güvenlik Doğrulaması</Text>
+              <Text style={editProfileStyles.modalSubtitle}>
+                {email} adresine gönderilen kodu girin.
+              </Text>
+            
+              <TextInput
+                style={editProfileStyles.modalInput}
+                value={verificationCode}
+                onChangeText={setVerificationCode}
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholder="------"
+                placeholderTextColor={isDark ? '#545454' : '#666'}
+                selectionColor={isDark ? '#545454' : '#666'}
+              />
+
+              <ScaleButton 
+                  style={editProfileStyles.modalButton} 
+                  onPress={handleVerifyAndSave} 
+                  disabled={verifying}
+              >
+                {verifying ? (
+                    <ActivityIndicator color={isDark ? '#000' : '#fff'} /> 
+                ) : (
+                    <Text style={{ color: isDark ? '#000' : '#fff', fontSize: 18, fontWeight: '600' }}>
+                        Doğrula ve Kaydet
+                    </Text>
+                )}
+              </ScaleButton>
+
+              <TouchableOpacity style={editProfileStyles.modalCancelButton} onPress={() => setModalVisible(false)}>
+                <Text style={editProfileStyles.modalCancelText}>Vazgeç</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </LinearGradient>
   );

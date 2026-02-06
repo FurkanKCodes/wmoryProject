@@ -5,7 +5,7 @@ import {
   Animated, Pressable 
 } from 'react-native';
 import { useRouter } from 'expo-router'; 
-import auth from '@react-native-firebase/auth'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_URL from '../config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,9 +54,9 @@ export default function RegisterScreen() {
   const authStyles = getAuthStyles(colors);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [phoneNumber, setPhoneNumber] = useState(''); 
   const [loading, setLoading] = useState(false);
+  const [registering, setRegistering] = useState(false);
   
   // --- SMS SYSTEM STATES ---
   const [confirm, setConfirm] = useState(null); 
@@ -69,8 +69,9 @@ export default function RegisterScreen() {
   const [showTermsModal, setShowTermsModal] = useState(false);
 
   const [isPhoneValid, setIsPhoneValid] = useState(true);
-  const [isPasswordValid, setIsPasswordValid] = useState(true);
   const [isEmailValid, setIsEmailValid] = useState(true);
+  const [emailError, setEmailError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   
   const router = useRouter();
 
@@ -88,103 +89,87 @@ export default function RegisterScreen() {
     }
   };
 
-  const handlePasswordChange = (text) => {
-    setPassword(text);
-    setIsPasswordValid(text.length === 0 || text.length >= 6);
+  // --- STEP 1: SEND CODE (REGISTER) ---
+  const handleRegisterPress = async () => {
+    // Validate inputs
+    if (!username || !email || !phoneNumber) {
+      Alert.alert('Hata', 'Lütfen tüm alanları doldurun.');
+      return;
+    }
+    if (emailError || phoneError) {
+      Alert.alert('Hata', 'Lütfen hatalı alanları düzeltin.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Send code to EMAIL via Backend
+      const response = await fetch(`${API_URL}/send-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), type: 'register' }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        setModalVisible(true); // Open existing Modal
+      } else {
+        Alert.alert('Hata', data.error || 'Kod gönderilemedi.');
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Hata', 'Sunucu hatası.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- STEP 2: VERIFY & CREATE ACCOUNT ---
+  const handleVerifyAndCreate = async () => {
+    if (verificationCode.length !== 6) {
+      Alert.alert('Hata', 'Lütfen 6 haneli kodu girin.');
+      return;
+    }
+
+    setRegistering(true);
+    try {
+      // Call updated verify endpoint (No password)
+      const response = await fetch(`${API_URL}/verify-register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          code: verificationCode,
+          username: username.trim(),
+          phone_number: phoneNumber.trim()
+        }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        // Auto Login
+        if (data.user_id) await AsyncStorage.setItem('user_id', data.user_id.toString());
+        
+        setModalVisible(false);
+        Alert.alert("Başarılı", "Hesabınız oluşturuldu!", [
+            { text: "Tamam", onPress: () => router.replace({ pathname: '/home', params: { userId: data.user_id } }) }
+        ]);
+      } else {
+        Alert.alert('Hata', data.error || 'Doğrulama başarısız.');
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'İşlem tamamlanamadı.');
+    } finally {
+      setRegistering(false);
+    }
   };
 
   // --- VALIDATION ---
   const isRegisterEnabled = 
     username.length > 0 && 
     email.length > 0 && isEmailValid && 
-    password.length >= 6 && 
     phoneNumber.length === 10 &&
     isAgreed;
-
-  // --- STEP 1: SEND SMS ---
-  const handleSendSMS = async () => {
-    if (!isRegisterEnabled) {
-      Alert.alert('Eksik Bilgi', 'Lütfen tüm alanları doldurun ve sözleşmeleri onaylayın.');
-      return;
-    }
-
-    setLoading(true);
-    const formattedPhone = '+90' + phoneNumber;
-
-    try {
-      console.log("Sending SMS to:", formattedPhone);
-      const confirmation = await auth().signInWithPhoneNumber(formattedPhone);
-      
-      setConfirm(confirmation); 
-      setModalVisible(true); 
-      setLoading(false);
-      
-    } catch (error) {
-      console.error("SMS Error:", error);
-      setLoading(false);
-      
-      if (error.code === 'auth/invalid-phone-number') {
-        Alert.alert('Hata', 'Telefon numarası geçersiz.');
-      } else if (error.code === 'auth/quota-exceeded') {
-        Alert.alert('Hata', 'SMS kotası dolu.');
-      } else {
-        Alert.alert('Hata', 'SMS gönderilemedi. Lütfen tekrar deneyin.');
-      }
-    }
-  };
-
-  // --- STEP 2: VERIFY CODE ---
-  const verifyCodeAndRegister = async () => {
-    if (verificationCode.length !== 6) {
-      Alert.alert('Hata', 'Lütfen 6 haneli kodu girin.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await confirm.confirm(verificationCode);
-      console.log("Phone verified!");
-      await registerUserToBackend();
-    } catch (error) {
-      console.error('Code Error:', error);
-      setLoading(false);
-      Alert.alert('Hata', 'Girdiğiniz kod hatalı veya süresi dolmuş.');
-    }
-  };
-
-  // --- STEP 3: BACKEND REGISTRATION ---
-  const registerUserToBackend = async () => {
-    try {
-      const formattedPhone = '+90' + phoneNumber;
-
-      const response = await fetch(`${API_URL}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: username,
-          email: email,
-          password: password,
-          phone_number: formattedPhone 
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setModalVisible(false); 
-        Alert.alert('Başarılı', 'Hesabınız oluşturuldu! Şimdi giriş yapabilirsiniz.', [
-          { text: 'Tamam', onPress: () => router.back() } 
-        ]);
-      } else {
-        Alert.alert('Kayıt Başarısız', data.message || data.error || 'Bir hata oluştu.');
-      }
-    } catch (error) {
-      console.error("Register Error:", error);
-      Alert.alert('Bağlantı Hatası', 'Sunucuya ulaşılamadı.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     // CHANGE: Added LinearGradient as the main wrapper matching Home screen
@@ -244,19 +229,6 @@ export default function RegisterScreen() {
             {!isPhoneValid && (
                <Text style={authStyles.errorText}>Lütfen geçerli bir telefon numarası girin</Text>
             )}
-
-            <TextInput
-              style={authStyles.input}
-              placeholder="Şifre"
-              placeholderTextColor={isDark ? '#545454' : '#666'}
-              value={password}
-              onChangeText={handlePasswordChange}
-              secureTextEntry
-              selectionColor={isDark ? '#545454' : '#666'}
-            />
-            {!isPasswordValid && (
-               <Text style={authStyles.errorText}>En az 6 karakter olmalı</Text>
-            )}
           </View>
 
           {/* --- CHECKBOX AREA --- */}
@@ -281,7 +253,7 @@ export default function RegisterScreen() {
 
           <ScaleButton 
               style={[authStyles.button, (!isRegisterEnabled || loading) && authStyles.buttonDisabled]} 
-              onPress={handleSendSMS} 
+              onPress={handleRegisterPress} 
               disabled={!isRegisterEnabled || loading}
           >
             {loading ? (
@@ -295,7 +267,7 @@ export default function RegisterScreen() {
             <Text style={authStyles.linkText}>Zaten hesabın var mı? Giriş Yap</Text>
           </TouchableOpacity>
 
-          {/* --- SMS MODAL --- */}
+          {/* --- CODE MODAL --- */}
           <Modal
             animationType="fade"
             transparent={true}
@@ -305,10 +277,10 @@ export default function RegisterScreen() {
             <View style={authStyles.modalOverlay}>
               <View style={authStyles.modalContainer}>
                 <Text style={authStyles.modalTitle}>Doğrulama Kodu</Text>
-                <Text style={authStyles.modalSubtitle}>{`+90 ${phoneNumber} numarasına gönderilen 6 haneli kodu giriniz.`}</Text>
+                <Text style={authStyles.modalSubtitle}>{email} adresine gönderilen kodu girin.</Text>
                 <TextInput
                   style={authStyles.modalInput}
-                  placeholder="123456"
+                  placeholder="------"
                   placeholderTextColor={isDark ? '#545454' : '#666'} // Darker placeholder for better contrast on light modal input
                   value={verificationCode}
                   onChangeText={setVerificationCode}
@@ -317,7 +289,7 @@ export default function RegisterScreen() {
                   autoFocus={true}
                   selectionColor={isDark ? '#545454' : '#666'}
                 />
-                <ScaleButton style={authStyles.modalButton} onPress={verifyCodeAndRegister} disabled={loading}>
+                <ScaleButton style={authStyles.modalButton} onPress={handleVerifyAndCreate} disabled={loading}>
                    {loading ? <ActivityIndicator color={isDark ? '#000' : '#fff'}/> : <Text style={{ color: isDark ? '#000' : '#fff', fontSize: 18, fontWeight: '600' }}>Doğrula ve Tamamla</Text>}
                 </ScaleButton>
                 <TouchableOpacity style={authStyles.modalCancelButton} onPress={() => { setModalVisible(false); setLoading(false); }}>
@@ -363,7 +335,6 @@ export default function RegisterScreen() {
   );
 }
 
-// --- EXACT TEXT CONTENT FROM UPLOADED PDFS ---
 
 const privacyPolicyText = `GİZLİLİK POLİTİKASI
 Son Güncelleme: 04/02/2026 

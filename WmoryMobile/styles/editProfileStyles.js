@@ -1,4 +1,6 @@
-import { StyleSheet, Platform, StatusBar } from 'react-native';
+import { StyleSheet, Platform, StatusBar, Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 export const getEditProfileStyles = (colors) => {
   // Determine if current mode is dark
@@ -116,6 +118,66 @@ export const getEditProfileStyles = (colors) => {
       fontSize: 12,
       marginTop: 5,
       textAlign: 'left',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.7)', // Darker overlay
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContainer: {
+      width: width * 0.85,
+      backgroundColor: colors.modalBg, // Dark Card Background
+      borderRadius: 20,
+      padding: 25,
+      alignItems: 'center',
+      shadowColor: colors.textPrimary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    modalTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 10,
+      color: colors.textPrimary, // White
+    },
+    modalSubtitle: {
+      fontSize: 14,
+      color: colors.textSecondary, // Light Gray
+      marginBottom: 20,
+      textAlign: 'center',
+    },
+    modalInput: {
+      width: 240,
+      backgroundColor: '#d3d3d3', // Light Gray Box
+      padding: 15,
+      borderRadius: 10,
+      fontSize: 18,
+      textAlign: 'center', 
+      marginBottom: 20,
+      letterSpacing: 5, 
+      fontWeight: 'bold',
+      color: isDark ? '#545454' : '#666', // Black Text
+    },
+    modalButton: {
+      backgroundColor: isDark ? '#a9a9a9' : '#707070', // Verification action can remain Blue or Black
+      paddingVertical: 12,
+      paddingHorizontal: 30,
+      borderRadius: 10,
+      width: '100%',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    modalCancelButton: {
+      paddingVertical: 10,
+    },
+    modalCancelText: {
+      color: '#FF3B30', // Red
+      fontSize: 16,
     },
   });
 };

@@ -1,13 +1,24 @@
 import os
+import firebase_admin 
 from flask import Flask
 from flask_cors import CORS
 from routes.auth import auth_bp
 from routes.groups import groups_bp
 from routes.photos import photos_bp
-from routes.admin import admin_bp   # <--- ADDED IMPORT
+from routes.admin import admin_bp  
+from firebase_admin import credentials 
 
 app = Flask(__name__)
 CORS(app) # Allow mobile app connection
+
+
+# =====================================================
+# FIREBASE INITIALIZATION (SECURITY)
+# =====================================================
+# Ensure 'serviceAccountKey.json' is in the root directory
+cred = credentials.Certificate("serviceAccountKey.json")
+firebase_admin.initialize_app(cred)
+# =====================================================
 
 # =====================================================
 # CONFIGURATION

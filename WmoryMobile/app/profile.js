@@ -237,6 +237,7 @@ export default function ProfileScreen() {
                     try {
                         await AsyncStorage.removeItem('user_session');
                         Alert.alert("Bilgi", "Başarıyla çıkış yapıldı.");
+                        await AsyncStorage.removeItem('user_id');
                         router.replace('/'); 
                     } catch (e) {
                         console.error("Logout Error:", e);
@@ -416,15 +417,6 @@ export default function ProfileScreen() {
             <View style={profileStyles.settingLeft}>
               <Ionicons name="ban-outline" size={24} color="#555" style={profileStyles.settingIcon} />
               <Text style={profileStyles.settingText}>Engellenen Kullanıcılar</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={isDark ? "#ccc" : "#000"} />
-          </TouchableOpacity>
-
-          {/* CHANGE PASSWORD BUTTON */}
-          <TouchableOpacity style={profileStyles.settingItem} onPress={handleChangePassword}>
-            <View style={profileStyles.settingLeft}>
-              <Ionicons name="lock-closed-outline" size={24} color="#555" style={profileStyles.settingIcon} />
-              <Text style={profileStyles.settingText}>Şifreyi Değiştir</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={isDark ? "#ccc" : "#000"} />
           </TouchableOpacity>

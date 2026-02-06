@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     View, Text, Image, TouchableOpacity, StatusBar, 
     ScrollView, ActivityIndicator, Modal, TextInput, Alert, 
-    KeyboardAvoidingView, Platform, Switch, Animated, Pressable, TouchableWithoutFeedback 
+    KeyboardAvoidingView, Platform, Switch, Animated, Pressable, RefreshControl
   } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -112,6 +112,21 @@ export default function GroupDetailsScreen() {
       setLoading(false);
     }
   };
+
+  // --- REFRESH STATE ---
+  const [refreshing, setRefreshing] = useState(false);
+
+  // --- REFRESH HANDLER ---
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchData();
+    } catch (error) {
+      console.error("Refresh error:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [groupId, userId]);
 
   useEffect(() => {
     if (groupId) fetchData();
@@ -445,11 +460,22 @@ export default function GroupDetailsScreen() {
       {loading ? (
           // Loading View: Centered white spinner on dark background
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <ActivityIndicator size="large" color='#fff' />
+              <ActivityIndicator size="large" color={isDark? '#fff' : '#000'} />
           </View>
       ) : (
           // Content View: Your existing ScrollView content
-          <ScrollView contentContainerStyle={{ paddingBottom: 150 }}> 
+          <ScrollView contentContainerStyle={{ paddingBottom: 150 }} 
+
+            //--- ADDED: REFRESH CONTROL ---
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[isDark ? '#000' : '#000000']} // Android
+                tintColor={isDark ? '#000' : '#000000'} // iOS
+              />
+            }
+          >
             
             {/* 1. GROUP INFO */}
             <View style={groupDetailsStyles.groupInfoContainer}>
