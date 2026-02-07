@@ -17,17 +17,15 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av'; 
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'; 
-
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-// --- YENİ EKLENEN: Tarih sıfırlama için gerekli ---
 import * as ImageManipulator from 'expo-image-manipulator';
-
 import API_URL from '../config';
 import NetInfo from '@react-native-community/netinfo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { getMediaStyles } from '../styles/mediaStyles';
+import { saveDataToCache, loadDataFromCache, CACHE_KEYS } from '../utils/cacheHelper';
 
 const { width, height } = Dimensions.get('window');
 const defaultUserImage = require('../assets/no-pic.jpg'); 
@@ -297,35 +295,81 @@ export default function MediaGalleryScreen() {
       return true;
   };
 
-  // --- FETCH DATA ---
-  const fetchData = async () => {
-    try {
-      // 1. Fotoları Çek
-      const photoRes = await fetch(`${API_URL}/group-photos?group_id=${groupId}&user_id=${userId}`);
-      if (photoRes.ok) {
-        const data = await photoRes.json();
-        setPhotos(data);
-      }
-
-      // 2. Üyeleri Çek (Filtreleme için)
-      const memberRes = await fetch(`${API_URL}/get-group-members?group_id=${groupId}&current_user_id=${userId}`);
-      if (memberRes.ok) {
-          const memberData = await memberRes.json();
-          memberData.sort((a, b) => a.username.localeCompare(b.username));
-          setMembers(memberData);
-          
-          // Varsayılan: Herkes seçili
-          const allIds = memberData.map(m => m.id.toString());
-          setSelectedMemberIds(allIds);
-          setTempSelectedMemberIds(allIds);
-      }
-
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
+  // --- HELPER: UPDATE STATE FROM DATA ---
+  const updateMediaState = (photosData, membersData) => {
+    if (photosData) {
+        setPhotos(photosData);
     }
-  };
+
+    if (membersData) {
+        // Sort members alphabetically (Same as original logic)
+        const sortedMembers = [...membersData].sort((a, b) => a.username.localeCompare(b.username));
+        setMembers(sortedMembers);
+        
+        // Default: Select all members for filtering
+        // We check if we already have a selection to avoid resetting user's active filter during background refresh
+        if (selectedMemberIds.length === 0) {
+            const allIds = sortedMembers.map(m => m.id.toString());
+            setSelectedMemberIds(allIds);
+            setTempSelectedMemberIds(allIds);
+        }
+    }
+};
+
+// --- FETCH DATA (CACHE FIRST STRATEGY) ---
+const fetchData = async () => {
+  // 1. Define Cache Key
+  const cacheKey = CACHE_KEYS.GROUP_PHOTOS(groupId);
+
+  // 2. CACHE LAYER: Try to load from device storage first
+  try {
+      const cachedData = await loadDataFromCache(cacheKey);
+      if (cachedData) {
+          // cachedData structure: { photos: [...], members: [...] }
+          updateMediaState(cachedData.photos, cachedData.members);
+          setLoading(false); 
+      }
+  } catch (e) {
+      console.log("Cache load error:", e);
+  }
+
+  // 3. NETWORK LAYER: Fetch fresh data from API
+  try {
+    const [photoRes, memberRes] = await Promise.all([
+        fetch(`${API_URL}/group-photos?group_id=${groupId}&user_id=${userId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }}),
+        fetch(`${API_URL}/get-group-members?group_id=${groupId}&current_user_id=${userId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }})
+    ]);
+
+    const freshData = {};
+
+    if (photoRes.ok) {
+      freshData.photos = await photoRes.json();
+    }
+
+    if (memberRes.ok) {
+        freshData.members = await memberRes.json();
+    }
+
+    // Update UI with fresh data
+    updateMediaState(freshData.photos, freshData.members);
+
+    // Save combined data to cache
+    if (freshData.photos || freshData.members) {
+         // If one failed, fallback to existing cache or empty array
+         const dataToSave = {
+             photos: freshData.photos || (cachedData ? cachedData.photos : []),
+             members: freshData.members || (cachedData ? cachedData.members : [])
+         };
+         await saveDataToCache(cacheKey, dataToSave);
+    }
+
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  } finally {
+    setLoading(false);
+    if (typeof setRefreshing === 'function') setRefreshing(false);
+  }
+};
   // --- REFRESH STATE ---
   const [refreshing, setRefreshing] = useState(false);
 

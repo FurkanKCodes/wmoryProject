@@ -8,12 +8,12 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'; 
 import { Ionicons } from '@expo/vector-icons'; 
 import * as ImagePicker from 'expo-image-picker'; 
-// EKLENDİ: İnternet kontrolü için kütüphane
 import NetInfo from '@react-native-community/netinfo';
 import API_URL from '../config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { getHomeStyles } from '../styles/homeStyles';
+import { saveDataToCache, loadDataFromCache, CACHE_KEYS } from '../utils/cacheHelper';
 
 const defaultProfileImage = require('../assets/no-pic.jpg');
 const { width } = Dimensions.get('window');
@@ -117,30 +117,62 @@ export default function HomeScreen() {
   const fetchData = async () => {
     if (!userId) return;
     
+    // Define Cache Keys
+    const groupsKey = CACHE_KEYS.USER_GROUPS(userId);
+    const userKey = CACHE_KEYS.USER_PROFILE(userId);
+
+    // 1. CACHE LAYER: Load from device storage first
     try {
-      // 1. Fetch User Groups
+        const [cachedGroups, cachedUser] = await Promise.all([
+            loadDataFromCache(groupsKey),
+            loadDataFromCache(userKey)
+        ]);
+
+        // Immediate UI Update if cache exists
+        if (cachedGroups) {
+            setGroups(cachedGroups);
+        }
+        if (cachedUser) {
+            setUserProfilePic(cachedUser.thumbnail_url || cachedUser.profile_url);
+        }
+
+        // If we showed something from cache, stop the loading spinner immediately
+        if (cachedGroups || cachedUser) {
+            setLoading(false);
+        }
+    } catch (e) {
+        console.log("Cache load error:", e);
+    }
+
+    // 2. NETWORK LAYER: Fetch fresh data from API
+    try {
+      // A. Fetch User Groups
       const groupsRes = await fetch(`${API_URL}/my-groups?user_id=${userId}`, {
           headers: { 'ngrok-skip-browser-warning': 'true' }
       });
       if (groupsRes.ok) {
         const groupsData = await groupsRes.json();
-        setGroups(groupsData);
+        setGroups(groupsData); // Update UI
+        await saveDataToCache(groupsKey, groupsData); // Save to Cache
       }
 
-      // 2. Fetch User Profile (To get header thumbnail)
+      // B. Fetch User Profile (To get header thumbnail)
       const userRes = await fetch(`${API_URL}/get-user?user_id=${userId}`, {
         headers: { 'ngrok-skip-browser-warning': 'true' }
       });
       if (userRes.ok) {
         const userData = await userRes.json();
         // Prioritize thumbnail, fallback to original, else null
-        setUserProfilePic(userData.thumbnail_url || userData.profile_url);
+        setUserProfilePic(userData.thumbnail_url || userData.profile_url); // Update UI
+        await saveDataToCache(userKey, userData); // Save to Cache
       }
 
     } catch (error) {
       console.error("Connection Error:", error);
     } finally {
       setLoading(false);
+      // Ensure refreshing state is turned off if this was triggered by Pull-to-Refresh
+      if (typeof setRefreshing === 'function') setRefreshing(false);
     }
   };
 

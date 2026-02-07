@@ -12,6 +12,7 @@ import API_URL from '../config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { getGroupDetailsStyles } from '../styles/groupDetailsStyles';
+import { saveDataToCache, loadDataFromCache, CACHE_KEYS } from '../utils/cacheHelper';
 
 const defaultGroupImage = require('../assets/no-pic.jpg'); 
 const defaultUserImage = require('../assets/no-pic.jpg');
@@ -87,31 +88,87 @@ export default function GroupDetailsScreen() {
   // Notification State
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  // --- FETCH DATA ---
-  const fetchData = async () => {
-    try {
-      const groupRes = await fetch(`${API_URL}/get-group-details?group_id=${groupId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }});
-      const groupData = await groupRes.json();
-      if (groupRes.ok) setGroupDetails(groupData);
-
-      const membersRes = await fetch(`${API_URL}/get-group-members?group_id=${groupId}&current_user_id=${userId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }});
-      const membersData = await membersRes.json();
-      if (membersRes.ok) {
+  // --- HELPER: UPDATE STATE FROM DATA ---
+  // This helper function handles updating the UI state from either Cache or API data
+  const updateGroupState = (details, membersData, requestsData) => {
+    if (details) {
+        setGroupDetails(details);
+    }
+    
+    if (membersData) {
         setMembers(membersData);
+        // Check Admin & Notification Status based on members list
         const currentUser = membersData.find(m => m.id.toString() === userId.toString());
         setIsAdmin(currentUser?.is_admin === 1);
         setNotificationsEnabled(currentUser?.notifications === 1);
-      }
-
-      const reqRes = await fetch(`${API_URL}/get-group-requests?group_id=${groupId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }});
-      if (reqRes.ok) setRequests(await reqRes.json());
-
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    if (requestsData) {
+        setRequests(requestsData);
+    }
+};
+
+// --- FETCH DATA (CACHE FIRST STRATEGY) ---
+const fetchData = async () => {
+  // 1. Define Cache Key
+  const cacheKey = CACHE_KEYS.GROUP_DETAILS(groupId);
+
+  // 2. CACHE LAYER: Try to load from device storage first
+  try {
+      const cachedData = await loadDataFromCache(cacheKey);
+      if (cachedData) {
+          // Immediate UI update from cache
+          // cachedData structure: { details, members, requests }
+          updateGroupState(cachedData.details, cachedData.members, cachedData.requests);
+          setLoading(false); 
+      }
+  } catch (e) {
+      console.log("Cache load error:", e);
+  }
+
+  // 3. NETWORK LAYER: Fetch fresh data from API
+  try {
+    // Execute all requests in parallel for performance
+    const [groupRes, membersRes, reqRes] = await Promise.all([
+        fetch(`${API_URL}/get-group-details?group_id=${groupId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }}),
+        fetch(`${API_URL}/get-group-members?group_id=${groupId}&current_user_id=${userId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }}),
+        fetch(`${API_URL}/get-group-requests?group_id=${groupId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }})
+    ]);
+
+    const freshData = {};
+
+    // Process Group Details
+    if (groupRes.ok) {
+        freshData.details = await groupRes.json();
+    }
+
+    // Process Members
+    if (membersRes.ok) {
+        freshData.members = await membersRes.json();
+    }
+
+    // Process Requests
+    if (reqRes.ok) {
+        freshData.requests = await reqRes.json();
+    }
+
+    // Update UI with fresh data
+    updateGroupState(freshData.details, freshData.members, freshData.requests);
+
+    // Save combined data to cache
+    // We merge with existing cache to avoid losing parts if one API fails
+    if (freshData.details || freshData.members) {
+         await saveDataToCache(cacheKey, freshData);
+    }
+
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  } finally {
+    setLoading(false);
+    // Stop refresh spinner if active
+    if (typeof setRefreshing === 'function') setRefreshing(false);
+  }
+};
 
   // --- REFRESH STATE ---
   const [refreshing, setRefreshing] = useState(false);

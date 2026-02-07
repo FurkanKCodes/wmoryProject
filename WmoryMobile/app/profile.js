@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext'; 
 import { getProfileStyles } from '../styles/profileStyles';
 import * as Clipboard from 'expo-clipboard';
+import { saveDataToCache, loadDataFromCache, CACHE_KEYS } from '../utils/cacheHelper';
 
 const defaultProfileImage = require('../assets/no-pic.jpg');
 
@@ -106,7 +107,72 @@ export default function ProfileScreen() {
   // --- FETCH USER DATA ---
   useFocusEffect(
     useCallback(() => {
+      
+      // 1. Helper Function: Process Data and Update State
+      // This prevents code duplication for Cache and API data
+      const updateProfileState = (data) => {
+          setUsername(data.username);
+          setIsSuperAdmin(data.is_super_admin); 
+          
+          // --- PLAN & STATS LOGIC ---
+          const planText = data.plan || 'demo';
+          setUserPlan(planText);
+
+          // Date Check Logic
+          let usedPhotos = 0;
+          let usedVideos = 0;
+
+          if (data.last_upload_date) {
+              // Convert both to simple YYYY-MM-DD for comparison.
+              const serverDateObj = new Date(data.last_upload_date);
+              const todayObj = new Date();
+
+              const serverDateStr = serverDateObj.toISOString().split('T')[0];
+              const todayStr = todayObj.toISOString().split('T')[0];
+
+              if (serverDateStr === todayStr) {
+                  // If today, use database values
+                  usedPhotos = data.daily_photo_count || 0;
+                  usedVideos = data.daily_video_count || 0;
+              } else {
+                  // If not today, treat as reset (0)
+                  usedPhotos = 0;
+                  usedVideos = 0;
+              }
+          }
+          
+          // Calculate Remaining (Demo limits: 10 photos, 2 videos)
+          setRemainingPhotos(Math.max(0, 10 - usedPhotos));
+          setRemainingVideos(Math.max(0, 2 - usedVideos));
+
+          // Set Profile Picture
+          if (data.thumbnail_url) {
+              setProfilePic(data.thumbnail_url); 
+          } else if (data.profile_image) {
+              setProfilePic(`${API_URL}/uploads/${data.profile_image}`);
+          } else {
+              setProfilePic(null);
+          }
+      };
+
       const fetchUserData = async () => {
+        if (!userId) return;
+
+        const cacheKey = CACHE_KEYS.USER_PROFILE(userId);
+
+        // 2. CACHE LAYER: Try to load from device storage first
+        try {
+            const cachedData = await loadDataFromCache(cacheKey);
+            if (cachedData) {
+                // Immediate UI update from cache
+                updateProfileState(cachedData);
+                setLoading(false); 
+            }
+        } catch (e) {
+            console.log("Cache error:", e);
+        }
+
+        // 3. NETWORK LAYER: Fetch fresh data from API
         try {
           const response = await fetch(`${API_URL}/get-user?user_id=${userId}`, {
              headers: { 'ngrok-skip-browser-warning': 'true' }
@@ -114,50 +180,10 @@ export default function ProfileScreen() {
           const data = await response.json();
 
           if (response.ok) {
-            setUsername(data.username);
-            setIsSuperAdmin(data.is_super_admin); 
-            
-            // --- PLAN & STATS LOGIC (Senin istedigin mantik) ---
-            const planText = data.plan || 'demo';
-            setUserPlan(planText);
-
-            // Date Check Logic
-            let usedPhotos = 0;
-            let usedVideos = 0;
-
-            if (data.last_upload_date) {
-                // Backend sends date string like "Fri, 27 Dec 2025..." or ISO. 
-                // We convert both to simple YYYY-MM-DD for comparison.
-                const serverDateObj = new Date(data.last_upload_date);
-                const todayObj = new Date();
-
-                const serverDateStr = serverDateObj.toISOString().split('T')[0];
-                const todayStr = todayObj.toISOString().split('T')[0];
-
-                if (serverDateStr === todayStr) {
-                    // Eger bugunse veritabanindaki degerleri al
-                    usedPhotos = data.daily_photo_count || 0;
-                    usedVideos = data.daily_video_count || 0;
-                } else {
-                    // Degilse 0 kabul et (Sifirlanmis gibi davran)
-                    usedPhotos = 0;
-                    usedVideos = 0;
-                }
-            }
-            
-            // Calculate Remaining
-            // Demo limits: 10 photos, 2 videos
-            setRemainingPhotos(Math.max(0, 10 - usedPhotos));
-            setRemainingVideos(Math.max(0, 2 - usedVideos));
-            // ----------------------------------------------------
-
-            if (data.thumbnail_url) {
-                setProfilePic(data.thumbnail_url); 
-            } else if (data.profile_image) {
-                setProfilePic(`${API_URL}/uploads/${data.profile_image}`);
-            } else {
-                setProfilePic(null);
-            }
+            // Update UI with fresh data
+            updateProfileState(data);
+            // Save fresh data to cache
+            await saveDataToCache(cacheKey, data);
           }
         } catch (error) {
           console.error("Connection error:", error);
@@ -166,9 +192,7 @@ export default function ProfileScreen() {
         }
       };
 
-      if (userId) {
-        fetchUserData();
-      }
+      fetchUserData();
     }, [userId])
   );
 
