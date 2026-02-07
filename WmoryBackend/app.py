@@ -7,9 +7,15 @@ from routes.groups import groups_bp
 from routes.photos import photos_bp
 from routes.admin import admin_bp  
 from firebase_admin import credentials 
+from extensions import limiter # Import the limiter instance
 
 app = Flask(__name__)
-CORS(app) # Allow mobile app connection
+
+# --- RATE LIMITER CONFIGURATION ---
+# Initialize the limiter with the app
+# Default limits: 50 requests per second (Prevent DoS/Flooding)
+limiter.init_app(app)
+limiter.default_limits = ["50 per second"]
 
 
 # =====================================================
@@ -44,6 +50,20 @@ app.register_blueprint(admin_bp)
 @app.route('/')
 def index():
     return "Backend is running! Auth, Groups, Photos and Admin are ready."
+
+
+# =====================================================
+# SECURITY HEADERS
+# =====================================================
+@app.after_request
+def add_security_headers(response):
+    # Prevent MIME type sniffing
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    # Protect against clickjacking
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    # Enable XSS filtering in browsers
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    return response
 
 if __name__ == '__main__':
     # Run the server accessible to the network

@@ -13,6 +13,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 from s3_helpers import upload_file_to_s3, get_presigned_url, delete_file_from_s3
+from extensions import limiter
 
 load_dotenv()
 
@@ -23,7 +24,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 # --- EMAIL CONFIGURATION ---
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-SENDER_EMAIL = "info@wmory.com" 
+SENDER_EMAIL = os.getenv("INFO_MAIL")
 SENDER_PASSWORD = os.getenv("INFO_MAIL_PASSWORD")
 
 def allowed_file(filename):
@@ -76,6 +77,7 @@ def send_email(to_email, code, process_type):
 
 
 # 1. SEND VERIFICATION CODE (LOGIN & REGISTER)
+@limiter.limit("3 per minute") # Limit: 3 requests per minute per IP
 @auth_bp.route('/send-code', methods=['POST'])
 def send_code():
     """
@@ -138,6 +140,7 @@ def send_code():
 
 
 @auth_bp.route('/verify-register', methods=['POST'])
+@limiter.limit("5 per minute")
 def verify_register():
     """
     Verifies code and creates a new user without password.
@@ -194,6 +197,7 @@ def verify_register():
 
 # 3. VERIFY CODE & LOGIN
 @auth_bp.route('/verify-login', methods=['POST'])
+@limiter.limit("3 per minute") # Limit: 3 failed login attempts per minute
 def verify_login():
     """
     Verifies code and logs the user in.

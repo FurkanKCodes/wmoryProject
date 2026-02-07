@@ -8,6 +8,7 @@ from flask import Blueprint, request, jsonify, current_app, url_for
 from db import get_db_connection
 from dotenv import load_dotenv
 from s3_helpers import upload_file_to_s3, get_presigned_url, delete_file_from_s3
+from extensions import limiter
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -16,7 +17,7 @@ load_dotenv()
 # --- EMAIL CONFIGURATION (GMAIL SMTP) ---
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-SENDER_EMAIL = "info@wmory.com"  
+SENDER_EMAIL = os.getenv("INFO_MAIL")
 SENDER_PASSWORD = os.getenv("INFO_MAIL_PASSWORD")
 
 def send_verification_email(to_email, code):
@@ -174,6 +175,7 @@ def report_content():
 # GET REPORTS
 # ==========================================
 @admin_bp.route('/admin/get-reports', methods=['GET'])
+@limiter.limit("20 per minute")  # 20 request per minute
 def get_reports():
     admin_id = request.args.get('admin_id')
 
@@ -337,6 +339,7 @@ def manual_ban():
 # RESOLVE REPORT
 # ==========================================
 @admin_bp.route('/admin/resolve-report', methods=['POST'])
+@limiter.limit("20 per minute")  # 20 per minute
 def resolve_report():
     data = request.json
     admin_id = data.get('admin_id')
