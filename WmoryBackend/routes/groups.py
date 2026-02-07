@@ -6,6 +6,8 @@ from flask import Blueprint, request, jsonify, current_app, send_from_directory,
 from werkzeug.utils import secure_filename
 from db import get_db_connection
 from PIL import Image
+import uuid
+from s3_helpers import upload_file_to_s3, get_presigned_url, delete_file_from_s3
 
 groups_bp = Blueprint('groups', __name__)
 
@@ -25,9 +27,14 @@ def create_thumbnail(image_path, filename):
         with Image.open(image_path) as img:
             if img.mode in ('RGBA', 'P'): img = img.convert('RGB')
             img.thumbnail(size)
-            thumb_path = os.path.join(os.path.dirname(image_path), f"thumb_{filename}")
+            
+            thumb_filename = f"thumb_{filename}"
+            # Construct Full Path
+            thumb_path = os.path.join(os.path.dirname(image_path), thumb_filename)
+            
             img.save(thumb_path, "JPEG", quality=85)
-            return f"thumb_{filename}"
+            # Return Full Path for S3
+            return thumb_path 
     except Exception as e:
         print(f"Thumbnail error: {e}")
         return None
@@ -53,7 +60,7 @@ def send_expo_push_notification(tokens, title, body, data=None):
         print(f"Push notification error: {e}")
 
 # ==========================================
-# CREATE GROUP (Updated with Description)
+# CREATE GROUP 
 # ==========================================
 @groups_bp.route('/create-group', methods=['POST'])
 def create_group():
@@ -65,15 +72,31 @@ def create_group():
         return jsonify({"error": "Missing data"}), 400
 
     picture_filename = None
+
     if 'picture' in request.files:
         file = request.files['picture']
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            unique_name = f"{generate_group_code()}_{filename}"
-            path = current_app.config['UPLOAD_FOLDER']
-            file.save(os.path.join(path, unique_name))
-            create_thumbnail(os.path.join(path, unique_name), unique_name)
-            picture_filename = unique_name
+            # 1. UUID & Path
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            unique_name = f"{uuid.uuid4()}.{ext}"
+            filename = secure_filename(unique_name)
+                
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            save_path = os.path.join(upload_folder, filename)
+            file.save(save_path)
+
+            # 2. Thumbnail & S3 Upload
+            thumb_path = create_thumbnail(save_path, filename)
+                
+            upload_file_to_s3(save_path, filename)
+            if thumb_path:
+                upload_file_to_s3(thumb_path, f"thumb_{filename}")
+
+            # 3. Clean Local
+            if os.path.exists(save_path): os.remove(save_path)
+            if thumb_path and os.path.exists(thumb_path): os.remove(thumb_path)
+
+            picture_filename = filename
 
     try:
         conn = get_db_connection()
@@ -112,27 +135,56 @@ def edit_group():
 
     if not user_id or not group_id: return jsonify({"error": "Missing data"}), 400
 
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # 1. Check Admin Permission
+    cursor.execute("SELECT is_admin FROM groups_members WHERE user_id=%s AND group_id=%s", (user_id, group_id))
+    row = cursor.fetchone()
+    if not row or row['is_admin'] != 1:
+        cursor.close(); conn.close()
+        return jsonify({"error": "Unauthorized"}), 403
+
+    # 2. Get Old Picture (To delete later if replaced)
+    cursor.execute("SELECT picture FROM groups_table WHERE id=%s", (group_id,))
+    group_data = cursor.fetchone()
+    old_picture = group_data['picture'] if group_data else None
+
     picture_filename = None
+
+    # 3. Handle New Image Upload
     if 'picture' in request.files:
         file = request.files['picture']
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            unique_name = f"{generate_group_code()}_{filename}"
-            path = current_app.config['UPLOAD_FOLDER']
-            file.save(os.path.join(path, unique_name))
-            create_thumbnail(os.path.join(path, unique_name), unique_name)
-            picture_filename = unique_name
+        if file and file.filename != '' and allowed_file(file.filename):
+            # A. UUID & Path
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            unique_name = f"{uuid.uuid4()}.{ext}"
+            filename = secure_filename(unique_name)
+            
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            save_path = os.path.join(upload_folder, filename)
+            file.save(save_path)
+
+            # B. Thumbnail & S3 Upload
+            thumb_path = create_thumbnail(save_path, filename)
+            
+            upload_file_to_s3(save_path, filename)
+            if thumb_path:
+                upload_file_to_s3(thumb_path, f"thumb_{filename}")
+
+            # C. Clean Local
+            if os.path.exists(save_path): os.remove(save_path)
+            if thumb_path and os.path.exists(thumb_path): os.remove(thumb_path)
+
+            picture_filename = filename
+
+            # D. Delete Old Picture from S3
+            if old_picture:
+                delete_file_from_s3(old_picture)
+                delete_file_from_s3(f"thumb_{old_picture}")
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        cursor.execute("SELECT is_admin FROM groups_members WHERE user_id=%s AND group_id=%s", (user_id, group_id))
-        row = cursor.fetchone()
-        if not row or row['is_admin'] != 1:
-            cursor.close(); conn.close()
-            return jsonify({"error": "Unauthorized"}), 403
-
+        # 4. Update Database
         sql = "UPDATE groups_table SET group_name=%s, description=%s"
         params = [group_name, description]
         
@@ -145,13 +197,16 @@ def edit_group():
 
         cursor.execute(sql, tuple(params))
         conn.commit()
+        
         cursor.close(); conn.close()
-        return jsonify({"message": "Updated"}), 200
+        return jsonify({"message": "Grup güncellendi"}), 200
     except Exception as e:
+        if 'cursor' in locals(): cursor.close()
+        if 'conn' in locals(): conn.close()
         return jsonify({"error": str(e)}), 500
 
 # ==========================================
-# DELETE GROUP 
+# DELETE GROUP (FIXED: S3 CLEANUP)
 # ==========================================
 @groups_bp.route('/delete-group', methods=['DELETE'])
 def delete_group():
@@ -165,6 +220,7 @@ def delete_group():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
+        # 1. Check Admin Permission
         cursor.execute("SELECT is_admin FROM groups_members WHERE user_id=%s AND group_id=%s", (user_id, group_id))
         row = cursor.fetchone()
         
@@ -172,11 +228,33 @@ def delete_group():
             cursor.close(); conn.close()
             return jsonify({"error": "Unauthorized. Only admins can delete the group."}), 403
 
-        cursor.execute("DELETE FROM groups_table WHERE id = %s", (group_id,))
+        # 2. Get Group Image & Group Photos to Delete from S3
+        # A) Get Group Profile Pic
+        cursor.execute("SELECT picture FROM groups_table WHERE id = %s", (group_id,))
+        group_data = cursor.fetchone()
         
+        # B) Get All Photos in Group
+        cursor.execute("SELECT file_name FROM photos WHERE group_id = %s", (group_id,))
+        group_photos = cursor.fetchall()
+
+        # 3. Delete Data from DB
+        # Note: Foreign keys usually handle cascading, but we need manual S3 delete
+        cursor.execute("DELETE FROM groups_table WHERE id = %s", (group_id,))
         conn.commit()
+
+        # 4. Delete Files from S3 (Cleanup)
+        # A) Delete Group Profile Pic
+        if group_data and group_data['picture']:
+            delete_file_from_s3(group_data['picture'])
+            delete_file_from_s3(f"thumb_{group_data['picture']}")
+
+        # B) Delete All Photos Uploaded to Group
+        for photo in group_photos:
+            delete_file_from_s3(photo['file_name'])
+            delete_file_from_s3(f"thumb_{photo['file_name']}")
+        
         cursor.close(); conn.close()
-        return jsonify({"message": "Group deleted successfully"}), 200
+        return jsonify({"message": "Grup ve içerikleri başarıyla silindi"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -353,7 +431,7 @@ def get_blocked_users():
         
         for u in users:
             if u['profile_image']:
-                 u['thumbnail_url'] = url_for('groups.uploaded_file', filename=f"thumb_{u['profile_image']}", _external=True)
+                 u['thumbnail_url'] = get_presigned_url(f"thumb_{u['profile_image']}")
             else:
                  u['thumbnail_url'] = None
 
@@ -410,7 +488,7 @@ def get_group_requests():
 
         for r in requests:
             if r['profile_image']:
-                r['thumbnail_url'] = url_for('groups.uploaded_file', filename=f"thumb_{r['profile_image']}", _external=True)
+                r['thumbnail_url'] = get_presigned_url(f"thumb_{r['profile_image']}")
             else:
                 r['thumbnail_url'] = None
 
@@ -578,8 +656,8 @@ def get_group_details():
         
         if group:
             if group['picture']:
-                group['picture_url'] = url_for('groups.uploaded_file', filename=group['picture'], _external=True)
-                group['thumbnail_url'] = url_for('groups.uploaded_file', filename=f"thumb_{group['picture']}", _external=True)
+                group['picture_url'] = get_presigned_url(group['picture'])
+                group['thumbnail_url'] = get_presigned_url(f"thumb_{group['picture']}")
             else:
                 group['picture_url'] = None; group['thumbnail_url'] = None
         
@@ -626,8 +704,8 @@ def get_group_members():
         
         for m in members:
             if m['profile_image']:
-                m['profile_url'] = url_for('groups.uploaded_file', filename=m['profile_image'], _external=True)
-                m['thumbnail_url'] = url_for('groups.uploaded_file', filename=f"thumb_{m['profile_image']}", _external=True)
+                m['profile_url'] = get_presigned_url(m['profile_image'])
+                m['thumbnail_url'] = get_presigned_url(f"thumb_{m['profile_image']}")
             else: m['profile_url'] = None; m['thumbnail_url'] = None
             
         cursor.close(); conn.close()
@@ -660,8 +738,8 @@ def get_user_groups():
         for g in groups:
             # Image URL logic
             if g['picture']:
-                g['picture_url'] = url_for('groups.uploaded_file', filename=g['picture'], _external=True)
-                g['thumbnail_url'] = url_for('groups.uploaded_file', filename=f"thumb_{g['picture']}", _external=True)
+                g['picture_url'] = get_presigned_url(g['picture'])
+                g['thumbnail_url'] = get_presigned_url(f"thumb_{g['picture']}")
             else: 
                 g['picture_url'] = None
                 g['thumbnail_url'] = None

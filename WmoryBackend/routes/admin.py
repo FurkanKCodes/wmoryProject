@@ -7,6 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from flask import Blueprint, request, jsonify, current_app, url_for
 from db import get_db_connection
 from dotenv import load_dotenv
+from s3_helpers import upload_file_to_s3, get_presigned_url, delete_file_from_s3
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -209,7 +210,7 @@ def get_reports():
 
         for report in reports:
             if report['photo_filename']:
-                report['photo_url'] = url_for('photos.uploaded_file', filename=report['photo_filename'], _external=True)
+                report['photo_url'] = get_presigned_url(report['photo_filename'])
                 
                 # Determine Media Type
                 ext = report['photo_filename'].rsplit('.', 1)[1].lower()
@@ -217,6 +218,8 @@ def get_reports():
                     report['media_type'] = 'video'
                 else:
                     report['media_type'] = 'image'
+            else:
+                report['photo_url'] = None
 
         cursor.close(); conn.close()
         return jsonify(reports), 200
@@ -351,46 +354,96 @@ def resolve_report():
             return jsonify({"error": "Unauthorized"}), 403
 
         if action == 'delete_content':
-            cursor.execute("SELECT photo_id FROM content_reports WHERE id=%s", (report_id,))
-            row = cursor.fetchone()
-            if row:
-                photo_id = row['photo_id']
-                cursor.execute("SELECT file_name FROM photos WHERE id=%s", (photo_id,))
-                photo_row = cursor.fetchone()
-                
-                if photo_row:
-                    file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], photo_row['file_name'])
-                    thumb_path = os.path.join(current_app.config['UPLOAD_FOLDER'], f"thumb_{photo_row['file_name']}")
-                    if os.path.exists(file_path): os.remove(file_path)
-                    if os.path.exists(thumb_path): os.remove(thumb_path)
+            # 1. Retrieve photo filename and ID using the report ID
+            # We join tables to safely get the photo associated with this specific report
+            cursor.execute("""
+                SELECT p.file_name, p.id 
+                FROM photos p
+                JOIN content_reports r ON p.id = r.photo_id
+                WHERE r.id = %s
+            """, (report_id,))
+            photo_row = cursor.fetchone()
 
-                cursor.execute("DELETE FROM photos WHERE id = %s", (photo_id,))
-                cursor.execute("DELETE FROM content_reports WHERE id=%s", (report_id,))
+            if photo_row:
+                file_name = photo_row['file_name']
+                p_id = photo_row['id']
+
+                # 2. Delete from S3 (Try-Except block to prevent crash if file is missing)
+                if file_name:
+                    try:
+                        delete_file_from_s3(file_name)
+                        delete_file_from_s3(f"thumb_{file_name}")
+                    except Exception as s3_error:
+                        print(f"S3 Delete Warning: {s3_error}")
+
+                # 3. DELETE FROM DB (CRITICAL: Delete dependent data first)
+                # First, delete the report itself to satisfy Foreign Key constraints
+                cursor.execute("DELETE FROM content_reports WHERE photo_id = %s", (p_id,))
+                
+                # Delete from hidden_photos if exists
+                cursor.execute("DELETE FROM hidden_photos WHERE photo_id = %s", (p_id,))
+                
+                # Finally, delete the photo record
+                cursor.execute("DELETE FROM photos WHERE id = %s", (p_id,))
                 
         elif action == 'dismiss':
+            # Just delete the report record
             cursor.execute("DELETE FROM content_reports WHERE id=%s", (report_id,))
 
         elif action == 'ban_user':
+            # 1. Get Uploader ID from the report
             cursor.execute("SELECT uploader_id FROM content_reports WHERE id=%s", (report_id,))
             report_row = cursor.fetchone()
             
             if report_row:
                 uploader_id = report_row['uploader_id']
-                cursor.execute("SELECT phone_number, username FROM users WHERE id=%s", (uploader_id,))
+                
+                # 2. Get User Details for Banned Table
+                cursor.execute("SELECT phone_number, username, profile_image FROM users WHERE id=%s", (uploader_id,))
                 user_row = cursor.fetchone()
                 
                 if user_row:
                     phone = user_row['phone_number']
                     uname = user_row['username']
+                    profile_pic = user_row['profile_image']
                     
+                    # 3. Insert into Banned Users (Archive)
                     cursor.execute("INSERT INTO banned_users (phone_number, username, reason) VALUES (%s, %s, %s)", (phone, uname, "Reported Content"))
+                    
+                    # 4. S3 Cleanup: Delete Profile Picture
+                    if profile_pic:
+                        try:
+                            delete_file_from_s3(profile_pic)
+                            delete_file_from_s3(f"thumb_{profile_pic}")
+                        except: pass
+
+                    # 5. S3 Cleanup: Delete All User Photos
+                    cursor.execute("SELECT file_name FROM photos WHERE user_id=%s", (uploader_id,))
+                    user_photos = cursor.fetchall()
+                    for p in user_photos:
+                        if p['file_name']:
+                            try:
+                                delete_file_from_s3(p['file_name'])
+                                delete_file_from_s3(f"thumb_{p['file_name']}")
+                            except: pass
+
+                    # 6. DELETE FROM DB (CRITICAL: Delete dependent data first)
+                    # Delete all reports related to this user (as uploader)
+                    cursor.execute("DELETE FROM content_reports WHERE uploader_id = %s", (uploader_id,))
+                    
+                    # Delete group memberships
+                    cursor.execute("DELETE FROM groups_members WHERE user_id = %s", (uploader_id,))
+                    
+                    # Delete user's photos from DB
+                    cursor.execute("DELETE FROM photos WHERE user_id = %s", (uploader_id,))
+                    
+                    # Finally, delete the user
                     cursor.execute("DELETE FROM users WHERE id=%s", (uploader_id,))
-                    cursor.execute("DELETE FROM content_reports WHERE id=%s", (report_id,))
 
         conn.commit()
         cursor.close(); conn.close()
-        return jsonify({"message": "Action completed"}), 200
+        return jsonify({"message": "İşlem başarıyla tamamlandı"}), 200
 
     except Exception as e:
-        print(f"Error resolving report: {e}")
+        print(f"Resolve Report Error: {e}")
         return jsonify({"error": str(e)}), 500

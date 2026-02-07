@@ -1,11 +1,15 @@
 import os
-import requests # IMPORT REQUESTS FOR PUSH
-from flask import Blueprint, request, jsonify, send_from_directory, current_app, url_for
+import requests 
+from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from db import get_db_connection
 from PIL import Image, ImageOps
 import cv2 
 from datetime import datetime
+import uuid # Rastgele isim oluşturmak için
+
+# --- S3 HELPER IMPORT ---
+from s3_helpers import upload_file_to_s3, get_presigned_url, delete_file_from_s3
 
 photos_bp = Blueprint('photos', __name__)
 
@@ -15,7 +19,7 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# --- HELPER: PUSH NOTIFICATION (Repeated to keep file standalone) ---
+# --- HELPER: PUSH NOTIFICATION ---
 def send_expo_push_notification(tokens, title, body, data=None):
     if not tokens: return
     try:
@@ -35,7 +39,7 @@ def send_expo_push_notification(tokens, title, body, data=None):
         print(f"Push notification error: {e}")
 
 # ==========================================
-# HELPER: CREATE THUMBNAIL 
+# HELPER: CREATE THUMBNAIL (LOCAL TEMP)
 # ==========================================
 def create_thumbnail(file_path, filename):
     try:
@@ -60,20 +64,21 @@ def create_thumbnail(file_path, filename):
         if img:
             img.thumbnail(size)
             thumb_filename = f"thumb_{filename}"
+            # Save thumbnail to the same local folder temporarily
             thumb_path = os.path.join(os.path.dirname(file_path), thumb_filename)
             img.save(thumb_path, "JPEG", quality=85)
-            print(f"Thumbnail created: {thumb_filename}")
-            return thumb_filename
+            print(f"Thumbnail created locally: {thumb_filename}")
+            return thumb_filename, thumb_path
         else:
             print("Failed to load image or video frame")
-            return None
+            return None, None
 
     except Exception as e:
         print(f"Thumbnail creation failed: {e}")
-        return None
+        return None, None
 
 # ==========================================
-# UPLOAD PHOTO (UPDATED WITH LAZY RESET LIMITS)
+# UPLOAD PHOTO (S3 INTEGRATED)
 # ==========================================
 @photos_bp.route('/upload-photo', methods=['POST'])
 def upload_photo():
@@ -98,112 +103,110 @@ def upload_photo():
                 cursor.close(); conn.close()
                 return jsonify({"error": "You are not a member of this group"}), 403
 
-            # --- START: LAZY RESET & LIMIT CHECK LOGIC ---
-            
-            # Determine if it is video or photo based on extension
+            # --- LAZY RESET & LIMIT CHECK ---
             ext = file.filename.rsplit('.', 1)[1].lower()
             is_video = ext in ['mp4', 'mov', 'avi', 'm4v']
-            
-            # Get current UTC date
             today = datetime.utcnow().date()
             
-            # Fetch user stats
             cursor.execute("SELECT daily_photo_count, daily_video_count, last_upload_date FROM users WHERE id = %s", (user_id,))
             user_stats = cursor.fetchone()
             
             if user_stats:
                 db_date = user_stats['last_upload_date']
-                
-                # LAZY RESET: If date is None (new user) or old date (yesterday etc.)
                 if db_date is None or db_date < today:
-                    # Reset counters and update date to today
                     cursor.execute("""
                         UPDATE users 
                         SET daily_photo_count = 0, daily_video_count = 0, last_upload_date = %s 
                         WHERE id = %s
                     """, (today, user_id))
                     conn.commit()
-                    # Update local variables for the check below
                     current_p_count = 0
                     current_v_count = 0
                 else:
                     current_p_count = user_stats['daily_photo_count']
                     current_v_count = user_stats['daily_video_count']
 
-                # LIMIT CHECK
-                if is_video:
-                    if current_v_count >= 2:
-                        cursor.close(); conn.close()
-                        return jsonify({"error": "LIMIT_EXCEEDED_VIDEO"}), 403
-                else:
-                    if current_p_count >= 10:
-                        cursor.close(); conn.close()
-                        return jsonify({"error": "LIMIT_EXCEEDED_PHOTO"}), 403
-            
-            # --- END: LAZY RESET & LIMIT CHECK LOGIC ---
+                if is_video and current_v_count >= 2:
+                    cursor.close(); conn.close()
+                    return jsonify({"error": "LIMIT_EXCEEDED_VIDEO"}), 403
+                if not is_video and current_p_count >= 10:
+                    cursor.close(); conn.close()
+                    return jsonify({"error": "LIMIT_EXCEEDED_PHOTO"}), 403
+            # --- END LIMIT CHECK ---
 
-            filename = secure_filename(file.filename)
+            # 1. GENERATE UNIQUE FILENAME (UUID)
+            # Prevent overwrites and make filenames obscure
+            unique_name = f"{uuid.uuid4()}.{ext}"
+            filename = secure_filename(unique_name)
+            
+            # 2. SAVE LOCALLY (TEMP)
             upload_folder = current_app.config['UPLOAD_FOLDER']
             save_path = os.path.join(upload_folder, filename)
             file.save(save_path)
 
-            create_thumbnail(save_path, filename)
+            # 3. CREATE THUMBNAIL (TEMP)
+            thumb_filename, thumb_path = create_thumbnail(save_path, filename)
 
+            # 4. UPLOAD TO S3
+            upload_success = upload_file_to_s3(save_path, filename)
+            if thumb_path and os.path.exists(thumb_path):
+                upload_file_to_s3(thumb_path, thumb_filename)
+
+            # 5. CLEAN UP LOCAL FILES
+            if os.path.exists(save_path): os.remove(save_path)
+            if thumb_path and os.path.exists(thumb_path): os.remove(thumb_path)
+
+            if not upload_success:
+                cursor.close(); conn.close()
+                return jsonify({"error": "Failed to upload to Cloud Storage"}), 500
+
+            # 6. SAVE TO DB (Store only the filename/key, NOT the full URL)
             sql = "INSERT INTO photos (file_name, user_id, group_id, upload_date) VALUES (%s, %s, %s, %s)"
             cursor.execute(sql, (filename, user_id, group_id, datetime.utcnow()))
             
-            # --- INCREMENT COUNTER AFTER SUCCESSFUL INSERT ---
+            # Update Counters
             if is_video:
                 cursor.execute("UPDATE users SET daily_video_count = daily_video_count + 1 WHERE id = %s", (user_id,))
             else:
                 cursor.execute("UPDATE users SET daily_photo_count = daily_photo_count + 1 WHERE id = %s", (user_id,))
             
             conn.commit()
-            # -------------------------------------------------
 
-            # ... (NOTIFICATION LOGIC) ...
-            # Get Group Info & Uploader Info
+            # --- NOTIFICATIONS ---
             cursor.execute("SELECT group_name FROM groups_table WHERE id = %s", (group_id,))
             group_row = cursor.fetchone()
-            
             cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
             user_row = cursor.fetchone()
 
             if group_row and user_row:
                 group_name = group_row['group_name']
                 uploader_name = user_row['username']
-
                 sql_members = """
                     SELECT u.push_token 
                     FROM users u
                     JOIN groups_members gm ON u.id = gm.user_id
-                    WHERE gm.group_id = %s 
-                    AND u.id != %s 
-                    AND u.push_token IS NOT NULL
-                    AND gm.notifications = 1
+                    WHERE gm.group_id = %s AND u.id != %s AND u.push_token IS NOT NULL AND gm.notifications = 1
                 """
                 cursor.execute(sql_members, (group_id, user_id))
                 members = cursor.fetchall()
-                
                 tokens = [m['push_token'] for m in members]
-
                 if tokens:
                     title = group_name
                     body = f"{uploader_name}, {group_name} grubuna medya yükledi"
                     data_payload = {"screen": "MediaGallery", "groupId": group_id}
-                    
                     send_expo_push_notification(tokens, title, body, data_payload)
             
             cursor.close(); conn.close()
-
             return jsonify({"message": "File uploaded successfully", "filename": filename}), 201
+
         except Exception as e:
+            print(f"Upload Error: {e}")
             return jsonify({"error": str(e)}), 500
     else:
         return jsonify({"error": "File type not allowed"}), 400
 
 # ==========================================
-# GET GROUP PHOTOS
+# GET GROUP PHOTOS (S3 PRESIGNED URLS)
 # ==========================================
 @photos_bp.route('/group-photos', methods=['GET'])
 def get_group_photos():
@@ -243,31 +246,46 @@ def get_group_photos():
         photo_list = []
         for photo in photos:
             filename = photo['file_name']
-            original_url = url_for('photos.uploaded_file', filename=filename, _external=True)
+            thumb_filename = f"thumb_{filename}"
+            
+            # --- GENERATE PRESIGNED URLS ---
+            # This generates a secure, temporary link (valid for 15 mins)
+            original_url = get_presigned_url(filename)
+            thumbnail_url = get_presigned_url(thumb_filename)
+            
+            # If generating URL fails (e.g., file deleted manually from S3), use a placeholder or handle gracefully
+            if not original_url: 
+                original_url = "" # Frontend should handle empty URL
+            if not thumbnail_url:
+                thumbnail_url = original_url 
+
+            # Handle User Avatar (Profile Pic) Presigned URL
+            user_avatar_url = None
+            if photo['profile_image']:
+                 user_avatar_url = get_presigned_url(photo['profile_image'])
+            
             ext = filename.rsplit('.', 1)[1].lower()
             media_type = 'video' if ext in ['mp4', 'mov', 'avi', 'm4v'] else 'image'
-            
-            thumb_name = f"thumb_{filename}"
-            thumbnail_url = url_for('photos.uploaded_file', filename=thumb_name, _external=True)
 
             photo_list.append({
                 "id": photo['id'],
-                "url": original_url,
-                "thumbnail": thumbnail_url,
+                "url": original_url,        # S3 Link
+                "thumbnail": thumbnail_url, # S3 Link
                 "type": media_type,
                 "uploader_id": photo['uploader_id'],
                 "uploaded_by": photo['username'],
-                "user_avatar": photo['profile_image'],
+                "user_avatar": user_avatar_url, # S3 Link for avatar
                 "date": photo['upload_date'].isoformat() + 'Z'
             })
 
         cursor.close(); conn.close()
         return jsonify(photo_list), 200
     except Exception as e:
+        print(f"Get Photos Error: {e}")
         return jsonify({"error": "Internal Server Error"}), 500
 
 # ==========================================
-# BULK ACTION
+# BULK ACTION (DELETE FROM S3)
 # ==========================================
 @photos_bp.route('/bulk-action', methods=['POST'])
 def bulk_action():
@@ -292,6 +310,7 @@ def bulk_action():
             return jsonify({"message": "Photos hidden successfully"}), 200
 
         elif action_type == 'delete':
+            # Get filenames BEFORE deleting from DB
             format_strings = ','.join(['%s'] * len(photo_ids))
             cursor.execute(f"SELECT id, file_name, user_id FROM photos WHERE id IN ({format_strings})", tuple(photo_ids))
             photos_to_delete = cursor.fetchall()
@@ -301,18 +320,14 @@ def bulk_action():
                     cursor.close(); conn.close()
                     return jsonify({"error": "Unauthorized: You do not own all selected photos"}), 403
 
+            # Delete from DB
             cursor.execute(f"DELETE FROM photos WHERE id IN ({format_strings})", tuple(photo_ids))
             conn.commit()
 
-            upload_folder = current_app.config['UPLOAD_FOLDER']
+            # Delete from S3
             for photo in photos_to_delete:
-                try:
-                    file_path = os.path.join(upload_folder, photo['file_name'])
-                    if os.path.exists(file_path): os.remove(file_path)
-                    thumb_path = os.path.join(upload_folder, f"thumb_{photo['file_name']}")
-                    if os.path.exists(thumb_path): os.remove(thumb_path)
-                except Exception as e:
-                    print(f"File deletion error: {e}")
+                delete_file_from_s3(photo['file_name'])
+                delete_file_from_s3(f"thumb_{photo['file_name']}")
 
             cursor.close(); conn.close()
             return jsonify({"message": "Photos deleted successfully"}), 200
@@ -323,12 +338,7 @@ def bulk_action():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ==========================================
-# SINGLE ACTIONS
-# ==========================================
-@photos_bp.route('/hide-photo', methods=['POST'])
-def hide_photo():
-    return bulk_action() 
+# ... (hide_photo can use bulk_action, delete_photo needs update below) ...
 
 @photos_bp.route('/delete-photo', methods=['DELETE'])
 def delete_photo():
@@ -340,26 +350,26 @@ def delete_photo():
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT file_name, user_id FROM photos WHERE id = %s", (photo_id,))
         photo = cursor.fetchone()
+        
         if not photo:
             cursor.close(); conn.close(); return jsonify({"error": "Not found"}), 404
         if str(photo['user_id']) != str(user_id):
             cursor.close(); conn.close(); return jsonify({"error": "Unauthorized"}), 403
+            
         cursor.execute("DELETE FROM photos WHERE id = %s", (photo_id,))
         conn.commit()
-        upload_folder = current_app.config['UPLOAD_FOLDER']
-        fp = os.path.join(upload_folder, photo['file_name'])
-        if os.path.exists(fp): os.remove(fp)
-        tp = os.path.join(upload_folder, f"thumb_{photo['file_name']}")
-        if os.path.exists(tp): os.remove(tp)
+        
+        # DELETE FROM S3
+        delete_file_from_s3(photo['file_name'])
+        delete_file_from_s3(f"thumb_{photo['file_name']}")
+        
         cursor.close(); conn.close()
         return jsonify({"message": "Deleted"}), 200
     except Exception as e: return jsonify({"error": str(e)}), 500
 
-# ==========================================
-# REPORT CONTENT (FIXED: GETS UPLOADER_ID)
-# ==========================================
 @photos_bp.route('/report-content', methods=['POST'])
 def report_content():
+    # ... (Same as before, no file changes needed here) ...
     data = request.json
     reporter_id = data.get('reporter_id')
     photo_id = data.get('photo_id')
@@ -371,27 +381,20 @@ def report_content():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
         cursor.execute("SELECT user_id FROM photos WHERE id = %s", (photo_id,))
         result = cursor.fetchone()
-        
         if not result:
             cursor.close(); conn.close()
             return jsonify({"error": "Photo not found"}), 404
-            
         uploader_id = result[0]
-
         sql = "INSERT INTO content_reports (reporter_id, uploader_id, photo_id, reason) VALUES (%s, %s, %s, %s)"
         cursor.execute(sql, (reporter_id, uploader_id, photo_id, reason))
         conn.commit()
-        
-        cursor.close()
-        conn.close()
+        cursor.close(); conn.close()
         return jsonify({"message": "Reported successfully"}), 201
     except Exception as e:
-        print(f"Report error: {e}")
         return jsonify({"error": str(e)}), 500
 
-@photos_bp.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+@photos_bp.route('/hide-photo', methods=['POST'])
+def hide_photo():
+    return bulk_action() 

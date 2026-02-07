@@ -3,6 +3,7 @@ import string
 import random
 import datetime
 import smtplib
+import uuid
 from flask import Blueprint, request, jsonify, current_app, url_for
 from db import get_db_connection
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -11,6 +12,7 @@ from PIL import Image
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
+from s3_helpers import upload_file_to_s3, get_presigned_url, delete_file_from_s3
 
 load_dotenv()
 
@@ -35,10 +37,15 @@ def create_thumbnail(image_path, filename):
             if img.mode in ('RGBA', 'P'):
                 img = img.convert('RGB')
             img.thumbnail(size)
-            thumb_path = os.path.join(os.path.dirname(image_path), f"thumb_{filename}")
+            thumb_filename = f"thumb_{filename}"
+            # Construct full path
+            thumb_path = os.path.join(os.path.dirname(image_path), thumb_filename)
+            
             img.save(thumb_path, "JPEG", quality=85)
+            return thumb_path
     except Exception as e:
         print(f"Thumbnail error: {e}")
+        return None
 
 # --- HELPER: SEND EMAIL ---
 def send_email(to_email, code, process_type):
@@ -225,11 +232,8 @@ def verify_login():
 
         if user:
             # Generate profile URLs
-            profile_url = None
-            thumb_url = None
-            if user['profile_image']:
-                profile_url = url_for('groups.uploaded_file', filename=user['profile_image'], _external=True)
-                thumb_url = url_for('groups.uploaded_file', filename=f"thumb_{user['profile_image']}", _external=True)
+            profile_url = get_presigned_url(user['profile_image']) if user['profile_image'] else None
+            thumb_url = get_presigned_url(f"thumb_{user['profile_image']}") if user['profile_image'] else None
 
             return jsonify({
                 "message": "Giriş başarılı.",
@@ -304,8 +308,8 @@ def get_user():
         
         # Add URLs
         if user and user['profile_image']:
-            user['profile_url'] = url_for('groups.uploaded_file', filename=user['profile_image'], _external=True)
-            user['thumbnail_url'] = url_for('groups.uploaded_file', filename=f"thumb_{user['profile_image']}", _external=True)
+            user['profile_url'] = get_presigned_url(user['profile_image'])
+            user['thumbnail_url'] = get_presigned_url(f"thumb_{user['profile_image']}")
         else:
             user['profile_url'] = None
             user['thumbnail_url'] = None
@@ -322,9 +326,13 @@ def get_user():
         print(f"Error fetching user: {e}")
         return jsonify({"error": str(e)}), 500
 
+# ==========================================
+# UPDATE PROFILE (ROBUST ERROR HANDLING)
+# ==========================================
 @auth_bp.route('/update-profile', methods=['POST'])
 def update_profile():
     try:
+        # 1. Get Data (Old Code Structure)
         user_id = request.form.get('user_id')
         username = request.form.get('username')
         email = request.form.get('email')
@@ -333,27 +341,50 @@ def update_profile():
         if not user_id:
             return jsonify({"error": "User ID required"}), 400
 
+        # Database Connection (Moved up to find old image first)
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Find Old Image (For deletion later)
+        cursor.execute("SELECT profile_image FROM users WHERE id = %s", (user_id,))
+        row = cursor.fetchone()
+        old_image = row['profile_image'] if row else None
+
         picture_filename = None
+
+        # 2. Image Upload Check
         if 'profile_image' in request.files:
             file = request.files['profile_image']
             if file and file.filename != '' and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                unique_name = f"user_{user_id}_{random.randint(1000,9999)}_{filename}"
                 
+                # A. Generate Filename (S3 Compatible UUID)
+                ext = file.filename.rsplit('.', 1)[1].lower()
+                unique_name = f"{uuid.uuid4()}.{ext}"
+                
+                # B. Temporary Save Path
                 upload_path = current_app.config['UPLOAD_FOLDER']
                 save_path = os.path.join(upload_path, unique_name)
                 
-                # 1. Save Original
+                # C. Save Temporarily
                 file.save(save_path)
                 
-                # 2. Generate Thumbnail
-                create_thumbnail(save_path, unique_name)
+                # D. Create Thumbnail
+                thumb_path = create_thumbnail(save_path, unique_name)
                 
-                picture_filename = unique_name
+                # E. Upload to S3 (Original + Thumbnail)
+                s3_success = upload_file_to_s3(save_path, unique_name)
+                if thumb_path:
+                    upload_file_to_s3(thumb_path, f"thumb_{unique_name}")
+                
+                # F. Clean Temporary Files
+                if os.path.exists(save_path): os.remove(save_path)
+                if thumb_path and os.path.exists(thumb_path): os.remove(thumb_path)
+                
+                # If upload successful, assign filename
+                if s3_success:
+                    picture_filename = unique_name
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
+        # 3. Update Database (Old Code Structure)
         query = "UPDATE users SET username=%s, email=%s, phone_number=%s"
         params = [username, email, phone_number]
 
@@ -366,13 +397,31 @@ def update_profile():
 
         cursor.execute(query, tuple(params))
         conn.commit()
+
+        # 4. Cleanup: Delete Old Image from S3 (Only if new image uploaded)
+        if picture_filename and old_image:
+            try:
+                delete_file_from_s3(old_image)
+                delete_file_from_s3(f"thumb_{old_image}")
+            except: pass
+
+        # 5. Generate and Return New URL
+        final_image_name = picture_filename if picture_filename else old_image
+        new_image_url = get_presigned_url(final_image_name) if final_image_name else None
+
         cursor.close()
         conn.close()
 
-        return jsonify({"message": "Profile updated successfully"}), 200
+        return jsonify({
+            "message": "Profil güncellendi",
+            "profile_image": final_image_name,
+            "profile_url": new_image_url
+        }), 200
 
     except Exception as e:
         print(f"Error updating profile: {e}")
+        if 'cursor' in locals(): cursor.close()
+        if 'conn' in locals(): conn.close()
         return jsonify({"error": str(e)}), 500
 
 @auth_bp.route('/delete-account', methods=['DELETE'])
@@ -383,13 +432,24 @@ def delete_account():
 
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
+
+        # 1. Get Profile Image to Delete
+        cursor.execute("SELECT profile_image FROM users WHERE id = %s", (user_id,))
+        user_data = cursor.fetchone()
+
+        # 2. Delete User 
         cursor.execute("DELETE FROM groups_members WHERE user_id = %s", (user_id,))
         cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
         conn.commit()
-        cursor.close()
-        conn.close()
-        return jsonify({"message": "Account deleted successfully"}), 200
+
+        # 3. Clean up S3 (Profile Image)
+        if user_data and user_data['profile_image']:
+            delete_file_from_s3(user_data['profile_image'])
+            delete_file_from_s3(f"thumb_{user_data['profile_image']}")
+
+        cursor.close(); conn.close()
+        return jsonify({"message": "Hesap başarıyla silindi"}), 200
     except Exception as e:
         print(f"Error deleting account: {e}")
         return jsonify({"error": str(e)}), 500

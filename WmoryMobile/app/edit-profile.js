@@ -109,7 +109,7 @@ export default function EditProfileScreen() {
              rawPhone = rawPhone.substring(3);
           }
           
-          const picUrl = data.profile_image ? `${API_URL}/uploads/${data.profile_image}` : null;
+          const picUrl = data.profile_url ? data.profile_url : null;
 
           // Set Initial Data for comparison
           setInitialData({
@@ -281,7 +281,7 @@ export default function EditProfileScreen() {
         if (profilePic && profilePic !== initialData.profilePic && !profilePic.startsWith('http')) {
             const filename = profilePic.split('/').pop();
             const match = /\.(\w+)$/.exec(filename);
-            const type = match ? `image/${match[1]}` : `image`;
+            const type = match ? `image/${match[1]}` : `image/jpeg`;
             
             formData.append('profile_image', {
                 uri: profilePic,
@@ -292,20 +292,23 @@ export default function EditProfileScreen() {
 
         const response = await fetch(`${API_URL}/update-profile`, {
             method: 'POST',
-            headers: { 'Content-Type': 'multipart/form-data' },
+            headers: { 'Accept': 'application/json', },
             body: formData,
         });
+
+        const responseData = await response.json()
         
         if (response.ok) {
             Alert.alert("Başarılı", "Profiliniz güncellendi.", [
                 { text: "Tamam", onPress: () => router.back() }
             ]);
         } else {
-            Alert.alert("Hata", "Güncelleme başarısız oldu.");
+            console.log("Update Error:", responseData);
+            Alert.alert("Hata", responseData.error || "Güncelleme başarısız oldu.");
         }
 
     } catch (error) {
-        console.error(error);
+        console.error("Fetch Error:", error);
         Alert.alert("Hata", "Sunucu hatası.");
     } finally {
         setSaving(false);
