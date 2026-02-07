@@ -69,10 +69,10 @@ export const getProfileStyles = (colors) => {
       marginTop: 5,
       paddingVertical: 8,
       paddingHorizontal: 20,
-      backgroundColor: '#000000', // Always Black
+      backgroundColor: isDark ? '#191919' : '#949494', // Always Black
       borderRadius: 20,
       borderWidth: 1,
-      borderColor: '#333',
+      borderColor: isDark ? '#191919' : '#949494',
       marginBottom: 15,
     },
     editProfileText: {
@@ -245,6 +245,55 @@ export const getProfileStyles = (colors) => {
       left: 20,
       zIndex: 10,
       padding: 10,
+    },
+
+    // --- STORAGE BAR STYLES ---
+    storageContainer: {
+      width: '90%',
+      alignSelf: 'center',
+      marginTop: 20,
+      backgroundColor: isDark ? '#2C2C2C' : '#ffffff',
+      padding: 15,
+      borderRadius: 12,
+      // Light mode shadow
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 3,
+      elevation: 3,
+    },
+    planRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    planLabel: {
+      fontSize: 14,
+      color: isDark ? '#ccc' : '#555',
+      fontWeight: '600',
+    },
+    planValue: {
+      fontSize: 14,
+      color: isDark ? '#fff' : '#000',
+      fontWeight: 'bold',
+    },
+    progressBarBg: {
+      height: 8,
+      width: '100%',
+      backgroundColor: isDark ? '#444' : '#e0e0e0',
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    progressBarFill: {
+      height: '100%',
+      backgroundColor: colors.tint, // or specific color like '#4CAF50'
+      borderRadius: 4,
+    },
+    usageText: {
+      marginTop: 8,
+      fontSize: 12,
+      color: isDark ? '#999' : '#666',
+      textAlign: 'right',
     },
   });
 };

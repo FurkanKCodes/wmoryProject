@@ -93,8 +93,9 @@ export default function ProfileScreen() {
   
   // NEW: Stats logic states
   const [userPlan, setUserPlan] = useState('demo');
-  const [remainingPhotos, setRemainingPhotos] = useState(10);
-  const [remainingVideos, setRemainingVideos] = useState(2);
+  const [dailyUsageMB, setDailyUsageMB] = useState(0);
+  const [planLimitMB, setPlanLimitMB] = useState(100);
+  const [planName, setPlanName] = useState('demo');
 
   // NEW: Full Screen Modal state
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -111,39 +112,31 @@ export default function ProfileScreen() {
       // 1. Helper Function: Process Data and Update State
       // This prevents code duplication for Cache and API data
       const updateProfileState = (data) => {
-          setUsername(data.username);
-          setIsSuperAdmin(data.is_super_admin); 
-          
-          // --- PLAN & STATS LOGIC ---
-          const planText = data.plan || 'demo';
-          setUserPlan(planText);
+        setUsername(data.username);
+        setIsSuperAdmin(data.is_super_admin); 
+        
+        // --- NEW: PLAN & STORAGE LOGIC ---
+        setPlanName(data.plan_name || 'demo'); // Backend: p.name
+        
+        const limit = data.plan_limit_mb || 100;
+        setPlanLimitMB(limit);
 
-          // Date Check Logic
-          let usedPhotos = 0;
-          let usedVideos = 0;
+        // Date Check Logic for Frontend Display
+        let usageBytes = 0;
+        if (data.last_upload_date) {
+            const serverDateStr = new Date(data.last_upload_date).toISOString().split('T')[0];
+            const todayStr = new Date().toISOString().split('T')[0];
 
-          if (data.last_upload_date) {
-              // Convert both to simple YYYY-MM-DD for comparison.
-              const serverDateObj = new Date(data.last_upload_date);
-              const todayObj = new Date();
-
-              const serverDateStr = serverDateObj.toISOString().split('T')[0];
-              const todayStr = todayObj.toISOString().split('T')[0];
-
-              if (serverDateStr === todayStr) {
-                  // If today, use database values
-                  usedPhotos = data.daily_photo_count || 0;
-                  usedVideos = data.daily_video_count || 0;
-              } else {
-                  // If not today, treat as reset (0)
-                  usedPhotos = 0;
-                  usedVideos = 0;
-              }
-          }
-          
-          // Calculate Remaining (Demo limits: 10 photos, 2 videos)
-          setRemainingPhotos(Math.max(0, 10 - usedPhotos));
-          setRemainingVideos(Math.max(0, 2 - usedVideos));
+            if (serverDateStr === todayStr) {
+                usageBytes = data.daily_usage || 0;
+            } else {
+                usageBytes = 0;
+            }
+        }
+        
+        // Convert Bytes to MB for display (Two decimal places)
+        const usageMB = (usageBytes / (1024 * 1024)).toFixed(1);
+        setDailyUsageMB(usageMB)
 
           // Set Profile Picture
           if (data.thumbnail_url) {
@@ -404,29 +397,33 @@ export default function ProfileScreen() {
                 <Text style={profileStyles.editProfileText}>Profili Düzenle</Text>
               </ScaleButton>
 
-              {/* --- NEW: INFO STRIP (PLAN & REMAINING) --- */}
-              <View style={profileStyles.infoStripContainer}>
-                  {/* Plan */}
-                  <View style={profileStyles.infoStripItem}>
-                      <Text style={profileStyles.infoLabel}>Plan: </Text>
-                      <Text style={profileStyles.infoValue}>{userPlan}</Text>
+              {/* --- NEW: STORAGE & PLAN INFO --- */}
+              <View style={profileStyles.storageContainer}>
+                  {/* Row: Plan Name */}
+                  <View style={profileStyles.planRow}>
+                      <Text style={profileStyles.planLabel}>Mevcut Plan:</Text>
+                      <Text style={profileStyles.planValue}>{planName.toUpperCase()}</Text>
                   </View>
 
-                  <View style={profileStyles.verticalDivider} />
-
-                  {/* Photos */}
-                  <View style={profileStyles.infoStripItem}>
-                      <Text style={profileStyles.infoLabel}>Foto: </Text>
-                      <Text style={profileStyles.infoValue}>{remainingPhotos}</Text>
+                  {/* Progress Bar */}
+                  <View style={profileStyles.progressBarBg}>
+                      <View 
+                        style={[
+                            profileStyles.progressBarFill, 
+                            { 
+                                // Calculate width %
+                                width: `${Math.min((dailyUsageMB / planLimitMB) * 100, 100)}%`,
+                                // Change color if full (Red) else Theme Color
+                                backgroundColor: dailyUsageMB >= planLimitMB ? '#FF3B30' : '#007AFF' 
+                            }
+                        ]} 
+                      />
                   </View>
 
-                  <View style={profileStyles.verticalDivider} />
-
-                  {/* Videos */}
-                  <View style={profileStyles.infoStripItem}>
-                      <Text style={profileStyles.infoLabel}>Video: </Text>
-                      <Text style={profileStyles.infoValue}>{remainingVideos}</Text>
-                  </View>
+                  {/* Usage Text */}
+                  <Text style={profileStyles.usageText}>
+                      {dailyUsageMB} MB / {planLimitMB} MB kullanıldı
+                  </Text>
               </View>
               {/* ------------------------------------------ */}
             </>

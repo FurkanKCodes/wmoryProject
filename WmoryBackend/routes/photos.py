@@ -103,56 +103,64 @@ def upload_photo():
                 cursor.close(); conn.close()
                 return jsonify({"error": "You are not a member of this group"}), 403
 
-            # --- LAZY RESET & LIMIT CHECK ---
+            # --- LAZY RESET & STORAGE LIMIT CHECK (MB BASED) ---
+            # --- 0. SAVE FILE LOCALLY FIRST (SINGLE SOURCE OF TRUTH) ---
+            # We save the file once here and use it for both limit check and S3 upload.
+            upload_folder = current_app.config['UPLOAD_FOLDER']
             ext = file.filename.rsplit('.', 1)[1].lower()
-            is_video = ext in ['mp4', 'mov', 'avi', 'm4v']
-            today = datetime.utcnow().date()
-            
-            cursor.execute("SELECT daily_photo_count, daily_video_count, last_upload_date FROM users WHERE id = %s", (user_id,))
-            user_stats = cursor.fetchone()
-            
-            if user_stats:
-                db_date = user_stats['last_upload_date']
-                if db_date is None or db_date < today:
-                    cursor.execute("""
-                        UPDATE users 
-                        SET daily_photo_count = 0, daily_video_count = 0, last_upload_date = %s 
-                        WHERE id = %s
-                    """, (today, user_id))
-                    conn.commit()
-                    current_p_count = 0
-                    current_v_count = 0
-                else:
-                    current_p_count = user_stats['daily_photo_count']
-                    current_v_count = user_stats['daily_video_count']
-
-                if is_video and current_v_count >= 2:
-                    cursor.close(); conn.close()
-                    return jsonify({"error": "LIMIT_EXCEEDED_VIDEO"}), 403
-                if not is_video and current_p_count >= 10:
-                    cursor.close(); conn.close()
-                    return jsonify({"error": "LIMIT_EXCEEDED_PHOTO"}), 403
-            # --- END LIMIT CHECK ---
-
-            # 1. GENERATE UNIQUE FILENAME (UUID)
-            # Prevent overwrites and make filenames obscure
             unique_name = f"{uuid.uuid4()}.{ext}"
             filename = secure_filename(unique_name)
-            
-            # 2. SAVE LOCALLY (TEMP)
-            upload_folder = current_app.config['UPLOAD_FOLDER']
             save_path = os.path.join(upload_folder, filename)
-            file.save(save_path)
+            
+            file.save(save_path) # Save once!
+            file_size = os.path.getsize(save_path) # Get accurate size
 
-            # 3. CREATE THUMBNAIL (TEMP)
+            # 1. Get User Usage & Packet Info
+            # We join with packets table to get the limit
+            sql_user = """
+                SELECT u.daily_usage, u.last_upload_date, p.size_mb 
+                FROM users u
+                LEFT JOIN packets p ON u.packet_id = p.id
+                WHERE u.id = %s
+            """
+            cursor.execute(sql_user, (user_id,))
+            user_stats = cursor.fetchone()
+
+            if not user_stats:
+                cursor.close(); conn.close()
+                return jsonify({"error": "User not found"}), 404
+
+            current_usage = user_stats['daily_usage'] or 0
+            limit_mb = user_stats['size_mb'] or 100 # Default fallback
+            limit_bytes = limit_mb * 1024 * 1024 # Convert MB to Bytes
+
+            # 2. Check Date Reset
+            today = datetime.utcnow().date()
+            db_date = user_stats['last_upload_date']
+
+            if db_date is None or db_date < today:
+                # Reset usage for new day
+                cursor.execute("UPDATE users SET daily_usage = 0, last_upload_date = %s WHERE id = %s", (today, user_id))
+                conn.commit()
+                current_usage = 0 # Local variable reset
+
+            # 3. Validate Limit
+            if (current_usage + file_size) > limit_bytes:
+                # Delete temp file immediately
+                if os.path.exists(save_path): os.remove(save_path)
+                cursor.close(); conn.close()
+                return jsonify({"error": "LIMIT_EXCEEDED_STORAGE"}), 403
+            # --- END LIMIT CHECK ---
+
+            # 1. CREATE THUMBNAIL (TEMP)
             thumb_filename, thumb_path = create_thumbnail(save_path, filename)
 
-            # 4. UPLOAD TO S3
+            # 2. UPLOAD TO S3
             upload_success = upload_file_to_s3(save_path, filename)
             if thumb_path and os.path.exists(thumb_path):
                 upload_file_to_s3(thumb_path, thumb_filename)
 
-            # 5. CLEAN UP LOCAL FILES
+            # 3. CLEAN UP LOCAL FILES
             if os.path.exists(save_path): os.remove(save_path)
             if thumb_path and os.path.exists(thumb_path): os.remove(thumb_path)
 
@@ -160,15 +168,12 @@ def upload_photo():
                 cursor.close(); conn.close()
                 return jsonify({"error": "Failed to upload to Cloud Storage"}), 500
 
-            # 6. SAVE TO DB (Store only the filename/key, NOT the full URL)
+            # 4. SAVE TO DB (Store only the filename/key, NOT the full URL)
             sql = "INSERT INTO photos (file_name, user_id, group_id, upload_date) VALUES (%s, %s, %s, %s)"
             cursor.execute(sql, (filename, user_id, group_id, datetime.utcnow()))
             
             # Update Counters
-            if is_video:
-                cursor.execute("UPDATE users SET daily_video_count = daily_video_count + 1 WHERE id = %s", (user_id,))
-            else:
-                cursor.execute("UPDATE users SET daily_photo_count = daily_photo_count + 1 WHERE id = %s", (user_id,))
+            cursor.execute("UPDATE users SET daily_usage = daily_usage + %s WHERE id = %s", (file_size, user_id))
             
             conn.commit()
 

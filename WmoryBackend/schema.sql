@@ -26,7 +26,10 @@ CREATE TABLE users(
     phone_number VARCHAR(15) UNIQUE NOT NULL,
     is_super_admin TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    push_token VARCHAR(255) DEFAULT NULL;
+    push_token VARCHAR(255) DEFAULT NULL,
+    packet_id INT DEFAULT 2,
+    daily_usage BIGINT DEFAULT 0; 
+    FOREIGN KEY (packet_id) REFERENCES packets(id);
 );
 
 CREATE TABLE groups_members(
@@ -117,4 +120,10 @@ CREATE TABLE IF NOT EXISTS email_verification_codes (
     type ENUM('login', 'register') NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE packets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    size_mb INT NOT NULL
 );

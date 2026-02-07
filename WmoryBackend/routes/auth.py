@@ -304,9 +304,12 @@ def get_user():
         cursor = conn.cursor(dictionary=True)
         # ADDED is_super_admin to SELECT
         cursor.execute("""
-            SELECT id, username, email, phone_number, profile_image, is_super_admin, 
-                   plan, daily_photo_count, daily_video_count, last_upload_date 
-            FROM users WHERE id = %s
+            SELECT u.id, u.username, u.email, u.phone_number, u.profile_image, 
+                   u.is_super_admin, u.last_upload_date, u.daily_usage,
+                   p.name as plan_name, p.size_mb as plan_limit_mb
+            FROM users u
+            LEFT JOIN packets p ON u.packet_id = p.id
+            WHERE u.id = %s
         """, (user_id,))
         user = cursor.fetchone()
         
