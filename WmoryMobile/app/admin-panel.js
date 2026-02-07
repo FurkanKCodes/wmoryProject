@@ -93,7 +93,6 @@ export default function AdminPanel() {
   
   // States for Manual Ban
   const [manualBanId, setManualBanId] = useState('');
-  const [manualBanPhone, setManualBanPhone] = useState('');
   const [manualLoading, setManualLoading] = useState(false);
 
   const [reportModalVisible, setReportModalVisible] = useState(false);
@@ -249,10 +248,10 @@ export default function AdminPanel() {
   };
 
   const handleManualBan = async () => {
-      if (!manualBanId && !manualBanPhone) {
-          Alert.alert("Hata", "Lütfen ID veya Telefon numarası girin.");
-          return;
-      }
+    if (!manualBanId) {
+        Alert.alert("Hata", "Lütfen Kullanıcı ID girin.");
+        return;
+    }
       setManualLoading(true);
       try {
           const res = await fetch(`${API_URL}/admin/manual-ban`, {
@@ -260,15 +259,13 @@ export default function AdminPanel() {
               headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
               body: JSON.stringify({
                   admin_id: currentUserId,
-                  target_id: manualBanId,
-                  phone: manualBanPhone
+                  target_id: manualBanId
               })
           });
           const data = await res.json();
           if (res.ok) {
               Alert.alert("Başarılı", "Kullanıcı banlandı ve silindi.");
               setManualBanId('');
-              setManualBanPhone('');
           } else {
               Alert.alert("Hata", data.error || "İşlem başarısız.");
           }
@@ -445,21 +442,6 @@ export default function AdminPanel() {
                             value={manualBanId} 
                             onChangeText={setManualBanId} 
                             keyboardType="numeric" 
-                            selectionColor={colors.textPrimary}
-                          />
-                      </View>
-
-                      <View style={adminPanelStyles.separator}><Text style={{color: colors.textSecondary}}>VEYA</Text></View>
-
-                      <View style={adminPanelStyles.inputGroup}>
-                          <Text style={adminPanelStyles.label}>Telefon Numarası:</Text>
-                          <TextInput 
-                            style={adminPanelStyles.input} 
-                            placeholder="Örn: +905..." 
-                            placeholderTextColor={colors.textSecondary}
-                            value={manualBanPhone} 
-                            onChangeText={setManualBanPhone} 
-                            keyboardType="phone-pad" 
                             selectionColor={colors.textPrimary}
                           />
                       </View>

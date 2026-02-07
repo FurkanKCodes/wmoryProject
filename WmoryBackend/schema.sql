@@ -127,3 +127,13 @@ CREATE TABLE packets (
     name VARCHAR(50) NOT NULL,
     size_mb INT NOT NULL
 );
+
+CREATE TABLE audit_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    actor_id INT NOT NULL, 
+    action_type VARCHAR(50) NOT NULL, 
+    target_id INT,         
+    metadata TEXT,          
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE CASCADE
+);

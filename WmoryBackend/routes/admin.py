@@ -9,6 +9,7 @@ from db import get_db_connection
 from dotenv import load_dotenv
 from s3_helpers import upload_file_to_s3, get_presigned_url, delete_file_from_s3
 from extensions import limiter
+from utils import log_action
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -273,6 +274,10 @@ def unban_user():
         
         cursor.execute("DELETE FROM banned_users WHERE id = %s", (banned_id,))
         conn.commit()
+
+        # --- AUDIT LOG ---
+        log_action(admin_id, 'UNBAN_USER', banned_id, metadata=f"User's mail is now usable, by admin {admin_id}")
+        # ----------------------
         
         cursor.close(); conn.close()
         return jsonify({"message": "User unbanned"}), 200
@@ -286,11 +291,11 @@ def unban_user():
 def manual_ban():
     data = request.json
     admin_id = data.get('admin_id')
-    target_phone = data.get('phone') # Optional
-    target_id = data.get('target_id') # Optional
+    target_id = data.get('target_id') # Changed: Only target_id is used now
 
-    if not target_phone and not target_id:
-        return jsonify({"error": "Phone number or ID required"}), 400
+    # Validation: Only ID is required now
+    if not target_id:
+        return jsonify({"error": "User ID required"}), 400
 
     try:
         conn = get_db_connection()
@@ -303,14 +308,9 @@ def manual_ban():
             cursor.close(); conn.close()
             return jsonify({"error": "Unauthorized"}), 403
 
-        # Find Target User
-        target_user = None
-        if target_id:
-            cursor.execute("SELECT * FROM users WHERE id = %s", (target_id,))
-            target_user = cursor.fetchone()
-        elif target_phone:
-            cursor.execute("SELECT * FROM users WHERE phone_number = %s", (target_phone,))
-            target_user = cursor.fetchone()
+        # Find Target User by ID ONLY
+        cursor.execute("SELECT * FROM users WHERE id = %s", (target_id,))
+        target_user = cursor.fetchone()
 
         if not target_user:
             cursor.close(); conn.close()
@@ -321,14 +321,24 @@ def manual_ban():
         uname = target_user['username']
         uid = target_user['id']
 
+        # Prevent Self-Ban
         if str(uid) == str(admin_id):
             cursor.close(); conn.close()
             return jsonify({"error": "Cannot ban yourself"}), 400
 
-        cursor.execute("INSERT INTO banned_users (phone_number, username, reason) VALUES (%s, %s, %s)", (phone, uname, "Manual Ban by Admin"))
+        # Insert into Banned Users Archive
+        cursor.execute("INSERT INTO banned_users (phone_number, username, reason) VALUES (%s, %s, %s)", (phone, uname, "Manual Ban by Admin (ID)"))
+        
+        # Delete User from Users Table
         cursor.execute("DELETE FROM users WHERE id=%s", (uid,))
 
         conn.commit()
+
+        # --- AUDIT LOG ---
+        # Updated Metadata: Removed phone input reference, kept target phone for record
+        log_action(admin_id, 'MANUAL_BAN', uid, metadata=f"Target Phone: {phone}, Reason: Manual Ban via ID")
+        # ----------------------
+
         cursor.close(); conn.close()
         return jsonify({"message": "User banned and deleted"}), 200
 
@@ -444,6 +454,19 @@ def resolve_report():
                     cursor.execute("DELETE FROM users WHERE id=%s", (uploader_id,))
 
         conn.commit()
+
+        # --- AUDIT LOGIC BASED ON ACTION ---
+        if action == 'delete_content':
+             log_action(admin_id, 'DELETE_CONTENT', report_id, metadata="Deleted content via report")
+        
+        elif action == 'ban_user':
+             if 'uploader_id' in locals():
+                 log_action(admin_id, 'BAN_USER_REPORT', uploader_id, metadata=f"Banned via report {report_id}")
+        
+        elif action == 'dismiss':
+             log_action(admin_id, 'DISMISS_REPORT', report_id, metadata="Report dismissed")
+        # ----------------------------------------
+
         cursor.close(); conn.close()
         return jsonify({"message": "İşlem başarıyla tamamlandı"}), 200
 

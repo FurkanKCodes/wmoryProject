@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 from db import get_db_connection
 from PIL import Image
 import uuid
+from utils import log_action
 from s3_helpers import upload_file_to_s3, get_presigned_url, delete_file_from_s3
 
 groups_bp = Blueprint('groups', __name__)
@@ -241,6 +242,10 @@ def delete_group():
         # Note: Foreign keys usually handle cascading, but we need manual S3 delete
         cursor.execute("DELETE FROM groups_table WHERE id = %s", (group_id,))
         conn.commit()
+
+        # ---  AUDIT LOG ---
+        log_action(user_id, 'DELETE_GROUP', group_id, metadata="Group deleted by admin")
+        # ----------------------
 
         # 4. Delete Files from S3 (Cleanup)
         # A) Delete Group Profile Pic
@@ -581,6 +586,14 @@ def manage_member():
             cursor.execute("UPDATE groups_members SET is_admin = 1 WHERE user_id=%s AND group_id=%s", (target_user_id, group_id))
 
         conn.commit()
+
+        # --- NEW: AUDIT LOG ---
+        if action == 'kick':
+            log_action(admin_id, 'KICK_MEMBER', target_user_id, metadata=f"Kicked from group {group_id}")
+        elif action == 'promote':
+            log_action(admin_id, 'PROMOTE_MEMBER', target_user_id, metadata=f"Promoted in group {group_id}")
+        # ----------------------
+        
         cursor.close(); conn.close()
         return jsonify({"message": "Success"}), 200
     except Exception as e:
