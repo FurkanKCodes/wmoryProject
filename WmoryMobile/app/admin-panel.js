@@ -513,8 +513,9 @@ export default function AdminPanel() {
                                 <>
                                     <View style={adminPanelStyles.modalHeader}><Text style={adminPanelStyles.modalTitle}>Ban Detayı</Text><TouchableOpacity onPress={() => setBanModalVisible(false)}><Ionicons name="close" size={24} color={colors.textPrimary} /></TouchableOpacity></View>
                                     <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Kullanıcı Adı:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.username || "-"}</Text></View>
-                                    <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Telefon:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.phone_number}</Text></View>
+                                    <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Email:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.email}</Text></View>
                                     <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Ban Sebebi:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.reason}</Text></View>
+                                    <View style={adminPanelStyles.detailRow}><Text style={adminPanelStyles.label}>Ban Tarihi:</Text><Text style={adminPanelStyles.value}>{selectedBannedUser.banned_at}</Text></View>
                                     <ScaleButton style={[adminPanelStyles.btn, adminPanelStyles.btnUnban]} onPress={handleUnbanUser}><Text style={adminPanelStyles.btnText}>Banı Kaldır</Text></ScaleButton>
                                 </>
                             )}

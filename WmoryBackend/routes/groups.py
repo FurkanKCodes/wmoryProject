@@ -84,20 +84,25 @@ def create_group():
                 
             upload_folder = current_app.config['UPLOAD_FOLDER']
             save_path = os.path.join(upload_folder, filename)
+            os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
             file.save(save_path)
 
             # 2. Thumbnail & S3 Upload
             thumb_path = create_thumbnail(save_path, filename)
+            
+            # --- NEW S3 FOLDER STRUCTURE FOR UPLOADS ---
+            s3_media_key = f"media/{filename}"
+            s3_thumb_key = f"thumbs/{filename}"
                 
-            upload_file_to_s3(save_path, filename)
+            upload_file_to_s3(save_path, s3_media_key)
             if thumb_path:
-                upload_file_to_s3(thumb_path, f"thumb_{filename}")
+                upload_file_to_s3(thumb_path, s3_thumb_key)
 
             # 3. Clean Local
             if os.path.exists(save_path): os.remove(save_path)
             if thumb_path and os.path.exists(thumb_path): os.remove(thumb_path)
 
-            picture_filename = filename
+            picture_filename = s3_media_key
 
     try:
         conn = get_db_connection()
@@ -164,25 +169,32 @@ def edit_group():
             
             upload_folder = current_app.config['UPLOAD_FOLDER']
             save_path = os.path.join(upload_folder, filename)
+            os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
             file.save(save_path)
 
             # B. Thumbnail & S3 Upload
             thumb_path = create_thumbnail(save_path, filename)
             
-            upload_file_to_s3(save_path, filename)
+            # --- NEW S3 FOLDER STRUCTURE FOR UPLOADS ---
+            s3_media_key = f"media/{filename}"
+            s3_thumb_key = f"thumbs/{filename}"
+            
+            upload_file_to_s3(save_path, s3_media_key)
             if thumb_path:
-                upload_file_to_s3(thumb_path, f"thumb_{filename}")
+                upload_file_to_s3(thumb_path, s3_thumb_key)
 
             # C. Clean Local
             if os.path.exists(save_path): os.remove(save_path)
             if thumb_path and os.path.exists(thumb_path): os.remove(thumb_path)
 
-            picture_filename = filename
+            picture_filename = s3_media_key
 
             # D. Delete Old Picture from S3
             if old_picture:
+                # --- DYNAMIC THUMBNAIL DELETE ---
+                thumb_to_delete = old_picture.replace('media/', 'thumbs/') if old_picture.startswith('media/') else f"thumb_{old_picture}"
                 delete_file_from_s3(old_picture)
-                delete_file_from_s3(f"thumb_{old_picture}")
+                delete_file_from_s3(thumb_to_delete)
 
     try:
         # 4. Update Database
@@ -250,13 +262,17 @@ def delete_group():
         # 4. Delete Files from S3 (Cleanup)
         # A) Delete Group Profile Pic
         if group_data and group_data['picture']:
-            delete_file_from_s3(group_data['picture'])
-            delete_file_from_s3(f"thumb_{group_data['picture']}")
+            pic_key = group_data['picture']
+            thumb_to_delete = pic_key.replace('media/', 'thumbs/') if pic_key.startswith('media/') else f"thumb_{pic_key}"
+            delete_file_from_s3(pic_key)
+            delete_file_from_s3(thumb_to_delete)
 
         # B) Delete All Photos Uploaded to Group
         for photo in group_photos:
-            delete_file_from_s3(photo['file_name'])
-            delete_file_from_s3(f"thumb_{photo['file_name']}")
+            photo_key = photo['file_name']
+            thumb_to_delete = photo_key.replace('media/', 'thumbs/') if photo_key.startswith('media/') else f"thumb_{photo_key}"
+            delete_file_from_s3(photo_key)
+            delete_file_from_s3(thumb_to_delete)
         
         cursor.close(); conn.close()
         return jsonify({"message": "Grup ve içerikleri başarıyla silindi"}), 200
@@ -436,7 +452,11 @@ def get_blocked_users():
         
         for u in users:
             if u['profile_image']:
-                 u['thumbnail_url'] = get_presigned_url(f"thumb_{u['profile_image']}")
+                pic_key = u['profile_image']
+                # --- DYNAMIC THUMBNAIL URL FETCH ---
+                thumb_key = pic_key.replace('media/', 'thumbs/') if pic_key.startswith('media/') else f"thumb_{pic_key}"
+                u['profile_url'] = get_presigned_url(pic_key)
+                u['thumbnail_url'] = get_presigned_url(thumb_key)
             else:
                  u['thumbnail_url'] = None
 
@@ -493,7 +513,11 @@ def get_group_requests():
 
         for r in requests:
             if r['profile_image']:
-                r['thumbnail_url'] = get_presigned_url(f"thumb_{r['profile_image']}")
+                pic_key = r['profile_image']
+                # --- DYNAMIC THUMBNAIL URL FETCH ---
+                thumb_key = pic_key.replace('media/', 'thumbs/') if pic_key.startswith('media/') else f"thumb_{pic_key}"
+                r['profile_url'] = get_presigned_url(pic_key)
+                r['thumbnail_url'] = get_presigned_url(thumb_key)
             else:
                 r['thumbnail_url'] = None
 
@@ -669,8 +693,10 @@ def get_group_details():
         
         if group:
             if group['picture']:
-                group['picture_url'] = get_presigned_url(group['picture'])
-                group['thumbnail_url'] = get_presigned_url(f"thumb_{group['picture']}")
+                pic_key = group['picture']
+                thumb_key = pic_key.replace('media/', 'thumbs/') if pic_key.startswith('media/') else f"thumb_{pic_key}"
+                group['picture_url'] = get_presigned_url(pic_key)
+                group['thumbnail_url'] = get_presigned_url(thumb_key)
             else:
                 group['picture_url'] = None; group['thumbnail_url'] = None
         
@@ -717,8 +743,11 @@ def get_group_members():
         
         for m in members:
             if m['profile_image']:
-                m['profile_url'] = get_presigned_url(m['profile_image'])
-                m['thumbnail_url'] = get_presigned_url(f"thumb_{m['profile_image']}")
+                pic_key = m['profile_image']
+                # --- DYNAMIC THUMBNAIL URL FETCH ---
+                thumb_key = pic_key.replace('media/', 'thumbs/') if pic_key.startswith('media/') else f"thumb_{pic_key}"
+                m['profile_url'] = get_presigned_url(pic_key)
+                m['thumbnail_url'] = get_presigned_url(thumb_key)
             else: m['profile_url'] = None; m['thumbnail_url'] = None
             
         cursor.close(); conn.close()
@@ -752,7 +781,8 @@ def get_user_groups():
             # Image URL logic
             if g['picture']:
                 g['picture_url'] = get_presigned_url(g['picture'])
-                g['thumbnail_url'] = get_presigned_url(f"thumb_{g['picture']}")
+                thumb_key = g['picture'].replace('media/', 'thumbs/') if g['picture'].startswith('media/') else f"thumb_{g['picture']}"
+                g['thumbnail_url'] = get_presigned_url(thumb_key)
             else: 
                 g['picture_url'] = None
                 g['thumbnail_url'] = None

@@ -413,5 +413,15 @@ export const getGroupDetailsStyles = (colors) => {
     marginLeft: 8,
     fontSize: 14,
   },
+  groupIconPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 100,
+    // Light: White placeholder bg
+    backgroundColor: isDark ? colors.textPrimary : '#ffffff', 
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
 });
 }

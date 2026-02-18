@@ -5,6 +5,27 @@
 --Install Postman to your computer. Sign-in/Log-in to your account. After that click the import button(on the top left) and import the "MyCollection.postman_collection.json" file
 --We are working with Postman to entegrate the data with our codes.
 
+CREATE TABLE packets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    size_mb INT NOT NULL
+);
+
+CREATE TABLE users(
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    profile_image VARCHAR(255) DEFAULT NULL,
+    phone_number VARCHAR(15) UNIQUE NOT NULL,
+    is_super_admin TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    push_token VARCHAR(255) DEFAULT NULL,
+    packet_id INT DEFAULT 2,
+    daily_usage BIGINT DEFAULT 0,
+    last_upload_date DATETIME,
+    FOREIGN KEY (packet_id) REFERENCES packets(id)
+);
+
 CREATE TABLE groups_table (
     id INT AUTO_INCREMENT PRIMARY KEY,
     group_code VARCHAR(10) UNIQUE NOT NULL,
@@ -15,21 +36,6 @@ CREATE TABLE groups_table (
     picture VARCHAR(255) DEFAULT NULL,
     is_joining_active TINYINT(1) DEFAULT 1,
     FOREIGN KEY (created_by) REFERENCES users(id)
-);
-
-CREATE TABLE users(
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL AFTER email,
-    profile_image VARCHAR(255) DEFAULT NULL,
-    phone_number VARCHAR(15) UNIQUE NOT NULL,
-    is_super_admin TINYINT(1) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    push_token VARCHAR(255) DEFAULT NULL,
-    packet_id INT DEFAULT 2,
-    daily_usage BIGINT DEFAULT 0; 
-    FOREIGN KEY (packet_id) REFERENCES packets(id);
 );
 
 CREATE TABLE groups_members(
@@ -88,10 +94,10 @@ CREATE TABLE content_reports (
 
 CREATE TABLE banned_users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    phone_number VARCHAR(15) UNIQUE NOT NULL,
     banned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     reason VARCHAR(255),
-    username VARCHAR(50)
+    username VARCHAR(50),
+    email VARCHAR(100)
 );
 
 CREATE TABLE blocked_users (
@@ -120,12 +126,6 @@ CREATE TABLE IF NOT EXISTS email_verification_codes (
     type ENUM('login', 'register') NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE packets (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    size_mb INT NOT NULL
 );
 
 CREATE TABLE audit_logs (

@@ -236,8 +236,14 @@ def verify_login():
 
         if user:
             # Generate profile URLs
-            profile_url = get_presigned_url(user['profile_image']) if user['profile_image'] else None
-            thumb_url = get_presigned_url(f"thumb_{user['profile_image']}") if user['profile_image'] else None
+            profile_url = None
+            thumb_url = None
+            if user['profile_image']:
+                image_key = user['profile_image']
+                # --- DYNAMIC THUMBNAIL URL FETCH ---
+                thumb_key = image_key.replace('media/', 'thumbs/') if image_key.startswith('media/') else f"thumb_{image_key}"
+                profile_url = get_presigned_url(image_key)
+                thumb_url = get_presigned_url(thumb_key)
 
             return jsonify({
                 "message": "Giriş başarılı.",
@@ -315,8 +321,11 @@ def get_user():
         
         # Add URLs
         if user and user['profile_image']:
-            user['profile_url'] = get_presigned_url(user['profile_image'])
-            user['thumbnail_url'] = get_presigned_url(f"thumb_{user['profile_image']}")
+            image_key = user['profile_image']
+            # --- DYNAMIC THUMBNAIL URL FETCH ---
+            thumb_key = image_key.replace('media/', 'thumbs/') if image_key.startswith('media/') else f"thumb_{image_key}"
+            user['profile_url'] = get_presigned_url(image_key)
+            user['thumbnail_url'] = get_presigned_url(thumb_key)
         else:
             user['profile_url'] = None
             user['thumbnail_url'] = None
@@ -373,15 +382,19 @@ def update_profile():
                 save_path = os.path.join(upload_path, unique_name)
                 
                 # C. Save Temporarily
+                os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
                 file.save(save_path)
                 
                 # D. Create Thumbnail
                 thumb_path = create_thumbnail(save_path, unique_name)
                 
                 # E. Upload to S3 (Original + Thumbnail)
-                s3_success = upload_file_to_s3(save_path, unique_name)
+                s3_media_key = f"media/{unique_name}"
+                s3_thumb_key = f"thumbs/{unique_name}"
+                
+                s3_success = upload_file_to_s3(save_path, s3_media_key)
                 if thumb_path:
-                    upload_file_to_s3(thumb_path, f"thumb_{unique_name}")
+                    upload_file_to_s3(thumb_path, s3_thumb_key)
                 
                 # F. Clean Temporary Files
                 if os.path.exists(save_path): os.remove(save_path)
@@ -389,7 +402,7 @@ def update_profile():
                 
                 # If upload successful, assign filename
                 if s3_success:
-                    picture_filename = unique_name
+                    picture_filename = s3_media_key
 
         # 3. Update Database (Old Code Structure)
         query = "UPDATE users SET username=%s, email=%s, phone_number=%s"
@@ -408,13 +421,30 @@ def update_profile():
         # 4. Cleanup: Delete Old Image from S3 (Only if new image uploaded)
         if picture_filename and old_image:
             try:
+                # --- DYNAMIC THUMBNAIL DELETE ---
+                thumb_to_delete = old_image.replace('media/', 'thumbs/') if old_image.startswith('media/') else f"thumb_{old_image}"
                 delete_file_from_s3(old_image)
-                delete_file_from_s3(f"thumb_{old_image}")
+                delete_file_from_s3(thumb_to_delete)
             except: pass
 
         # 5. Generate and Return New URL
         final_image_name = picture_filename if picture_filename else old_image
-        new_image_url = get_presigned_url(final_image_name) if final_image_name else None
+        new_image_url = None
+        new_thumb_url = None
+        
+        if final_image_name:
+            # --- FIX: Dynamic Thumbnail URL for Response ---
+            thumb_key = final_image_name.replace('media/', 'thumbs/') if final_image_name.startswith('media/') else f"thumb_{final_image_name}"
+            new_image_url = get_presigned_url(final_image_name)
+            new_thumb_url = get_presigned_url(thumb_key)
+
+        # --- FIX: Fetch updated user to return fresh data for frontend ---
+        cursor.execute("SELECT id, username, email, profile_image FROM users WHERE id = %s", (user_id,))
+        updated_user = cursor.fetchone()
+        
+        if updated_user:
+            updated_user['profile_url'] = new_image_url
+            updated_user['thumbnail_url'] = new_thumb_url
 
         cursor.close()
         conn.close()
@@ -422,7 +452,9 @@ def update_profile():
         return jsonify({
             "message": "Profil güncellendi",
             "profile_image": final_image_name,
-            "profile_url": new_image_url
+            "profile_url": new_image_url,
+            "thumbnail_url": new_thumb_url,
+            "user": updated_user
         }), 200
 
     except Exception as e:
@@ -452,8 +484,11 @@ def delete_account():
 
         # 3. Clean up S3 (Profile Image)
         if user_data and user_data['profile_image']:
-            delete_file_from_s3(user_data['profile_image'])
-            delete_file_from_s3(f"thumb_{user_data['profile_image']}")
+            image_key = user_data['profile_image']
+            # --- DYNAMIC THUMBNAIL DELETE ---
+            thumb_to_delete = image_key.replace('media/', 'thumbs/') if image_key.startswith('media/') else f"thumb_{image_key}"
+            delete_file_from_s3(image_key)
+            delete_file_from_s3(thumb_to_delete)
 
         cursor.close(); conn.close()
         return jsonify({"message": "Hesap başarıyla silindi"}), 200

@@ -550,48 +550,61 @@ const fetchData = async () => {
 
   const uploadSingleFile = async (asset) => {
     try {
-      const formData = new FormData();
-      formData.append('user_id', userId);
-      formData.append('group_id', groupId);
-      
       const filename = asset.uri.split('/').pop();
       let type = 'image/jpeg';
       
       if (asset.type === 'video' || filename.endsWith('.mp4') || filename.endsWith('.mov')) {
           type = 'video/mp4';
       }
+
+      // Step 1: Get Presigned URL from Backend
+      const presignRes = await fetch(`${API_URL}/generate-upload-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_type: type })
+      });
       
-      formData.append('photo', {
-        uri: asset.uri,
-        name: filename,
-        type: type,
+      if (!presignRes.ok) throw new Error("Could not get upload URL");
+      const { upload_url, object_key } = await presignRes.json();
+
+      // Step 2: Convert local file to Blob and Upload DIRECTLY to AWS S3
+      const fileData = await fetch(asset.uri);
+      const blob = await fileData.blob();
+
+      const s3Res = await fetch(upload_url, {
+          method: 'PUT',
+          body: blob,
+          headers: { 'Content-Type': type }
       });
 
-      const response = await fetch(`${API_URL}/upload-photo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'multipart/form-data' },
-        body: formData,
+      if (!s3Res.ok) throw new Error("S3 Upload Failed");
+
+      // Step 3: Confirm with Backend to save in MySQL
+      const fileSize = asset.fileSize || blob.size || 0;
+      const confirmRes = await fetch(`${API_URL}/confirm-upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              user_id: userId,
+              group_id: groupId,
+              file_name: object_key,
+              file_size: fileSize
+          })
       });
 
-      // --- LIMIT CHECK LOGIC ---
-      if (response.status === 403) {
-          const data = await response.json();
-          
-          if (data.error === 'LIMIT_EXCEEDED_PHOTO') {
-              Alert.alert("Demo!", "Günlük fotoğraf sınırı aşıldı. Kalanlar yüklenmedi.");
-          } else if (data.error === 'LIMIT_EXCEEDED_VIDEO') {
-              Alert.alert("Demo!", "Günlük video sınırı aşıldı. Kalanlar yüklenmedi.");
+      if (confirmRes.status === 403) {
+          const data = await confirmRes.json();
+          if (data.error && data.error.includes('LIMIT_EXCEEDED')) {
+              Alert.alert("Demo!", "Günlük sınır aşıldı.");
           }
-          
-          return false; // 
+          return false;
       }
-      // ---------------------------------------
 
       return true; 
 
     } catch (error) {
-      console.error("Upload failed:", error);
-      return true; 
+      console.error("Direct S3 Upload failed:", error);
+      return true; // Return true to continue queue even if one fails
     }
   };
 

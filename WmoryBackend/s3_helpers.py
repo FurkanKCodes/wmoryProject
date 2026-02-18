@@ -6,16 +6,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- AWS CONFIGURATION ---
-AWS_ACCESS_KEY = os.getenv('AWS_ACCESS_KEY_ID')
-AWS_SECRET_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 BUCKET_NAME = os.getenv('AWS_BUCKET_NAME')
 REGION = os.getenv('AWS_REGION', 'eu-north-1') 
 
 # Initialize S3 Client
 s3_client = boto3.client(
     's3',
-    aws_access_key_id=AWS_ACCESS_KEY,
-    aws_secret_access_key=AWS_SECRET_KEY,
     region_name=REGION
 )
 
@@ -73,3 +69,24 @@ def delete_file_from_s3(object_name):
     except ClientError as e:
         print(f"❌ S3 Delete Error: {e}")
         return False
+
+
+def generate_presigned_post_url(object_name, file_type, expiration=3600):
+    """
+    Generate a presigned URL to allow direct upload (PUT) from the mobile app to S3.
+    """
+    try:
+        # Generate the presigned URL for a PUT request
+        url = s3_client.generate_presigned_url(
+            'put_object',
+            Params={
+                'Bucket': BUCKET_NAME,
+                'Key': object_name,
+                'ContentType': file_type
+            },
+            ExpiresIn=expiration
+        )
+        return url
+    except ClientError as e:
+        print(f"❌ S3 Presign POST Error: {e}")
+        return None

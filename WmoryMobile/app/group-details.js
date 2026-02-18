@@ -537,7 +537,13 @@ const fetchData = async () => {
             {/* 1. GROUP INFO */}
             <View style={groupDetailsStyles.groupInfoContainer}>
                 <TouchableOpacity onPress={() => groupOriginal && handleImagePress(groupOriginal)}>
-                    <Image source={groupThumb ? { uri: groupThumb } : defaultGroupImage} style={groupDetailsStyles.largeGroupImage} />
+                    {groupThumb ? (
+                            <Image source={{ uri: groupThumb }} style={groupDetailsStyles.largeGroupImage} />
+                        ) : (
+                            <View style={groupDetailsStyles.groupIconPlaceholder}>
+                                <Ionicons name="people" size={50} color={isDark ? "#000000" : "#000000"} />
+                            </View>
+                        )}
                 </TouchableOpacity>
                 <Text style={groupDetailsStyles.groupNameText}>{groupDetails?.group_name}</Text>
                 

@@ -197,7 +197,7 @@ def get_reports():
             SELECT 
                 r.id as report_id, r.reason, r.status, r.created_at,
                 r.reporter_id, u1.username as reporter_username,
-                r.uploader_id, u2.username as uploader_username, u2.phone_number as uploader_phone,
+                r.uploader_id, u2.username as uploader_username,
                 r.photo_id, p.file_name as photo_filename
             FROM content_reports r
             JOIN users u1 ON r.reporter_id = u1.id
@@ -291,7 +291,7 @@ def unban_user():
 def manual_ban():
     data = request.json
     admin_id = data.get('admin_id')
-    target_id = data.get('target_id') # Changed: Only target_id is used now
+    target_id = data.get('target_id') 
 
     # Validation: Only ID is required now
     if not target_id:
@@ -317,7 +317,7 @@ def manual_ban():
             return jsonify({"error": "User not found"}), 404
 
         # Execute Ban Logic
-        phone = target_user['phone_number']
+        email = target_user['email']
         uname = target_user['username']
         uid = target_user['id']
 
@@ -327,7 +327,7 @@ def manual_ban():
             return jsonify({"error": "Cannot ban yourself"}), 400
 
         # Insert into Banned Users Archive
-        cursor.execute("INSERT INTO banned_users (phone_number, username, reason) VALUES (%s, %s, %s)", (phone, uname, "Manual Ban by Admin (ID)"))
+        cursor.execute("INSERT INTO banned_users (email, username, reason) VALUES (%s, %s, %s)", (email, uname, "Manual Ban by Admin (ID)"))
         
         # Delete User from Users Table
         cursor.execute("DELETE FROM users WHERE id=%s", (uid,))
@@ -336,7 +336,7 @@ def manual_ban():
 
         # --- AUDIT LOG ---
         # Updated Metadata: Removed phone input reference, kept target phone for record
-        log_action(admin_id, 'MANUAL_BAN', uid, metadata=f"Target Phone: {phone}, Reason: Manual Ban via ID")
+        log_action(admin_id, 'MANUAL_BAN', uid, metadata=f"Target Email: {email}, Reason: Manual Ban via ID")
         # ----------------------
 
         cursor.close(); conn.close()
@@ -384,8 +384,10 @@ def resolve_report():
                 # 2. Delete from S3 (Try-Except block to prevent crash if file is missing)
                 if file_name:
                     try:
+                        # --- DYNAMIC THUMBNAIL DELETE ---
+                        thumb_to_delete = file_name.replace('media/', 'thumbs/') if file_name.startswith('media/') else f"thumb_{file_name}"
                         delete_file_from_s3(file_name)
-                        delete_file_from_s3(f"thumb_{file_name}")
+                        delete_file_from_s3(thumb_to_delete)
                     except Exception as s3_error:
                         print(f"S3 Delete Warning: {s3_error}")
 
@@ -412,22 +414,24 @@ def resolve_report():
                 uploader_id = report_row['uploader_id']
                 
                 # 2. Get User Details for Banned Table
-                cursor.execute("SELECT phone_number, username, profile_image FROM users WHERE id=%s", (uploader_id,))
+                cursor.execute("SELECT email, username, profile_image FROM users WHERE id=%s", (uploader_id,))
                 user_row = cursor.fetchone()
                 
                 if user_row:
-                    phone = user_row['phone_number']
+                    email = user_row['email']
                     uname = user_row['username']
                     profile_pic = user_row['profile_image']
                     
                     # 3. Insert into Banned Users (Archive)
-                    cursor.execute("INSERT INTO banned_users (phone_number, username, reason) VALUES (%s, %s, %s)", (phone, uname, "Reported Content"))
+                    cursor.execute("INSERT INTO banned_users (email, username, reason) VALUES (%s, %s, %s)", (email, uname, "Reported Content"))
                     
                     # 4. S3 Cleanup: Delete Profile Picture
                     if profile_pic:
                         try:
+                            # --- DYNAMIC THUMBNAIL DELETE ---
+                            thumb_to_delete = profile_pic.replace('media/', 'thumbs/') if profile_pic.startswith('media/') else f"thumb_{profile_pic}"
                             delete_file_from_s3(profile_pic)
-                            delete_file_from_s3(f"thumb_{profile_pic}")
+                            delete_file_from_s3(thumb_to_delete)
                         except: pass
 
                     # 5. S3 Cleanup: Delete All User Photos
@@ -436,8 +440,10 @@ def resolve_report():
                     for p in user_photos:
                         if p['file_name']:
                             try:
-                                delete_file_from_s3(p['file_name'])
-                                delete_file_from_s3(f"thumb_{p['file_name']}")
+                                photo_key = p['file_name']
+                                thumb_to_delete = photo_key.replace('media/', 'thumbs/') if photo_key.startswith('media/') else f"thumb_{photo_key}"
+                                delete_file_from_s3(photo_key)
+                                delete_file_from_s3(thumb_to_delete)
                             except: pass
 
                     # 6. DELETE FROM DB (CRITICAL: Delete dependent data first)

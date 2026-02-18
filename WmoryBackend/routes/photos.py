@@ -9,7 +9,7 @@ from datetime import datetime
 import uuid # Rastgele isim oluşturmak için
 
 # --- S3 HELPER IMPORT ---
-from s3_helpers import upload_file_to_s3, get_presigned_url, delete_file_from_s3
+from s3_helpers import upload_file_to_s3, get_presigned_url, delete_file_from_s3, generate_presigned_post_url
 
 photos_bp = Blueprint('photos', __name__)
 
@@ -251,7 +251,12 @@ def get_group_photos():
         photo_list = []
         for photo in photos:
             filename = photo['file_name']
-            thumb_filename = f"thumb_{filename}"
+            if filename.startswith('media/'):
+                # New system: 'media/abc.jpg' -> 'thumbs/abc.jpg'
+                thumb_filename = filename.replace('media/', 'thumbs/')
+            else:
+                # Old system: 'abc.jpg' -> 'thumb_abc.jpg'
+                thumb_filename = f"thumb_{filename}"
             
             # --- GENERATE PRESIGNED URLS ---
             # This generates a secure, temporary link (valid for 15 mins)
@@ -331,8 +336,14 @@ def bulk_action():
 
             # Delete from S3
             for photo in photos_to_delete:
-                delete_file_from_s3(photo['file_name'])
-                delete_file_from_s3(f"thumb_{photo['file_name']}")
+                filename = photo['file_name']
+                if filename.startswith('media/'):
+                    thumb_filename = filename.replace('media/', 'thumbs/')
+                else:
+                    thumb_filename = f"thumb_{filename}"
+                    
+                delete_file_from_s3(filename)
+                delete_file_from_s3(thumb_filename)
 
             cursor.close(); conn.close()
             return jsonify({"message": "Photos deleted successfully"}), 200
@@ -365,8 +376,14 @@ def delete_photo():
         conn.commit()
         
         # DELETE FROM S3
-        delete_file_from_s3(photo['file_name'])
-        delete_file_from_s3(f"thumb_{photo['file_name']}")
+        filename = photo['file_name']
+        if filename.startswith('media/'):
+            thumb_filename = filename.replace('media/', 'thumbs/')
+        else:
+            thumb_filename = f"thumb_{filename}"
+            
+        delete_file_from_s3(filename)
+        delete_file_from_s3(thumb_filename)
         
         cursor.close(); conn.close()
         return jsonify({"message": "Deleted"}), 200
@@ -403,3 +420,139 @@ def report_content():
 @photos_bp.route('/hide-photo', methods=['POST'])
 def hide_photo():
     return bulk_action() 
+
+# --- NEW: Generate URL for Direct Upload ---
+@photos_bp.route('/generate-upload-url', methods=['POST'])
+def get_upload_url():
+    data = request.json
+    file_type = data.get('file_type') # e.g., 'image/jpeg'
+    ext = file_type.split('/')[-1]
+    unique_name = f"{uuid.uuid4()}.{ext}"
+    
+    # Key includes 'media/' prefix as per roadmap
+    object_key = f"media/{unique_name}" 
+    
+    url = generate_presigned_post_url(object_key, file_type)
+    
+    if url:
+        return jsonify({"upload_url": url, "file_name": unique_name, "object_key": object_key}), 200
+    return jsonify({"error": "Could not generate URL"}), 500
+
+# --- NEW: Confirm Upload, Generate Thumbnail, and Save to DB ---
+@photos_bp.route('/confirm-upload', methods=['POST'])
+def confirm_upload():
+    data = request.json
+    user_id = data.get('user_id')
+    group_id = data.get('group_id')
+    file_name = data.get('file_name') # e.g., 'media/uuid.jpg'
+    file_size = data.get('file_size', 0)
+
+    if not user_id or not group_id or not file_name:
+        return jsonify({"error": "Missing data"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # --- 1. GROUP MEMBERSHIP CHECK ---
+        cursor.execute("SELECT id FROM groups_members WHERE user_id = %s AND group_id = %s", (user_id, group_id))
+        if not cursor.fetchone():
+            cursor.close(); conn.close()
+            return jsonify({"error": "You are not a member of this group"}), 403
+
+        # --- 2. DAILY USAGE LIMIT CHECK ---
+        sql_user = """
+            SELECT u.daily_usage, u.last_upload_date, p.size_mb 
+            FROM users u
+            LEFT JOIN packets p ON u.packet_id = p.id
+            WHERE u.id = %s
+        """
+        cursor.execute(sql_user, (user_id,))
+        user_stats = cursor.fetchone()
+
+        if not user_stats:
+            cursor.close(); conn.close()
+            return jsonify({"error": "User not found"}), 404
+
+        current_usage = user_stats['daily_usage'] or 0
+        limit_mb = user_stats['size_mb'] or 100 
+        limit_bytes = limit_mb * 1024 * 1024
+
+        today = datetime.utcnow().date()
+        db_date = user_stats['last_upload_date']
+
+        if db_date is None or db_date < today:
+            cursor.execute("UPDATE users SET daily_usage = 0, last_upload_date = %s WHERE id = %s", (today, user_id))
+            conn.commit()
+            current_usage = 0
+
+        if (current_usage + file_size) > limit_bytes:
+            # Delete the file that frontend just uploaded to S3
+            delete_file_from_s3(file_name)
+            cursor.close(); conn.close()
+            return jsonify({"error": "LIMIT_EXCEEDED_STORAGE"}), 403
+        # --------------------------------------------------------
+
+        # 3. Extract just the UUID from the path for local temp processing (e.g., 'media/abc.jpg' -> 'abc.jpg')
+        clean_filename = file_name.split('/')[-1]
+
+        # 4. Thumbnail Generation (Now aligned with Roadmap 'thumbs/' prefix)
+        try:
+            temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], clean_filename)
+            import boto3
+            from s3_helpers import BUCKET_NAME, REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY
+            s3 = boto3.client('s3', region_name=REGION, aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
+            
+            # Download original from 'media/...' to local temp
+            s3.download_file(BUCKET_NAME, file_name, temp_path)
+            
+            thumb_filename, thumb_path = create_thumbnail(temp_path, clean_filename)
+            if thumb_path and os.path.exists(thumb_path):
+                # --- FIX: Upload thumbnail directly to 'thumbs/' folder in S3 ---
+                s3_thumb_key = f"thumbs/{clean_filename}"
+                upload_file_to_s3(thumb_path, s3_thumb_key)
+                os.remove(thumb_path)
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        except Exception as thumb_err:
+            print(f"Thumbnail background error: {thumb_err}")
+
+        # 5. Save to DB
+        # --- FIX: Save the FULL path ('media/uuid.jpg') to DB so get_group_photos knows where it is! ---
+        sql = "INSERT INTO photos (file_name, user_id, group_id, upload_date) VALUES (%s, %s, %s, %s)"
+        cursor.execute(sql, (file_name, user_id, group_id, datetime.utcnow()))
+        
+        # Update Usage
+        cursor.execute("UPDATE users SET daily_usage = daily_usage + %s WHERE id = %s", (file_size, user_id))
+        conn.commit()
+
+        # 6. Push Notifications
+        cursor.execute("SELECT group_name FROM groups_table WHERE id = %s", (group_id,))
+        group_row = cursor.fetchone()
+        cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+        user_row = cursor.fetchone()
+
+        if group_row and user_row:
+            group_name = group_row['group_name']
+            uploader_name = user_row['username']
+            sql_members = """
+                SELECT u.push_token 
+                FROM users u
+                JOIN groups_members gm ON u.id = gm.user_id
+                WHERE gm.group_id = %s AND u.id != %s AND u.push_token IS NOT NULL AND gm.notifications = 1
+            """
+            cursor.execute(sql_members, (group_id, user_id))
+            members = cursor.fetchall()
+            tokens = [m['push_token'] for m in members]
+            if tokens:
+                title = group_name
+                body = f"{uploader_name}, {group_name} grubuna medya yükledi"
+                data_payload = {"screen": "MediaGallery", "groupId": group_id}
+                send_expo_push_notification(tokens, title, body, data_payload)
+        
+        cursor.close(); conn.close()
+        return jsonify({"message": "File confirmed and saved successfully", "filename": file_name}), 201
+
+    except Exception as e:
+        print(f"Confirm Upload Error: {e}")
+        return jsonify({"error": str(e)}), 500

@@ -160,46 +160,54 @@ export default function CameraScreen() {
 
   // --- UPLOAD LOGIC ---
   const uploadMediaBackground = async (filePath, type) => {
-    const filename = filePath.split('/').pop();
-    const formData = new FormData();
-    
-    formData.append('photo', {
-      uri: 'file://' + filePath,
-      type: type === 'picture' ? 'image/jpeg' : 'video/mp4',
-      name: filename,
-    });
-    
-    formData.append('user_id', userId);
-    formData.append('group_id', groupId);
-
-    const url = `${API_URL}/upload-photo`;
-    console.log("Uploading to:", url);
-
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      const actualType = type === 'picture' ? 'image/jpeg' : 'video/mp4';
+
+      // Step 1: Get Presigned URL
+      const presignRes = await fetch(`${API_URL}/generate-upload-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_type: actualType })
+      });
+      
+      if (!presignRes.ok) throw new Error("Presigned URL error");
+      const { upload_url, object_key } = await presignRes.json();
+
+      // Step 2: Fetch Blob & Upload to S3
+      const fileUri = 'file://' + filePath;
+      const fileData = await fetch(fileUri);
+      const blob = await fileData.blob();
+
+      const s3Res = await fetch(upload_url, {
+          method: 'PUT',
+          body: blob,
+          headers: { 'Content-Type': actualType }
       });
 
-      if (response.status === 201 || response.status === 200) {
+      if (!s3Res.ok) throw new Error("S3 Upload Error");
+
+      // Step 3: Confirm Upload with Backend
+      const confirmRes = await fetch(`${API_URL}/confirm-upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              user_id: userId,
+              group_id: groupId,
+              file_name: object_key,
+              file_size: blob.size || 0
+          })
+      });
+
+      if (confirmRes.status === 201 || confirmRes.status === 200) {
         runOnJS(showNotification)("Medya başarıyla yüklendi");
-      } else if (response.status === 403) {
-        const errorData = await response.json();
-        if (errorData.error && errorData.error.includes("LIMIT_EXCEEDED")) {
-             runOnJS(showNotification)("Limit aşıldı!");
-        } else {
-             runOnJS(showNotification)("Yetkisiz İşlem");
-        }
-      } else if (response.status === 404) {
-        runOnJS(showNotification)("Sunucu Hatası (404)");
+      } else if (confirmRes.status === 403) {
+        runOnJS(showNotification)("Limit aşıldı veya yetkisiz");
       } else {
-        runOnJS(showNotification)(`Hata: ${response.status}`);
+        runOnJS(showNotification)(`Hata: ${confirmRes.status}`);
       }
 
     } catch (error) {
+      console.error("Camera Upload Error:", error);
       runOnJS(showNotification)("Bağlantı Hatası");
     }
   };
