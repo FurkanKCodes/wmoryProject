@@ -241,7 +241,7 @@ def verify_login():
             if user['profile_image']:
                 image_key = user['profile_image']
                 # --- DYNAMIC THUMBNAIL URL FETCH ---
-                thumb_key = image_key.replace('media/', 'thumbs/') if image_key.startswith('media/') else f"thumb_{image_key}"
+                thumb_key = image_key.replace('pp_media/', 'pp_thumbs/') if image_key.startswith('pp_media/') else f"thumb_{image_key}"
                 profile_url = get_presigned_url(image_key)
                 thumb_url = get_presigned_url(thumb_key)
 
@@ -323,7 +323,7 @@ def get_user():
         if user and user['profile_image']:
             image_key = user['profile_image']
             # --- DYNAMIC THUMBNAIL URL FETCH ---
-            thumb_key = image_key.replace('media/', 'thumbs/') if image_key.startswith('media/') else f"thumb_{image_key}"
+            thumb_key = image_key.replace('pp_media/', 'pp_thumbs/') if image_key.startswith('pp_media/') else f"thumb_{image_key}"
             user['profile_url'] = get_presigned_url(image_key)
             user['thumbnail_url'] = get_presigned_url(thumb_key)
         else:
@@ -389,8 +389,8 @@ def update_profile():
                 thumb_path = create_thumbnail(save_path, unique_name)
                 
                 # E. Upload to S3 (Original + Thumbnail)
-                s3_media_key = f"media/{unique_name}"
-                s3_thumb_key = f"thumbs/{unique_name}"
+                s3_media_key = f"pp_media/{unique_name}"
+                s3_thumb_key = f"pp_thumbs/{unique_name}"
                 
                 s3_success = upload_file_to_s3(save_path, s3_media_key)
                 if thumb_path:
@@ -422,7 +422,7 @@ def update_profile():
         if picture_filename and old_image:
             try:
                 # --- DYNAMIC THUMBNAIL DELETE ---
-                thumb_to_delete = old_image.replace('media/', 'thumbs/') if old_image.startswith('media/') else f"thumb_{old_image}"
+                thumb_to_delete = old_image.replace('pp_media/', 'pp_thumbs/') if old_image.startswith('pp_media/') else f"thumb_{old_image}"
                 delete_file_from_s3(old_image)
                 delete_file_from_s3(thumb_to_delete)
             except: pass
@@ -434,7 +434,7 @@ def update_profile():
         
         if final_image_name:
             # --- FIX: Dynamic Thumbnail URL for Response ---
-            thumb_key = final_image_name.replace('media/', 'thumbs/') if final_image_name.startswith('media/') else f"thumb_{final_image_name}"
+            thumb_key = final_image_name.replace('pp_media/', 'pp_thumbs/') if final_image_name.startswith('pp_media/') else f"thumb_{final_image_name}"
             new_image_url = get_presigned_url(final_image_name)
             new_thumb_url = get_presigned_url(thumb_key)
 
@@ -486,7 +486,7 @@ def delete_account():
         if user_data and user_data['profile_image']:
             image_key = user_data['profile_image']
             # --- DYNAMIC THUMBNAIL DELETE ---
-            thumb_to_delete = image_key.replace('media/', 'thumbs/') if image_key.startswith('media/') else f"thumb_{image_key}"
+            thumb_to_delete = image_key.replace('pp_media/', 'pp_thumbs/') if image_key.startswith('pp_media/') else f"thumb_{image_key}"
             delete_file_from_s3(image_key)
             delete_file_from_s3(thumb_to_delete)
 

@@ -91,8 +91,8 @@ def create_group():
             thumb_path = create_thumbnail(save_path, filename)
             
             # --- NEW S3 FOLDER STRUCTURE FOR UPLOADS ---
-            s3_media_key = f"media/{filename}"
-            s3_thumb_key = f"thumbs/{filename}"
+            s3_media_key = f"gp_media/{filename}"
+            s3_thumb_key = f"gp_thumbs/{filename}"
                 
             upload_file_to_s3(save_path, s3_media_key)
             if thumb_path:
@@ -176,8 +176,8 @@ def edit_group():
             thumb_path = create_thumbnail(save_path, filename)
             
             # --- NEW S3 FOLDER STRUCTURE FOR UPLOADS ---
-            s3_media_key = f"media/{filename}"
-            s3_thumb_key = f"thumbs/{filename}"
+            s3_media_key = f"gp_media/{filename}"
+            s3_thumb_key = f"gp_thumbs/{filename}"
             
             upload_file_to_s3(save_path, s3_media_key)
             if thumb_path:
@@ -192,7 +192,7 @@ def edit_group():
             # D. Delete Old Picture from S3
             if old_picture:
                 # --- DYNAMIC THUMBNAIL DELETE ---
-                thumb_to_delete = old_picture.replace('media/', 'thumbs/') if old_picture.startswith('media/') else f"thumb_{old_picture}"
+                thumb_to_delete = old_picture.replace('gp_media/', 'gp_thumbs/') if old_picture.startswith('gp_media/') else f"thumb_{old_picture}"
                 delete_file_from_s3(old_picture)
                 delete_file_from_s3(thumb_to_delete)
 
@@ -263,7 +263,7 @@ def delete_group():
         # A) Delete Group Profile Pic
         if group_data and group_data['picture']:
             pic_key = group_data['picture']
-            thumb_to_delete = pic_key.replace('media/', 'thumbs/') if pic_key.startswith('media/') else f"thumb_{pic_key}"
+            thumb_to_delete = pic_key.replace('gp_media/', 'gp_thumbs/') if pic_key.startswith('gp_media/') else f"thumb_{pic_key}"
             delete_file_from_s3(pic_key)
             delete_file_from_s3(thumb_to_delete)
 
@@ -454,7 +454,7 @@ def get_blocked_users():
             if u['profile_image']:
                 pic_key = u['profile_image']
                 # --- DYNAMIC THUMBNAIL URL FETCH ---
-                thumb_key = pic_key.replace('media/', 'thumbs/') if pic_key.startswith('media/') else f"thumb_{pic_key}"
+                thumb_key = pic_key.replace('pp_media/', 'pp_thumbs/') if pic_key.startswith('pp_media/') else f"thumb_{pic_key}"
                 u['profile_url'] = get_presigned_url(pic_key)
                 u['thumbnail_url'] = get_presigned_url(thumb_key)
             else:
@@ -515,7 +515,7 @@ def get_group_requests():
             if r['profile_image']:
                 pic_key = r['profile_image']
                 # --- DYNAMIC THUMBNAIL URL FETCH ---
-                thumb_key = pic_key.replace('media/', 'thumbs/') if pic_key.startswith('media/') else f"thumb_{pic_key}"
+                thumb_key = pic_key.replace('pp_media/', 'pp_thumbs/') if pic_key.startswith('pp_media/') else f"thumb_{pic_key}"
                 r['profile_url'] = get_presigned_url(pic_key)
                 r['thumbnail_url'] = get_presigned_url(thumb_key)
             else:
@@ -694,7 +694,7 @@ def get_group_details():
         if group:
             if group['picture']:
                 pic_key = group['picture']
-                thumb_key = pic_key.replace('media/', 'thumbs/') if pic_key.startswith('media/') else f"thumb_{pic_key}"
+                thumb_key = pic_key.replace('gp_media/', 'gp_thumbs/') if pic_key.startswith('gp_media/') else f"thumb_{pic_key}"
                 group['picture_url'] = get_presigned_url(pic_key)
                 group['thumbnail_url'] = get_presigned_url(thumb_key)
             else:
@@ -745,7 +745,7 @@ def get_group_members():
             if m['profile_image']:
                 pic_key = m['profile_image']
                 # --- DYNAMIC THUMBNAIL URL FETCH ---
-                thumb_key = pic_key.replace('media/', 'thumbs/') if pic_key.startswith('media/') else f"thumb_{pic_key}"
+                thumb_key = pic_key.replace('pp_media/', 'pp_thumbs/') if pic_key.startswith('pp_media/') else f"thumb_{pic_key}"
                 m['profile_url'] = get_presigned_url(pic_key)
                 m['thumbnail_url'] = get_presigned_url(thumb_key)
             else: m['profile_url'] = None; m['thumbnail_url'] = None
@@ -781,7 +781,7 @@ def get_user_groups():
             # Image URL logic
             if g['picture']:
                 g['picture_url'] = get_presigned_url(g['picture'])
-                thumb_key = g['picture'].replace('media/', 'thumbs/') if g['picture'].startswith('media/') else f"thumb_{g['picture']}"
+                thumb_key = g['picture'].replace('gp_media/', 'gp_thumbs/') if g['picture'].startswith('gp_media/') else f"thumb_{g['picture']}"
                 g['thumbnail_url'] = get_presigned_url(thumb_key)
             else: 
                 g['picture_url'] = None
