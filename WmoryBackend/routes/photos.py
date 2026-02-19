@@ -500,18 +500,26 @@ def confirm_upload():
         try:
             temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], clean_filename)
             import boto3
-            from s3_helpers import BUCKET_NAME, REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY
-            s3 = boto3.client('s3', region_name=REGION, aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
+            from s3_helpers import BUCKET_NAME, REGION
+            s3 = boto3.client('s3', region_name=REGION)
             
             # Download original from 'media/...' to local temp
             s3.download_file(BUCKET_NAME, file_name, temp_path)
+
+            thumb_res = create_thumbnail(temp_path, clean_filename)
             
-            thumb_filename, thumb_path = create_thumbnail(temp_path, clean_filename)
-            if thumb_path and os.path.exists(thumb_path):
-                # --- FIX: Upload thumbnail directly to 'thumbs/' folder in S3 ---
-                s3_thumb_key = f"thumbs/{clean_filename}"
-                upload_file_to_s3(thumb_path, s3_thumb_key)
-                os.remove(thumb_path)
+            if thumb_res:
+                thumb_filename, thumb_path = thumb_res
+                if thumb_path and os.path.exists(thumb_path):
+                    # --- FIX: Upload thumbnail directly to 'thumbs/' folder in S3 ---
+                    s3_thumb_key = f"thumbs/{clean_filename}"
+                    upload_file_to_s3(thumb_path, s3_thumb_key)
+                    
+                    # Clean up the thumbnail temp file
+                    if os.path.exists(thumb_path):
+                        os.remove(thumb_path)
+            
+            # Clean up the downloaded original temp file
             if os.path.exists(temp_path):
                 os.remove(temp_path)
         except Exception as thumb_err:
