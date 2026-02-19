@@ -469,7 +469,7 @@ def get_upload_url():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- NEW: Confirm Upload, Generate Thumbnail, and Save to DB ---
+# --- NEW: Confirm Upload, Generate Thumbnail, and Save to DB --
 @photos_bp.route('/confirm-upload', methods=['POST'])
 def confirm_upload():
     data = request.json
