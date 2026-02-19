@@ -337,7 +337,7 @@ export default function RegisterScreen() {
 
 
 const privacyPolicyText = `GİZLİLİK POLİTİKASI
-Son Güncelleme: 04/02/2026 
+Son Güncelleme: 20/02/2026 
 
 1. Amaç
 Bu Gizlilik Politikası, Uygulama'yı kullanan Kullanıcıların kişisel verilerinin hangi amaçlarla
@@ -345,7 +345,7 @@ işlendiğini, nasıl korunduğunu ve Kullanıcıların haklarını açıklar.
 
 2. Toplanan Veriler
 Uygulama kapsamında aşağıdaki veri kategorileri işlenebilir:
-• Kimlik İletişim: Telefon numarası (SMS doğrulama için), kullanıcı adı, profil bilgileri.
+• Kimlik İletişim: Telefon numarası, email, kullanıcı adı, profil bilgileri.
 • Hesap ve Plan Bilgileri: Free/Pro plan durumu, günlük upload limitleri ve kullanım
 sayaçları.
 • Grup Verileri: Grup üyelikleri, rol bilgisi (Admin), katılım istekleri.
@@ -357,7 +357,7 @@ ader bilgisi).
 
 3. Verilerin İşlenme Amaçları
 Kişisel veriler aşağıdaki amaçlarla işlenir:
-• Telefon numarası ile SMS doğrulama yaparak tekil hesap politikasını sağlamak,
+• Email ile doğrulama yaparak tekil hesap politikasını sağlamak,
 • Grup oluşturma/katılma ve ortak galeri fonksiyonlarını sunmak,
 • Plan yönetimi ve günlük upload limitlerini uygulamak,
 • Report ve moderasyon süreçlerini yürütmek, güvenliği artırmak,
@@ -366,9 +366,10 @@ Kişisel veriler aşağıdaki amaçlarla işlenir:
 
 4. Verilerin Paylaşımı
 • Kullanıcı verileri üçüncü taraflarla satılmaz.
-• Yalnızca hizmetin çalışması için zorunlu teknik sağlayıcılar (örn. SMS sağlayıcısı,
-bildirim altyapısı, barındırma/depoma) kapsamında sınırlı paylaşım olabilir.
-• Yasal zorunluluk halinde, yetkili kamu kurumlarıyla paylaşım yapılabilir.
+• Veriler yalnızca:
+  - Hizmetin sağlanması için teknik altyapı sağlayıcılarıyla (örneğin bulut depolama ve barındırma hizmetleri)
+  - Yasal zorunluluklar kapsamında yetkili kamu kurumlarıyla
+  paylaşabilir
 
 5. Medya İçerikleri ve Erişim Kontrolleri
 • Medya içerikleri yalnızca ilgili grup üyeleri tarafından görüntülenebilir.
@@ -402,25 +403,22 @@ geçerlidir.
 Kabul Beyanı: Kayıt sırasında "Gizlilik Politikası"nı okuduğumu ve kabul ettiğimi onaylarım.`;
 
 const termsOfServiceText = `KULLANICI SÖZLEŞMESİ
-Son Güncelleme: 27/12/2025
+Son Güncelleme: 20/02/2026
 
 1. Taraflar ve Kapsam
-İşbu Kullanıcı Sözleşmesi ("Sözleşme"), uygulamayı ("Uygulama") kullanan kullanıcı ("Kulla-
-nıcı") ile Uygulama'nın sahibi ve işletmecisi ("Sağlayıcı") arasında, Uygulama'nın kullanım
-koşullarını düzenler. Uygulama'ya kayıt olarak veya Uygulama'yı kullanarak bu Sözleşme'yi
-kabul etmiş sayılırsınız.
+Bu Kullanıcı Sözleşmesi (“Sözleşme”), WMORY mobil uygulamasını (“Uygulama”) kullanan gerçek kişi kullanıcı (“Kullanıcı”) ile WMORY platformu (“WMORY”) arasında akdedilmiştir.
+
+Uygulamayı indirerek, hesap oluşturarak veya kullanarak bu sözleşmeyi kabul etmiş sayılırsınız.
 
 2. Uygulamanın Amacı
 Uygulama; kullanıcıların grup oluşturarak veya gruplara katılarak fotoğraf ve videoları "ortak
-galeri" mantığıyla paylaşmasını sağlar. Paylaşılan medya içerikleri, ilgili gruptaki yetkili
+galeri" ve ortak bulut hafızası mantığıyla paylaşmasını sağlar. Paylaşılan medya içerikleri, ilgili gruptaki yetkili
 kullanıcılar tarafından görüntülenir.
 
 3. Hesap Oluşturma ve Telefon Doğrulama
-• Uygulama'da hesap oluşturabilmek için telefon numarası ile SMS doğrulaması zorunlu-
-dur.
+• Uygulama'da hesap oluşturabilmek için email ile doğrulama zorunludur.
 • Kullanıcı, kendisine ait ve kontrol ettiği telefon numarasıyla kayıt olmayı kabul eder.
-• Bir telefon numarası ile birden fazla hesap açılmasına izin verilmez (tekil hesap politi-
-kası).
+• Bir email numarası ile birden fazla hesap açılmasına izin verilmez (tekil hesap politikası).
 • Kullanıcı, hesap bilgilerinin doğruluğundan ve güncelliğinden sorumludur.
 
 4. Grup Yönetimi ve Yetkilendirme
@@ -436,8 +434,10 @@ Admin atanabilir.
 
 5. Planlar, Kullanım Limitleri ve Ücretlendirme
 Uygulama'da planlar ve günlük yükleme limitleri aşağıdaki şekilde sunulur:
-• Free Plan: Günlük en fazla 10 fotoğraf ve 2 video yükleme.
-• Pro Plan: Günlük en fazla 50 fotoğraf ve 5 video yükleme.
+• Demo: 25 mb
+• Free: 100 mb
+• Pro: 500 mb
+• Pro+: 1024 mb
 Plan içerikleri, limitler ve fiyatlandırma Uygulama içinde ayrıca gösterilebilir ve güncellenebilir.
 Kullanıcı, güncel plan koşullarını Uygulama içinden takip etmekle yükümlüdür.
 
@@ -470,16 +470,20 @@ silinir (Sağlayıcı tarafından tutulması zorunlu yasal kayıtlar hariç).
 • Sözleşme ihlali halinde Sağlayıcı, kullanıcı hesabını geçici veya kalıcı olarak askıya
 alabilir/sonlandırabilir.
 
-10. Hizmet Kesintileri ve Sorumluluğun Sınırlandırılması
+10. GİZLİLİK VE İÇERİK ERİŞİMİ
+• Kullanıcı tarafından oluşturulan gruplardaki içerikler yalnızca ilgili grup üyeleri tarafından görüntülenebilir.
+• WMORY, teknik gereklilikler doğrultusunda medya içeriklerini bulut altyapısında saklar.
+
+11. Hizmet Kesintileri ve Sorumluluğun Sınırlandırılması
 Uygulama "olduğu gibi" sunulur. Bakım, güncelleme, ağ sorunları, cihaz kaynaklı problemler
 veya üçüncü taraf servis kesintileri nedeniyle erişimde aksaklıklar yaşanabilir. Sağlayıcı, makul
 çaba göstermekle birlikte kesintisiz hizmet garantisi vermez.
 
-11. Sözleşme Değişiklikleri
+12. Sözleşme Değişiklikleri
 Sağlayıcı, bu Sözleşme'yi güncelleyebilir. Güncellemeler Uygulama üzerinden yayınlandığı
 tarihten itibaren geçerli olur.
 
-12. İletişim
+13. İletişim
 Sözleşme ile ilgili talepler için: help@wmory.com
 
 Kabul Beyanı: Kayıt sırasında "Kullanıcı Sözleşmesi'ni okuduğumu ve kabul ettiğimi onay-
