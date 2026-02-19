@@ -425,18 +425,49 @@ def hide_photo():
 @photos_bp.route('/generate-upload-url', methods=['POST'])
 def get_upload_url():
     data = request.json
+    user_id = data.get('user_id')
+    group_id = data.get('group_id')
     file_type = data.get('file_type') # e.g., 'image/jpeg'
-    ext = file_type.split('/')[-1]
-    unique_name = f"{uuid.uuid4()}.{ext}"
-    
-    # Key includes 'media/' prefix as per roadmap
-    object_key = f"media/{unique_name}" 
-    
-    url = generate_presigned_post_url(object_key, file_type)
-    
-    if url:
-        return jsonify({"upload_url": url, "file_name": unique_name, "object_key": object_key}), 200
-    return jsonify({"error": "Could not generate URL"}), 500
+
+    # Validate required fields
+    if not user_id or not group_id or not file_type:
+        return jsonify({"error": "Missing user_id, group_id or file_type"}), 400
+
+    # 1. VALIDATE FILE TYPE (Roadmap Security)
+    allowed_types = ['image/jpeg', 'image/png', 'image/jpg', 'video/mp4', 'video/quicktime']
+    if file_type not in allowed_types:
+        return jsonify({"error": "File type not allowed"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # 2. VALIDATE GROUP MEMBERSHIP (Roadmap Item #1)
+        # Prevents generating a URL for a group the user doesn't belong to
+        cursor.execute("SELECT id FROM groups_members WHERE user_id = %s AND group_id = %s", (user_id, group_id))
+        if not cursor.fetchone():
+            cursor.close(); conn.close()
+            return jsonify({"error": "You are not a member of this group"}), 403
+
+        cursor.close(); conn.close()
+
+        # 3. GENERATE KEY AND URL
+        ext = file_type.split('/')[-1]
+        unique_name = f"{uuid.uuid4()}.{ext}"
+        object_key = f"media/{unique_name}" # Key includes 'media/' prefix
+        
+        url = generate_presigned_post_url(object_key, file_type)
+        
+        if url:
+            return jsonify({
+                "upload_url": url, 
+                "file_name": unique_name, 
+                "object_key": object_key
+            }), 200
+            
+        return jsonify({"error": "Could not generate S3 URL"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # --- NEW: Confirm Upload, Generate Thumbnail, and Save to DB ---
 @photos_bp.route('/confirm-upload', methods=['POST'])
@@ -446,6 +477,11 @@ def confirm_upload():
     group_id = data.get('group_id')
     file_name = data.get('file_name') # e.g., 'media/uuid.jpg'
     file_size = data.get('file_size', 0)
+
+    # 0. SECURITY PREFIX CHECK (Roadmap Item #1)
+    # Ensure the user is only confirming files within the allowed media/ directory
+    if not file_name or not file_name.startswith('media/'):
+        return jsonify({"error": "Invalid file path prefix"}), 400
 
     if not user_id or not group_id or not file_name:
         return jsonify({"error": "Missing data"}), 400

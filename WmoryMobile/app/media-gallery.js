@@ -561,7 +561,11 @@ const fetchData = async () => {
       const presignRes = await fetch(`${API_URL}/generate-upload-url`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file_type: type })
+          body: JSON.stringify({ 
+            user_id: userId,
+            group_id: groupId,
+            file_type: type 
+        })
       });
       
       if (!presignRes.ok) throw new Error("Could not get upload URL");

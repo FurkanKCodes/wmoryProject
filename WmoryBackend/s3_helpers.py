@@ -88,5 +88,10 @@ def generate_presigned_post_url(object_name, file_type, expiration=3600):
         )
         return url
     except ClientError as e:
-        print(f"❌ S3 Presign POST Error: {e}")
+        # Catch S3 specific client errors (e.g., credentials, bucket name issues)
+        print(f"❌ S3 Presign PUT Error: {e}")
+        return None
+    except Exception as e:
+        # General catch for other unexpected errors
+        print(f"❌ Unexpected Presign Error: {e}")
         return None

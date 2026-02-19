@@ -167,7 +167,11 @@ export default function CameraScreen() {
       const presignRes = await fetch(`${API_URL}/generate-upload-url`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file_type: actualType })
+          body: JSON.stringify({ 
+            user_id: userId,
+            group_id: groupId, 
+            file_type: actualType 
+        })
       });
       
       if (!presignRes.ok) throw new Error("Presigned URL error");
