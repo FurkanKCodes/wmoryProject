@@ -3,8 +3,6 @@ import requests
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from db import get_db_connection
-from PIL import Image, ImageOps
-import cv2 
 from datetime import datetime
 import uuid # Rastgele isim oluşturmak için
 
@@ -38,44 +36,6 @@ def send_expo_push_notification(tokens, title, body, data=None):
     except Exception as e:
         print(f"Push notification error: {e}")
 
-# ==========================================
-# HELPER: CREATE THUMBNAIL (LOCAL TEMP)
-# ==========================================
-def create_thumbnail(file_path, filename):
-    try:
-        size = (300, 300)
-        ext = filename.rsplit('.', 1)[1].lower()
-        is_video = ext in ['mp4', 'mov', 'avi', 'm4v']
-        
-        img = None
-
-        if is_video:
-            cam = cv2.VideoCapture(file_path)
-            ret, frame = cam.read()
-            if ret:
-                img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            cam.release()
-        else:
-            img = Image.open(file_path)
-            img = ImageOps.exif_transpose(img) 
-            if img.mode in ('RGBA', 'P'):
-                img = img.convert('RGB')
-
-        if img:
-            img.thumbnail(size)
-            thumb_filename = f"thumb_{filename}"
-            # Save thumbnail to the same local folder temporarily
-            thumb_path = os.path.join(os.path.dirname(file_path), thumb_filename)
-            img.save(thumb_path, "JPEG", quality=85)
-            print(f"Thumbnail created locally: {thumb_filename}")
-            return thumb_filename, thumb_path
-        else:
-            print("Failed to load image or video frame")
-            return None, None
-
-    except Exception as e:
-        print(f"Thumbnail creation failed: {e}")
-        return None, None
 
 # ==========================================
 # UPLOAD PHOTO (S3 INTEGRATED)
@@ -532,34 +492,8 @@ def confirm_upload():
         # 3. Extract just the UUID from the path for local temp processing (e.g., 'media/abc.jpg' -> 'abc.jpg')
         clean_filename = file_name.split('/')[-1]
 
-        # 4. Thumbnail Generation (Now aligned with Roadmap 'thumbs/' prefix)
-        try:
-            temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], clean_filename)
-            import boto3
-            from s3_helpers import BUCKET_NAME, REGION
-            s3 = boto3.client('s3', region_name=REGION)
-            
-            # Download original from 'media/...' to local temp
-            s3.download_file(BUCKET_NAME, file_name, temp_path)
-
-            thumb_res = create_thumbnail(temp_path, clean_filename)
-            
-            if thumb_res:
-                thumb_filename, thumb_path = thumb_res
-                if thumb_path and os.path.exists(thumb_path):
-                    # --- FIX: Upload thumbnail directly to 'thumbs/' folder in S3 ---
-                    s3_thumb_key = f"thumbs/{clean_filename}"
-                    upload_file_to_s3(thumb_path, s3_thumb_key)
-                    
-                    # Clean up the thumbnail temp file
-                    if os.path.exists(thumb_path):
-                        os.remove(thumb_path)
-            
-            # Clean up the downloaded original temp file
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-        except Exception as thumb_err:
-            print(f"Thumbnail background error: {thumb_err}")
+        # 4. Thumbnail generation is now handled asynchronously by AWS Lambda.
+        # No local processing needed here.
 
         # 5. Save to DB
         # --- FIX: Save the FULL path ('media/uuid.jpg') to DB so get_group_photos knows where it is! ---
