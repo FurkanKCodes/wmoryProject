@@ -65,7 +65,7 @@ app.register_blueprint(admin_bp)
 
 @app.route('/')
 def index():
-    return "Backend is running! Secure Mode."
+    return "Backend is running! Secure Mode!"
 
 
 # =====================================================
