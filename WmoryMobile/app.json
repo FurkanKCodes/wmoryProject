@@ -35,12 +35,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.photoapp.project",
       "versionCode": 1,
-      "googleServicesFile": "./google-services.json",
-      "androidStatusBar": {
-        "barStyle": "light-content",
-        "backgroundColor": "#00000000",
-        "translucent": true
-      }
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
