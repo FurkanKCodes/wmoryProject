@@ -599,7 +599,7 @@ const fetchData = async () => {
       if (confirmRes.status === 403) {
           const data = await confirmRes.json();
           if (data.error && data.error.includes('LIMIT_EXCEEDED')) {
-              Alert.alert("Demo!", "Günlük sınır aşıldı.");
+              Alert.alert("Uyarı!", "Günlük sınır aşıldı.");
           }
           return false;
       }

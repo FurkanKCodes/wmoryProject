@@ -79,6 +79,8 @@ export default function CameraScreen() {
 
   const notifOpacity = useSharedValue(0);
 
+  const shutterOpacity = useSharedValue(0);
+
   // --- DEVICE & FORMAT ---
   // We explicitly look for the 'back' camera.
   // Note: On some Androids, the 'ultra-wide' is a separate ID. 
@@ -343,11 +345,24 @@ export default function CameraScreen() {
     opacity: notifOpacity.value
   }));
 
+  const shutterStyle = useAnimatedStyle(() => ({
+    opacity: shutterOpacity.value,
+    backgroundColor: 'black',
+    ...StyleSheet.absoluteFillObject,
+  }));
+
   // --- CAPTURE ---
   const handleCapture = async () => {
     if (!cameraRef.current) return;
     if (mode === 'picture') {
       try {
+        // --- SHUTTER FLASH EFFECT ---
+        // Very fast black out (50ms) and back to clear (100ms)
+        shutterOpacity.value = withSequence(
+            withTiming(1, { duration: 50 }),
+            withTiming(0, { duration: 100 })
+        );
+
         const photo = await cameraRef.current.takePhoto({ flash, enableShutterSound: true });
         await uploadMediaBackground(photo.path, 'picture');
       } catch (e) { console.error("Capture failed", e); }
@@ -411,6 +426,9 @@ export default function CameraScreen() {
           </View>
         </GestureDetector>
 
+        {/* SHUTTER OVERLAY */}
+        <Animated.View style={shutterStyle} pointerEvents="none" />
+        
         {/* --- UI --- */}
         <Animated.View style={[cameraStyles.notificationContainer, notificationStyle]}>
            <View style={cameraStyles.notificationWrapper}>
