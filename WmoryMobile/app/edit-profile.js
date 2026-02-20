@@ -9,6 +9,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import API_URL from '../config';
+import { saveDataToCache, loadDataFromCache, CACHE_KEYS } from '../utils/cacheHelper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { getEditProfileStyles } from '../styles/editProfileStyles';
@@ -98,34 +99,64 @@ export default function EditProfileScreen() {
   // --- FETCH USER DATA ---
   useEffect(() => {
     const fetchUserData = async () => {
+      if (!userId) return;
+      const cacheKey = CACHE_KEYS.USER_PROFILE(userId);
+
+      // Helper: Extract filename from S3 Presigned URL to compare without signatures
+      const getFileName = (url) => (url && typeof url === 'string' ? url.split('?')[0].split('/').pop() : url);
+
+      // 1. SILENT CACHE LOAD: Load existing data first
+      try {
+          const cachedData = await loadDataFromCache(cacheKey);
+          if (cachedData) {
+              const rawPhone = (cachedData.phone_number || '').startsWith('+90') 
+                  ? cachedData.phone_number.substring(3) 
+                  : (cachedData.phone_number || '');
+              
+              const picUrl = cachedData.thumbnail_url || null;
+
+              setInitialData({ username: cachedData.username, email: cachedData.email, phone: rawPhone, profilePic: picUrl });
+              setUsername(cachedData.username);
+              setEmail(cachedData.email);
+              setPhoneRaw(rawPhone);
+              setProfilePic(picUrl);
+              setLoading(false); // Hide spinner immediately if cache is found
+          }
+      } catch (e) { console.log("Cache load error:", e); }
+
+      // 2. BACKGROUND FETCH: Refresh data from server silently
       try {
         const response = await fetch(`${API_URL}/get-user?user_id=${userId}`);
         const data = await response.json();
         
         if (response.ok) {
-          // Parse phone number (Remove +90 prefix if present)
           let rawPhone = data.phone_number || '';
-          if (rawPhone.startsWith('+90')) {
-             rawPhone = rawPhone.substring(3);
-          }
+          if (rawPhone.startsWith('+90')) rawPhone = rawPhone.substring(3);
           
-          const picUrl = data.profile_url ? data.profile_url : null;
+          const freshPicUrl = data.thumbnail_url || null;
 
-          // Set Initial Data for comparison
+          // --- SILENT UPDATE LOGIC ---
+          // Use filename comparison to prevent flickering if only the S3 signature changed
+          setProfilePic((prev) => {
+              if (!prev || !freshPicUrl) return freshPicUrl;
+              if (getFileName(prev) === getFileName(freshPicUrl)) return prev;
+              return freshPicUrl;
+          });
+
           setInitialData({
             username: data.username,
             email: data.email,
             phone: rawPhone,
-            profilePic: picUrl
+            profilePic: freshPicUrl
           });
 
-          // Set Input Fields
           setUsername(data.username);
           setEmail(data.email);
           setPhoneRaw(rawPhone);
-          setProfilePic(picUrl);
-
           setIsEmailValid(true);
+
+          // Save fresh data back to cache
+          await saveDataToCache(cacheKey, data);
         }
       } catch (error) {
         console.error("Error:", error);
@@ -136,13 +167,21 @@ export default function EditProfileScreen() {
     fetchUserData();
   }, [userId]);
 
-  // --- CHANGE DETECTION ---
+  // --- IMPROVED CHANGE DETECTION ---
   const hasChanges = () => {
     if (loading) return false;
+
+    // Helper: Compare only filenames to ignore S3 expiration signatures
+    const getFileName = (url) => (url && typeof url === 'string' ? url.split('?')[0].split('/').pop() : url);
+
     const isUsernameChanged = username !== initialData.username;
     const isEmailChanged = email !== initialData.email;
     const isPhoneChanged = phoneRaw !== initialData.phone;
-    const isPicChanged = profilePic !== initialData.profilePic;
+    
+    // Check if image is truly different (new local file OR different filename on S3)
+    const isNewLocalFile = profilePic && !profilePic.startsWith('http');
+    const isPicChanged = isNewLocalFile || (getFileName(profilePic) !== getFileName(initialData.profilePic));
+
     return isUsernameChanged || isEmailChanged || isPhoneChanged || isPicChanged;
   };
 
@@ -298,10 +337,7 @@ export default function EditProfileScreen() {
 
         const responseData = await response.json()
         
-        if (response.ok) {
-            Alert.alert("Başarılı", "Profiliniz güncellendi.", [
-                { text: "Tamam", onPress: () => router.back() }
-            ]);
+        if (response.ok) { router.back();
         } else {
             console.log("Update Error:", responseData);
             Alert.alert("Hata", responseData.error || "Güncelleme başarısız oldu.");
@@ -403,7 +439,7 @@ const saveBtnStyle = getSaveButtonStyles();
       >
         <ScrollView contentContainerStyle={editProfileStyles.scrollContent}>
             {loading ? (
-                <ActivityIndicator style={{ marginTop: 50 }} color={colors.tint} />
+                <ActivityIndicator style={{ marginTop: 50 }} color={isDark ? '#000' : '#fff'} />
             ) : (
                 <View>
                     

@@ -121,57 +121,96 @@ export default function HomeScreen() {
     const groupsKey = CACHE_KEYS.USER_GROUPS(userId);
     const userKey = CACHE_KEYS.USER_PROFILE(userId);
 
-    // 1. CACHE LAYER: Load from device storage first
+    // Helper: Compare S3 filenames to bypass signature changes and prevent flickering
+    const getFileName = (url) => (url && typeof url === 'string' ? url.split('?')[0].split('/').pop() : url);
+
+    // 1. SILENT CACHE LOAD: Immediate UI update from device storage
     try {
         const [cachedGroups, cachedUser] = await Promise.all([
             loadDataFromCache(groupsKey),
             loadDataFromCache(userKey)
         ]);
 
-        // Immediate UI Update if cache exists
         if (cachedGroups) {
             setGroups(cachedGroups);
+            setLoading(false);
         }
         if (cachedUser) {
             setUserProfilePic(cachedUser.thumbnail_url || cachedUser.profile_url);
-        }
-
-        // If we showed something from cache, stop the loading spinner immediately
-        if (cachedGroups || cachedUser) {
-            setLoading(false);
         }
     } catch (e) {
         console.log("Cache load error:", e);
     }
 
-    // 2. NETWORK LAYER: Fetch fresh data from API
+    // 2. BACKGROUND NETWORK FETCH: Refresh data silently from API
     try {
-      // A. Fetch User Groups
-      const groupsRes = await fetch(`${API_URL}/my-groups?user_id=${userId}`, {
-          headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
+      const [groupsRes, userRes] = await Promise.all([
+          fetch(`${API_URL}/my-groups?user_id=${userId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }}),
+          fetch(`${API_URL}/get-user?user_id=${userId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }})
+      ]);
+
       if (groupsRes.ok) {
-        const groupsData = await groupsRes.json();
-        setGroups(groupsData); // Update UI
-        await saveDataToCache(groupsKey, groupsData); // Save to Cache
+        const freshGroups = await groupsRes.json();
+        
+        // --- SMART GROUPS COMPARISON (SIGNATURE BYPASS) ---
+        setGroups((prevGroups) => {
+            // If there's no previous data, just return fresh data
+            if (!prevGroups || prevGroups.length === 0) return freshGroups;
+
+            // Check if lengths are different (new group added or removed)
+            if (prevGroups.length !== freshGroups.length) return freshGroups;
+
+            // Create a mapped version of fresh data that preserves old URLs if signatures are the only change
+            const optimizedGroups = freshGroups.map((freshGroup) => {
+                const oldGroup = prevGroups.find(pg => pg.id === freshGroup.id);
+                
+                if (oldGroup) {
+                    // Helper: Compare filenames to ignore signature changes
+                    const getFileName = (url) => (url && typeof url === 'string' ? url.split('?')[0].split('/').pop() : null);
+
+                    const oldPic = oldGroup.thumbnail_url || oldGroup.picture_url;
+                    const freshPic = freshGroup.thumbnail_url || freshGroup.picture_url;
+
+                    // If filenames are identical, keep the old URL to prevent flickering
+                    if (getFileName(oldPic) === getFileName(freshPic)) {
+                        return {
+                            ...freshGroup,
+                            thumbnail_url: oldGroup.thumbnail_url,
+                            picture_url: oldGroup.picture_url
+                        };
+                    }
+                }
+                return freshGroup;
+            });
+
+            // Final safety: Deep check if the optimized data is actually different from current state
+            if (JSON.stringify(prevGroups) === JSON.stringify(optimizedGroups)) {
+                return prevGroups;
+            }
+            return optimizedGroups;
+        });
+
+        await saveDataToCache(groupsKey, freshGroups);
       }
 
-      // B. Fetch User Profile (To get header thumbnail)
-      const userRes = await fetch(`${API_URL}/get-user?user_id=${userId}`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
       if (userRes.ok) {
         const userData = await userRes.json();
-        // Prioritize thumbnail, fallback to original, else null
-        setUserProfilePic(userData.thumbnail_url || userData.profile_url); // Update UI
-        await saveDataToCache(userKey, userData); // Save to Cache
+        const freshPic = userData.thumbnail_url || userData.profile_url;
+
+        // --- SMART PROFILE IMAGE COMPARISON ---
+        setUserProfilePic((prev) => {
+            if (!prev || !freshPic) return freshPic;
+            // If filenames (UUIDs) match, keep 'prev' to ignore S3 signature changes
+            if (getFileName(prev) === getFileName(freshPic)) return prev;
+            return freshPic;
+        });
+        await saveDataToCache(userKey, userData);
       }
 
     } catch (error) {
       console.error("Connection Error:", error);
     } finally {
       setLoading(false);
-      // Ensure refreshing state is turned off if this was triggered by Pull-to-Refresh
       if (typeof setRefreshing === 'function') setRefreshing(false);
     }
   };

@@ -249,7 +249,7 @@ export default function LoginScreen() {
   if (checkingSession) {
       return (
           <View style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'#fff'}}>
-              <ActivityIndicator size="large" color={colors.tint} />
+              <ActivityIndicator size="large" color={isDark ? '#000' : '#fff'} />
           </View>
       );
   }

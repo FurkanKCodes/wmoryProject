@@ -110,64 +110,105 @@ export default function GroupDetailsScreen() {
 
 // --- FETCH DATA (CACHE FIRST STRATEGY) ---
 const fetchData = async () => {
-  // 1. Define Cache Key
-  const cacheKey = CACHE_KEYS.GROUP_DETAILS(groupId);
+    if (!userId) return;
+    const cacheKey = CACHE_KEYS.GROUP_DETAILS(groupId);
 
-  // 2. CACHE LAYER: Try to load from device storage first
-  try {
-      const cachedData = await loadDataFromCache(cacheKey);
-      if (cachedData) {
-          // Immediate UI update from cache
-          // cachedData structure: { details, members, requests }
-          updateGroupState(cachedData.details, cachedData.members, cachedData.requests);
-          setLoading(false); 
+    // Helper: Extract filename to bypass S3 signature changes
+    const getFileName = (url) => (url && typeof url === 'string' ? url.split('?')[0].split('/').pop() : null);
+
+    // 1. SILENT CACHE LOAD: Load from storage first to show UI immediately
+    try {
+        const cachedData = await loadDataFromCache(cacheKey);
+        if (cachedData) {
+            updateGroupState(cachedData.details, cachedData.members, cachedData.requests);
+            setLoading(false); 
+        }
+    } catch (e) { console.log("Cache load error:", e); }
+
+    // 2. BACKGROUND NETWORK FETCH: Update data silently from server
+    try {
+      const [groupRes, membersRes, reqRes] = await Promise.all([
+          fetch(`${API_URL}/get-group-details?group_id=${groupId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }}),
+          fetch(`${API_URL}/get-group-members?group_id=${groupId}&current_user_id=${userId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }}),
+          fetch(`${API_URL}/get-group-requests?group_id=${groupId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }})
+      ]);
+
+      const freshData = {};
+      if (groupRes.ok) freshData.details = await groupRes.json();
+      if (membersRes.ok) freshData.members = await membersRes.json();
+      if (reqRes.ok) freshData.requests = await reqRes.json();
+
+      // --- SMART GROUP DETAILS COMPARISON ---
+      if (freshData.details) {
+          setGroupDetails((prev) => {
+              if (!prev) return freshData.details;
+              
+              const oldPic = prev.thumbnail_url || prev.picture_url;
+              const freshPic = freshData.details.thumbnail_url || freshData.details.picture_url;
+
+              // If only signatures changed, preserve old URLs to prevent flickering
+              if (getFileName(oldPic) === getFileName(freshPic)) {
+                  return {
+                      ...freshData.details,
+                      thumbnail_url: prev.thumbnail_url,
+                      picture_url: prev.picture_url
+                  };
+              }
+              return freshData.details;
+          });
       }
-  } catch (e) {
-      console.log("Cache load error:", e);
-  }
 
-  // 3. NETWORK LAYER: Fetch fresh data from API
-  try {
-    // Execute all requests in parallel for performance
-    const [groupRes, membersRes, reqRes] = await Promise.all([
-        fetch(`${API_URL}/get-group-details?group_id=${groupId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }}),
-        fetch(`${API_URL}/get-group-members?group_id=${groupId}&current_user_id=${userId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }}),
-        fetch(`${API_URL}/get-group-requests?group_id=${groupId}`, { headers: { 'ngrok-skip-browser-warning': 'true' }})
-    ]);
+      // --- SMART MEMBERS LIST COMPARISON ---
+      if (freshData.members) {
+          setMembers((prevMembers) => {
+              if (!prevMembers || prevMembers.length !== freshData.members.length) return freshData.members;
 
-    const freshData = {};
+              return freshData.members.map(freshMember => {
+                  const oldMember = prevMembers.find(m => m.id === freshMember.id);
+                  if (oldMember) {
+                      const oldPic = oldMember.thumbnail_url || oldMember.profile_url;
+                      const freshPic = freshMember.thumbnail_url || freshMember.profile_url;
 
-    // Process Group Details
-    if (groupRes.ok) {
-        freshData.details = await groupRes.json();
+                      if (getFileName(oldPic) === getFileName(freshPic)) {
+                          return { ...freshMember, thumbnail_url: oldMember.thumbnail_url, profile_url: oldMember.profile_url };
+                      }
+                  }
+                  return freshMember;
+              });
+          });
+          
+          // Re-check Admin/Notification status based on updated members
+          const currentUser = freshData.members.find(m => m.id.toString() === userId.toString());
+          setIsAdmin(currentUser?.is_admin === 1);
+          setNotificationsEnabled(currentUser?.notifications === 1);
+      }
+
+      // --- SMART REQUESTS LIST COMPARISON ---
+      if (freshData.requests) {
+          setRequests((prevReqs) => {
+              if (!prevReqs || prevReqs.length !== freshData.requests.length) return freshData.requests;
+
+              return freshData.requests.map(freshReq => {
+                  const oldReq = prevReqs.find(r => r.user_id === freshReq.user_id);
+                  if (oldReq && getFileName(oldReq.thumbnail_url) === getFileName(freshReq.thumbnail_url)) {
+                      return { ...freshReq, thumbnail_url: oldReq.thumbnail_url, profile_url: oldReq.profile_url };
+                  }
+                  return freshReq;
+              });
+          });
+      }
+
+      // Save merged data to cache
+      if (freshData.details || freshData.members) {
+           await saveDataToCache(cacheKey, freshData);
+      }
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+      if (typeof setRefreshing === 'function') setRefreshing(false);
     }
-
-    // Process Members
-    if (membersRes.ok) {
-        freshData.members = await membersRes.json();
-    }
-
-    // Process Requests
-    if (reqRes.ok) {
-        freshData.requests = await reqRes.json();
-    }
-
-    // Update UI with fresh data
-    updateGroupState(freshData.details, freshData.members, freshData.requests);
-
-    // Save combined data to cache
-    // We merge with existing cache to avoid losing parts if one API fails
-    if (freshData.details || freshData.members) {
-         await saveDataToCache(cacheKey, freshData);
-    }
-
-  } catch (error) {
-    console.error("Error fetching data:", error);
-  } finally {
-    setLoading(false);
-    // Stop refresh spinner if active
-    if (typeof setRefreshing === 'function') setRefreshing(false);
-  }
 };
 
   // --- REFRESH STATE ---

@@ -88,7 +88,7 @@ export default function ProfileScreen() {
 
   const [username, setUsername] = useState("Yükleniyor..."); 
   const [profilePic, setProfilePic] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Default to true for the very first app launch
   const [isSuperAdmin, setIsSuperAdmin] = useState(0); 
   
   // NEW: Stats logic states
@@ -108,64 +108,63 @@ export default function ProfileScreen() {
   // --- FETCH USER DATA ---
   useFocusEffect(
     useCallback(() => {
-      
-      // 1. Helper Function: Process Data and Update State
-      // This prevents code duplication for Cache and API data
+      // Helper Function: Update state ONLY if data has actually changed
       const updateProfileState = (data) => {
-        setUsername(data.username);
-        setIsSuperAdmin(data.is_super_admin); 
-        
-        // --- NEW: PLAN & STORAGE LOGIC ---
-        setPlanName(data.plan_name || 'demo'); // Backend: p.name
+        if (!data) return;
+
+        // --- DEEP COMPARISON LOGIC ---
+        // We only update state if key values differ to prevent unnecessary re-renders
+        setUsername((prev) => (prev !== data.username ? data.username : prev));
+        setIsSuperAdmin((prev) => (prev !== data.is_super_admin ? data.is_super_admin : prev));
+        setPlanName((prev) => (prev !== (data.plan_name || 'demo') ? (data.plan_name || 'demo') : prev));
         
         const limit = data.plan_limit_mb || 100;
-        setPlanLimitMB(limit);
+        setPlanLimitMB((prev) => (prev !== limit ? limit : prev));
 
-        // Date Check Logic for Frontend Display
         let usageBytes = 0;
         if (data.last_upload_date) {
             const serverDateStr = new Date(data.last_upload_date).toISOString().split('T')[0];
             const todayStr = new Date().toISOString().split('T')[0];
-
-            if (serverDateStr === todayStr) {
-                usageBytes = data.daily_usage || 0;
-            } else {
-                usageBytes = 0;
-            }
+            if (serverDateStr === todayStr) usageBytes = data.daily_usage || 0;
         }
         
-        // Convert Bytes to MB for display (Two decimal places)
         const usageMB = (usageBytes / (1024 * 1024)).toFixed(1);
-        setDailyUsageMB(usageMB)
+        setDailyUsageMB((prev) => (prev !== usageMB ? usageMB : prev));
 
-          // Set Profile Picture
-          if (data.thumbnail_url) {
-              setProfilePic(data.thumbnail_url); 
-          } else if (data.profile_image) {
-              setProfilePic(`${API_URL}/uploads/${data.profile_image}`);
-          } else {
-              setProfilePic(null);
-          }
+        // --- IMPROVED IMAGE COMPARISON LOGIC ---
+        // Presigned URLs change every time. We must compare the unique filename/key instead.
+        const currentImageUrl = data.thumbnail_url || (data.profile_image ? `${API_URL}/uploads/${data.profile_image}` : null);
+        
+        setProfilePic((prev) => {
+            if (!prev || !currentImageUrl) return currentImageUrl;
+            
+            // Extract the unique part (UUID) from the URL to see if it's actually the same file
+            // Example: Extracts 'abc-123.jpg' from a long AWS S3 Presigned URL
+            const getFileName = (url) => url.split('?')[0].split('/').pop();
+            
+            if (getFileName(prev) === getFileName(currentImageUrl)) {
+                return prev; // Keep the old URL to prevent flickering/re-loading
+            }
+            return currentImageUrl; // Only update if the filename is different
+        });
       };
 
       const fetchUserData = async () => {
         if (!userId) return;
-
         const cacheKey = CACHE_KEYS.USER_PROFILE(userId);
 
-        // 2. CACHE LAYER: Try to load from device storage first
+        // 1. SILENT CACHE LOAD: Load from storage without setting loading=true
         try {
             const cachedData = await loadDataFromCache(cacheKey);
             if (cachedData) {
-                // Immediate UI update from cache
                 updateProfileState(cachedData);
-                setLoading(false); 
+                setLoading(false); // Stop initial spinner if cache exists
             }
         } catch (e) {
             console.log("Cache error:", e);
         }
 
-        // 3. NETWORK LAYER: Fetch fresh data from API
+        // 2. BACKGROUND NETWORK FETCH: Update data silently
         try {
           const response = await fetch(`${API_URL}/get-user?user_id=${userId}`, {
              headers: { 'ngrok-skip-browser-warning': 'true' }
@@ -173,14 +172,15 @@ export default function ProfileScreen() {
           const data = await response.json();
 
           if (response.ok) {
-            // Update UI with fresh data
+            // Update UI with fresh data (Silent comparison happens inside updateProfileState)
             updateProfileState(data);
-            // Save fresh data to cache
+            // Save fresh data to cache for next time
             await saveDataToCache(cacheKey, data);
           }
         } catch (error) {
           console.error("Connection error:", error);
         } finally {
+          // Only stop loading if it's still true (meaning no cache was found)
           setLoading(false);
         }
       };

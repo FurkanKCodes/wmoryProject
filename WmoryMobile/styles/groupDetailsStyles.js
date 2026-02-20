@@ -418,7 +418,9 @@ export const getGroupDetailsStyles = (colors) => {
     height: 100,
     borderRadius: 100,
     // Light: White placeholder bg
-    backgroundColor: isDark ? colors.textPrimary : '#ffffff', 
+    backgroundColor: '#ffffff', 
+    borderWidth: 3,
+    borderColor: isDark ? '#fff' : '#ccc',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
