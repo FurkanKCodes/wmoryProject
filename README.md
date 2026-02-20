@@ -1,75 +1,87 @@
 # WMORY — Group-Based Cloud Media Platform
 
-WMORY is a full-stack, production-oriented cloud application that enables users to create private shared galleries with their friends.
+WMORY is a secure, group-based cloud gallery application that enables users to create private shared media spaces with their friends.
 
-It is designed with scalability, security, and modern cloud architecture principles in mind.
+Instead of asking:
+“Can you send me the photos?”
+
+Users create one shared gallery — everyone uploads once — everyone has access.
+
+---
+
+## 🎥 Demo
+
+Short demo video:   (Not available)
+Live Preview (if available):     (Not available)
+
+---
+
+## 🏗 Architecture
+
+```mermaid
+flowchart TD
+    User[User]
+    Mobile[Mobile App (Expo)]
+    Backend[Backend API (Flask on EC2)]
+    Proxy[RDS Proxy]
+    DB[(AWS RDS MySQL)]
+    S3[(AWS S3 Bucket)]
+    Lambda[Thumbnail Lambda]
+
+    User --> Mobile
+    Mobile -->|Authenticated Requests| Backend
+    Backend --> Proxy
+    Proxy --> DB
+
+    Mobile -->|Presigned Upload| S3
+    S3 -->|ObjectCreated Event| Lambda
+    Lambda -->|Generate Thumbnail| S3
+```
+
+### Architecture Highlights
+
+- Direct-to-S3 uploads (backend is not in the media data path)
+- Managed database (RDS MySQL)
+- Connection stabilization via RDS Proxy
+- Asynchronous thumbnail generation
+- Secure, private media storage
+- Dockerized backend deployment
+- CI/CD ready infrastructure
 
 ---
 
 ## 📌 Project Overview
 
-WMORY solves a common social problem:
+WMORY is designed as a privacy-first shared memory system where:
 
-> Instead of asking “Can you send me the photos?”, users create a shared gallery where everyone uploads once and accesses everything.
+- Users create private groups
+- Members upload photos and videos
+- Content is accessible only to authorized group members
+- Media is securely stored in AWS infrastructure
+- Moderation and reporting mechanisms are enforced server-side
 
-The platform is built as a secure, group-based cloud media system using AWS infrastructure and a direct-to-S3 upload pipeline.
-
----
-
-## 🏗 System Architecture
-
-### Backend
-- Python (Flask)
-- RESTful API design
-- JWT-based authentication (email verification)
-- Role-based access control (group membership validation)
-- Daily upload quota system (MB-based)
-- Rate limiting
-- Presigned S3 upload flow
-- Asynchronous thumbnail generation
-- Dockerized
-- CI/CD ready
-
-### Frontend
-- React Native (Expo)
-- Direct S3 uploads via presigned URLs
-- Secure media retrieval
-- Group-based media feeds
-- Camera integration
-- Media gallery interface
-
----
-
-## ☁ AWS Infrastructure
-
-- AWS EC2 (Dockerized backend hosting)
-- AWS RDS MySQL (Managed relational database)
-- AWS RDS Proxy (connection pooling layer)
-- AWS S3 (media object storage)
-- AWS IAM Roles (credential-less secure service access)
-- AWS ECR (for CI/CD operation)
-- AWS Lambda (thumbnail processing pipeline)
+It functions as a controlled, structured cloud storage layer for shared experiences.
 
 ---
 
 ## 🔐 Security Architecture
 
-Security was designed as a first-class concern:
+Security decisions were treated as first-class engineering concerns:
 
 - Email-based account verification
-- Server-side authorization for all protected routes
+- Server-side authentication middleware
 - Group membership validation before media operations
-- Presigned S3 upload URLs (backend never handles file data)
-- Upload size validation and quota enforcement before and after upload
-- S3 object prefix restrictions
-- No public media exposure
-- Private bucket architecture
+- Presigned S3 upload URLs
+- File type and file size validation
+- Daily upload quota enforcement
+- Private S3 bucket (no public media exposure)
 - Structured audit logging
-- Abuse and reporting system
+- Abuse reporting system
+- IAM role-based AWS access (no hardcoded credentials)
 
 ---
 
-## 📂 Media Flow (Optimized Pipeline)
+## 📂 Media Processing Flow
 
 1. Client requests upload authorization
 2. Backend validates:
@@ -77,23 +89,25 @@ Security was designed as a first-class concern:
    - Group membership
    - MIME type
    - File size
-   - Daily quota
-3. Backend generates presigned S3 URL
+   - Remaining quota
+3. Backend generates presigned S3 upload URL
 4. Client uploads directly to S3
 5. Client confirms upload
 6. Backend stores metadata in RDS
-7. Thumbnail generated asynchronously
-8. Media served securely via signed access
+7. S3 event triggers Lambda
+8. Lambda generates thumbnail asynchronously
+9. Media is served securely via signed access
 
-Backend is not part of the media transfer path, improving scalability and cost efficiency.
+This architecture removes backend bandwidth bottlenecks and improves scalability.
 
 ---
 
 ## 🧠 Database Design
 
-Relational schema with foreign keys and referential integrity:
+Relational schema with foreign keys and referential integrity.
 
 Core tables:
+
 - users
 - groups
 - group_members
@@ -101,25 +115,28 @@ Core tables:
 - reports
 - audit_logs
 
-Design considerations:
-- Ownership and membership validation
-- Cascade-safe deletion patterns
+Design principles:
+
+- Strong ownership and membership validation
 - Quota tracking per user
-- Moderation and reporting workflow
+- Moderation workflow support
 - Structured logging for traceability
+- Data consistency via managed relational database
 
 ---
 
-## ⚙ Production Readiness
+## ☁ AWS Infrastructure
 
-- Managed database (AWS RDS)
-- Connection pooling via RDS Proxy
-- IAM role-based S3 access
-- Environment-based configuration
-- Dockerized deployment
-- ECR-based CI/CD pipeline
-- Zero manual server file edits
-- Infrastructure separation (EC2 / RDS / S3)
+- EC2 (Backend Hosting)
+- RDS MySQL (Managed Database)
+- RDS Proxy (Connection Pooling)
+- S3 (Object Storage)
+- Lambda (Thumbnail Processing)
+- IAM Roles (Secure Access Control)
+- ECR (Container Registry)
+- CI/CD via GitHub Actions
+
+Infrastructure decisions prioritize security, cost-efficiency, and scalability.
 
 ---
 
@@ -127,49 +144,37 @@ Design considerations:
 
 Workflow:
 
-1. Push to GitHub
+1. Push to GitHub repository
 2. GitHub Actions builds Docker image
 3. Image pushed to AWS ECR
 4. EC2 pulls latest image
 5. Container restarts automatically
 
-This ensures version-controlled, reproducible deployments.
+This ensures reproducible, version-controlled deployments without manual SSH edits.
 
 ---
 
 ## 📊 Scalability Considerations
 
-- Direct-to-S3 uploads reduce backend bandwidth usage
-- Asynchronous thumbnail generation prevents blocking requests
-- RDS Proxy stabilizes DB connection load
-- Modular cloud components allow horizontal scaling
-
----
-
-## 🎯 Engineering Focus
-
-This project demonstrates:
-
-- Secure API design
-- Cloud-native architecture
-- Cost-aware infrastructure decisions
-- Media processing pipelines
-- Authentication and authorization enforcement
-- Production deployment practices
-- CI/CD automation
-- Backend–frontend separation of concerns
+- Backend is removed from file transfer path
+- Asynchronous media processing
+- Connection pooling with RDS Proxy
+- Modular AWS components allow horizontal growth
+- Cloud-ready containerized backend
 
 ---
 
 ## 🛠 Local Development
 
 ### Backend
+
 ```bash
 pip install -r requirements.txt
 flask run
 ```
 
 Required environment variables:
+
 - DB_HOST
 - DB_USER
 - DB_PASSWORD
@@ -178,26 +183,46 @@ Required environment variables:
 - AWS_REGION
 
 ### Frontend
+
 ```bash
 npm install
 npx expo start
 ```
 
+Ensure API_URL is correctly configured.
+
+---
+
+## 📎 Key Engineering Decisions
+
+- Direct-to-S3 upload to remove backend bottlenecks
+- Server-side authorization enforcement
+- Managed relational database instead of NoSQL
+- RDS Proxy for connection stability
+- IAM-based AWS credential management
+- Asynchronous thumbnail pipeline
+- Strict separation between media storage and metadata
+
+---
+
+## 👨‍💻 About the Developer
+
+Built as a full-stack cloud media system demonstrating:
+
+- Secure API architecture
+- AWS infrastructure management
+- Production-grade deployment practices
+- CI/CD automation
+- Media pipeline optimization
+- Privacy-first design
+
+LinkedIn: [Furkan Kösen](https://www.linkedin.com/in/furkan-kösen-3b8604250/) 
+Email: (furkankosen22@gmail.com)
+
 ---
 
 ## 📌 Status
 
-Beta-ready architecture with production-oriented infrastructure.
+Beta-ready, production-oriented cloud media platform.
 
-Designed for secure, scalable group-based media sharing.
-
----
-
-## 🎥 Demo
-
-Watch a short demo: [YouTube Link]
-
-
-## 👨‍💻 Author
-
-Full-stack cloud media platform engineered with AWS-first architecture principles.
+Designed for secure and scalable shared memory management.

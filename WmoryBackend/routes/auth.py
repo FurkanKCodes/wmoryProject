@@ -350,6 +350,7 @@ def update_profile():
     try:
         # 1. Get Data (Old Code Structure)
         user_id = request.form.get('user_id')
+        remove_photo = request.form.get('remove_photo') == 'true'
         username = request.form.get('username')
         email = request.form.get('email')
         phone_number = request.form.get('phone_number')
@@ -367,6 +368,17 @@ def update_profile():
         old_image = row['profile_image'] if row else None
 
         picture_filename = None
+
+        # --- NEW: REMOVE PHOTO LOGIC ---
+        if remove_photo and old_image:
+            try:
+                # Dynamic thumbnail key construction
+                thumb_to_delete = old_image.replace('pp_media/', 'pp_thumbs/') if old_image.startswith('pp_media/') else f"thumb_{old_image}"
+                delete_file_from_s3(old_image)
+                delete_file_from_s3(thumb_to_delete)
+                # Set picture_filename to None to signal DB to set NULL
+            except Exception as e:
+                print(f"Error during S3 photo removal: {e}")
 
         # 2. Image Upload Check
         if 'profile_image' in request.files:
@@ -411,6 +423,9 @@ def update_profile():
         if picture_filename:
             query += ", profile_image=%s"
             params.append(picture_filename)
+        elif remove_photo:
+            # Set profile_image to NULL in database
+            query += ", profile_image=NULL
 
         query += " WHERE id=%s"
         params.append(user_id)

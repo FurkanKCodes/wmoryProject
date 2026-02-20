@@ -201,6 +201,16 @@ export default function EditProfileScreen() {
       [
         { text: "Kamerayı Aç", onPress: openCamera },
         { text: "Galeriden Seç", onPress: openGallery },
+        { 
+          text: "Mevcut Fotoğrafı Kaldır", 
+          style: "destructive", 
+          onPress: () => {
+            Alert.alert("Onay", "Profil fotoğrafınızı silmek istediğinize emin misiniz?", [
+              { text: "Vazgeç", style: "cancel" },
+              { text: "Evet, Kaldır", onPress: () => setProfilePic(null) }
+            ]);
+          }
+        },
         { text: "İptal", style: "cancel" }
       ]
     );
@@ -316,6 +326,8 @@ export default function EditProfileScreen() {
         formData.append('username', username);
         formData.append('email', email);
         formData.append('phone_number', '+90' + phoneRaw);
+        // Signal the backend to remove the photo if profilePic is now null
+        formData.append('remove_photo', profilePic === null ? 'true' : 'false');
 
         if (profilePic && profilePic !== initialData.profilePic && !profilePic.startsWith('http')) {
             const filename = profilePic.split('/').pop();
