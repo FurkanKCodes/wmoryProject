@@ -204,12 +204,7 @@ export default function EditProfileScreen() {
         { 
           text: "Mevcut Fotoğrafı Kaldır", 
           style: "destructive", 
-          onPress: () => {
-            Alert.alert("Onay", "Profil fotoğrafınızı silmek istediğinize emin misiniz?", [
-              { text: "Vazgeç", style: "cancel" },
-              { text: "Evet, Kaldır", onPress: () => setProfilePic(null) }
-            ]);
-          }
+          onPress: () => setProfilePic(null),
         },
         { text: "İptal", style: "cancel" }
       ]
