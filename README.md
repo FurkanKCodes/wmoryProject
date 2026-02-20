@@ -12,7 +12,7 @@ Users create one shared gallery — everyone uploads once — everyone has acces
 ## 🎥 Demo
 
 Short demo video:   (Not available)
-Live Preview (if available):     (Not available)
+Live Preview:     (Not available)
 
 ---
 
@@ -20,23 +20,16 @@ Live Preview (if available):     (Not available)
 
 ```mermaid
 flowchart TD
-    User[User]
-    Mobile[Mobile App (Expo)]
-    Backend[Backend API (Flask on EC2)]
-    Proxy[RDS Proxy]
-    DB[(AWS RDS MySQL)]
-    S3[(AWS S3 Bucket)]
-    Lambda[Thumbnail Lambda]
+    User[User] --> Mobile[Mobile App - Expo]
+    Mobile --> Backend[Backend API - Flask on EC2]
+    Backend --> Proxy[RDS Proxy]
+    Proxy --> DB[AWS RDS MySQL]
 
-    User --> Mobile
-    Mobile -->|Authenticated Requests| Backend
-    Backend --> Proxy
-    Proxy --> DB
-
-    Mobile -->|Presigned Upload| S3
-    S3 -->|ObjectCreated Event| Lambda
-    Lambda -->|Generate Thumbnail| S3
+    Mobile --> S3[AWS S3 Bucket]
+    S3 --> Lambda[Thumbnail Lambda]
+    Lambda --> S3
 ```
+
 
 ### Architecture Highlights
 

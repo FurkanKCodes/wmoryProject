@@ -425,7 +425,7 @@ def update_profile():
             params.append(picture_filename)
         elif remove_photo:
             # Set profile_image to NULL in database
-            query += ", profile_image=NULL
+            query += ", profile_image=NULL"
 
         query += " WHERE id=%s"
         params.append(user_id)
