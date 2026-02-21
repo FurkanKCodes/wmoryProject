@@ -8,7 +8,7 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'; 
 import { Ionicons } from '@expo/vector-icons'; 
 import * as ImagePicker from 'expo-image-picker'; 
-import NetInfo from '@react-native-community/netinfo';
+import * as Network from 'expo-network';
 import API_URL from '../config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
@@ -98,19 +98,19 @@ export default function HomeScreen() {
   };
 
   // --- INTERNET WARM-UP ---
-  // Sayfa açıldığında NetInfo'yu bir kez tetikliyoruz ki ilk tıklamada hazır olsun.
+  // Trigger network check once on load to ensure readiness
   useEffect(() => {
-    NetInfo.fetch(); 
+    Network.getNetworkStateAsync(); 
   }, []);
 
   const checkInternetConnection = async () => {
-      const state = await NetInfo.fetch();
-      // Sadece kesin olarak "bağlı değil" (false) ise hata ver.
-      if (state.isConnected === false) {
-          Alert.alert("Bağlantı Hatası", "Lütfen bir internete bağlı olduğunuzdan emin olun.");
-          return false;
-      }
-      return true;
+    const state = await Network.getNetworkStateAsync();
+    // Show error only if explicitly not connected
+    if (state.isConnected === false) {
+        Alert.alert("Bağlantı Hatası", "Lütfen bir internete bağlı olduğunuzdan emin olun.");
+        return false;
+    }
+    return true;
   };
 
   // --- FETCH DATA (GROUPS & PROFILE) ---

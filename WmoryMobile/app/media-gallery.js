@@ -21,7 +21,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import * as ImageManipulator from 'expo-image-manipulator';
 import API_URL from '../config';
-import NetInfo from '@react-native-community/netinfo';
+import * as Network from 'expo-network';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import { getMediaStyles } from '../styles/mediaStyles';
@@ -281,18 +281,20 @@ export default function MediaGalleryScreen() {
     })
     .runOnJS(true);
 
-  // --- INTERNET CHECK LOGIC ---
+// --- INTERNET CHECK LOGIC ---
+  // Trigger network check once on load
   useEffect(() => {
-    NetInfo.fetch(); 
+    Network.getNetworkStateAsync(); 
   }, []);
 
   const checkInternetConnection = async () => {
-      const state = await NetInfo.fetch();
-      if (state.isConnected === false) {
-          Alert.alert("Bağlantı Hatası", "Lütfen bir internete bağlı olduğunuzdan emin olun.");
-          return false;
-      }
-      return true;
+    const state = await Network.getNetworkStateAsync();
+    // Show error only if explicitly not connected
+    if (state.isConnected === false) {
+        Alert.alert("Bağlantı Hatası", "Lütfen bir internete bağlı olduğunuzdan emin olun.");
+        return false;
+    }
+    return true;
   };
 
   // --- HELPER: UPDATE STATE FROM DATA ---
