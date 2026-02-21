@@ -31,11 +31,11 @@ CREATE TABLE groups_table (
     group_code VARCHAR(10) UNIQUE NOT NULL,
     description VARCHAR(255) DEFAULT NUL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by INT NOT NULL,
+    created_by INT,
     group_name VARCHAR(255) NOT NULL DEFAULT 'Adsız Grup',
     picture VARCHAR(255) DEFAULT NULL,
     is_joining_active TINYINT(1) DEFAULT 1,
-    FOREIGN KEY (created_by) REFERENCES users(id)
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE groups_members(

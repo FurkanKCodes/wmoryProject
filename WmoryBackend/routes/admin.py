@@ -329,7 +329,37 @@ def manual_ban():
         # Insert into Banned Users Archive
         cursor.execute("INSERT INTO banned_users (email, username, reason) VALUES (%s, %s, %s)", (email, uname, "Manual Ban by Admin (ID)"))
         
-        # Delete User from Users Table
+        # --- HANDLE ADMIN SUCCESSION BEFORE BANNING ---
+        # Find groups where the banned user is an admin
+        cursor.execute("SELECT group_id FROM groups_members WHERE user_id = %s AND is_admin = 1", (uid,))
+        admin_groups = cursor.fetchall()
+
+        for group in admin_groups:
+            gid = group['group_id']
+            
+            # Remove the user from this specific group first
+            cursor.execute("DELETE FROM groups_members WHERE user_id = %s AND group_id = %s", (uid, gid))
+            
+            # Check if group still has members
+            cursor.execute("SELECT count(*) as count FROM groups_members WHERE group_id = %s", (gid,))
+            count_res = cursor.fetchone()
+            
+            if count_res['count'] == 0:
+                # If group is empty, delete group
+                cursor.execute("DELETE FROM groups_table WHERE id = %s", (gid,))
+            else:
+                # If group not empty, ensure there is at least one admin
+                cursor.execute("SELECT user_id FROM groups_members WHERE group_id = %s AND is_admin = 1", (gid,))
+                has_admin = cursor.fetchone()
+                
+                if not has_admin:
+                    # Promote the oldest member to admin (Heir logic)
+                    cursor.execute("SELECT user_id FROM groups_members WHERE group_id = %s ORDER BY id ASC LIMIT 1", (gid,))
+                    heir = cursor.fetchone()
+                    if heir:
+                        cursor.execute("UPDATE groups_members SET is_admin = 1 WHERE user_id = %s AND group_id = %s", (heir['user_id'], gid))
+
+        # Finally, delete the user from users table
         cursor.execute("DELETE FROM users WHERE id=%s", (uid,))
 
         conn.commit()
@@ -446,17 +476,44 @@ def resolve_report():
                                 delete_file_from_s3(thumb_to_delete)
                             except: pass
 
-                    # 6. DELETE FROM DB (CRITICAL: Delete dependent data first)
+                    # 6. HANDLE ADMIN SUCCESSION BEFORE BANNING (VIA REPORT)
+                    # Find groups where the uploader is an admin
+                    cursor.execute("SELECT group_id FROM groups_members WHERE user_id = %s AND is_admin = 1", (uploader_id,))
+                    admin_groups = cursor.fetchall()
+
+                    for group in admin_groups:
+                        gid = group['group_id']
+                        
+                        # Remove the user from this specific group first to trigger succession
+                        cursor.execute("DELETE FROM groups_members WHERE user_id = %s AND group_id = %s", (uploader_id, gid))
+                        
+                        # Check if group still has members
+                        cursor.execute("SELECT count(*) as count FROM groups_members WHERE group_id = %s", (gid,))
+                        count_res = cursor.fetchone()
+                        
+                        if count_res['count'] == 0:
+                            # If group is empty, delete group
+                            cursor.execute("DELETE FROM groups_table WHERE id = %s", (gid,))
+                        else:
+                            # If group not empty, ensure there is at least one admin
+                            cursor.execute("SELECT user_id FROM groups_members WHERE group_id = %s AND is_admin = 1", (gid,))
+                            has_admin = cursor.fetchone()
+                            
+                            if not has_admin:
+                                # Promote the oldest member to admin (Heir logic)
+                                cursor.execute("SELECT user_id FROM groups_members WHERE group_id = %s ORDER BY id ASC LIMIT 1", (gid,))
+                                heir = cursor.fetchone()
+                                if heir:
+                                    cursor.execute("UPDATE groups_members SET is_admin = 1 WHERE user_id = %s AND group_id = %s", (heir['user_id'], gid))
+
+                    # 7. FINAL DB CLEANUP AND DELETE USER
                     # Delete all reports related to this user (as uploader)
                     cursor.execute("DELETE FROM content_reports WHERE uploader_id = %s", (uploader_id,))
                     
-                    # Delete group memberships
-                    cursor.execute("DELETE FROM groups_members WHERE user_id = %s", (uploader_id,))
-                    
-                    # Delete user's photos from DB
+                    # Delete user's photos from DB (non-group members handled by CASCADE)
                     cursor.execute("DELETE FROM photos WHERE user_id = %s", (uploader_id,))
                     
-                    # Finally, delete the user
+                    # Finally, delete the user record
                     cursor.execute("DELETE FROM users WHERE id=%s", (uploader_id,))
 
         conn.commit()

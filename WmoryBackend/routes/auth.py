@@ -488,19 +488,49 @@ def delete_account():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # 1. Get Profile Image to Delete
+        # 1. Get Profile Image to Delete (for S3 cleanup later)
         cursor.execute("SELECT profile_image FROM users WHERE id = %s", (user_id,))
         user_data = cursor.fetchone()
 
-        # 2. Delete User 
-        cursor.execute("DELETE FROM groups_members WHERE user_id = %s", (user_id,))
+        # 2. HANDLE ADMIN SUCCESSION IN GROUPS
+        # Find groups where the user is an admin
+        cursor.execute("SELECT group_id FROM groups_members WHERE user_id = %s AND is_admin = 1", (user_id,))
+        admin_groups = cursor.fetchall()
+
+        for group in admin_groups:
+            gid = group['group_id']
+            
+            # Remove the user from this specific group first to apply leave_group logic
+            cursor.execute("DELETE FROM groups_members WHERE user_id = %s AND group_id = %s", (user_id, gid))
+            
+            # Check if group still has members
+            cursor.execute("SELECT count(*) as count FROM groups_members WHERE group_id = %s", (gid,))
+            count_res = cursor.fetchone()
+            
+            if count_res['count'] == 0:
+                # If group is empty, delete group (S3 cleanup for group photo handled by DB logic if needed)
+                cursor.execute("DELETE FROM groups_table WHERE id = %s", (gid,))
+            else:
+                # If group not empty, ensure there is at least one admin
+                cursor.execute("SELECT user_id FROM groups_members WHERE group_id = %s AND is_admin = 1", (gid,))
+                has_admin = cursor.fetchone()
+                
+                if not has_admin:
+                    # Promote the oldest member to admin (Heir logic)
+                    cursor.execute("SELECT user_id FROM groups_members WHERE group_id = %s ORDER BY id ASC LIMIT 1", (gid,))
+                    heir = cursor.fetchone()
+                    if heir:
+                        cursor.execute("UPDATE groups_members SET is_admin = 1 WHERE user_id = %s AND group_id = %s", (heir['user_id'], gid))
+
+        # 3. DELETE USER FROM DATABASE
+        # groups_members (non-admin ones), group_requests, etc. will be deleted via ON DELETE CASCADE
         cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
         conn.commit()
 
-        # 3. Clean up S3 (Profile Image)
+        # 4. Clean up S3 (Profile Image)
         if user_data and user_data['profile_image']:
             image_key = user_data['profile_image']
-            # --- DYNAMIC THUMBNAIL DELETE ---
+            # Dynamic thumbnail delete
             thumb_to_delete = image_key.replace('pp_media/', 'pp_thumbs/') if image_key.startswith('pp_media/') else f"thumb_{image_key}"
             delete_file_from_s3(image_key)
             delete_file_from_s3(thumb_to_delete)
