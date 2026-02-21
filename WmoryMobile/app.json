@@ -8,9 +8,6 @@
     "scheme": "photoappfrontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
-    "install": {
-      "exclude": ["react-native-reanimated", "react-native-worklets"]
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.photoapp.project",
