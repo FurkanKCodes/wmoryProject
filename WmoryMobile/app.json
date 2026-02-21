@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "photoappfrontend",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.photoapp.project",
@@ -64,14 +64,6 @@
           "cameraPermissionText": "WMORY, gruplarınızda anlık fotoğraf paylaşabilmeniz için kameranıza erişim ister.",
           "enableMicrophonePermission": true,
           "microphonePermissionText": "WMORY, video çekimi sırasında sesinizi kaydedebilmek için mikrofon izni ister."
-        }
-      ],
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "useFrameworks": "dynamic"
-          }
         }
       ]
     ],
