@@ -66,6 +66,7 @@
           "microphonePermissionText": "WMORY, video çekimi sırasında sesinizi kaydedebilmek için mikrofon izni ister."
         }
       ],
+      "./plugins/withRNFBNonModularHeadersFix",
       [
         "expo-build-properties",
         {
