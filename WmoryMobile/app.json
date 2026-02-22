@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "photoappfrontend",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.photoapp.project",
@@ -70,7 +70,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "dynamic"
+            "useFrameworks": "static"
           }
         }
       ]
