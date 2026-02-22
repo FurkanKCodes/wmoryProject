@@ -70,8 +70,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "static",
-            "deploymentTarget": "16.0"
+            "deploymentTarget": "15.0"
           }
         }
       ]
