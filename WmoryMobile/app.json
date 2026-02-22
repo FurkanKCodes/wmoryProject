@@ -65,14 +65,6 @@
           "enableMicrophonePermission": true,
           "microphonePermissionText": "WMORY, video çekimi sırasında sesinizi kaydedebilmek için mikrofon izni ister."
         }
-      ],
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "useFrameworks": "static"
-          }
-        }
       ]
     ],
     "experiments": {
