@@ -66,12 +66,11 @@
           "microphonePermissionText": "WMORY, video çekimi sırasında sesinizi kaydedebilmek için mikrofon izni ister."
         }
       ],
-      "./plugins/withFirebase.js",
       [
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "16.0"
+            "deploymentTarget": "15.1"
           }
         }
       ]
