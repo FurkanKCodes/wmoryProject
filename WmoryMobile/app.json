@@ -70,8 +70,9 @@
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "static",
-            "deploymentTarget": "15.1"
+          "useFrameworks": "static",
+          "deploymentTarget": "15.1",
+          "extraPodfileCustomContent": "post_install do |installer|\n  installer.pods_project.targets.each do |target|\n    target.build_configurations.each do |config|\n      config.build_settings['ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'\n    end\n  end\nend"
           }
         }
       ]
