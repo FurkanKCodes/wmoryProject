@@ -43,6 +43,7 @@
     },
     "plugins": [
       "expo-router",
+      "withFirebaseFix",
       [
         "expo-splash-screen",
         {
@@ -70,8 +71,7 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "deploymentTarget": "15.1",
-            "extraPodfileContent": "post_install do |installer|\n  installer.pods_project.targets.each do |target|\n    if target.name == 'RNFBApp'\n      target.build_configurations.each do |config|\n        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'\n      end\n    end\n  end\nend"
+            "deploymentTarget": "15.1"
           }
         }
       ]
