@@ -17,6 +17,7 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "WMORY, gruplarınızda anlık fotoğraf paylaşabilmeniz için kameranıza erişim ister.",
         "NSMicrophoneUsageDescription": "WMORY, video çekimi sırasında sesinizi kaydedebilmek için mikrofon izni ister.",
+        "NSLocationWhenInUseUsageDescription": "WMORY, fotoğraflara konum etiketi ekleyebilmek için konumunuza erişim ister.",
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
