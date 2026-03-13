@@ -20,8 +20,7 @@ import Animated, {
   withSequence, 
   runOnJS,
   useAnimatedProps,
-  interpolate,
-  createAnimatedComponent
+  interpolate
 } from 'react-native-reanimated';
 
 // Custom Styles & Utils
@@ -31,7 +30,7 @@ import { setImmersiveMode, restoreSystemBars } from '../utils/androidNavigation'
 // Backend URL Config
 import API_URL from '../config'; 
 
-const AnimatedCamera = createAnimatedComponent(Camera);
+const AnimatedCamera = Animated.createAnimatedComponent(Camera);
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_RATIO = SCREEN_HEIGHT / SCREEN_WIDTH;
