@@ -116,7 +116,10 @@ def send_code():
             return jsonify({"error": "Bu e-posta adresi başka bir kullanıcı tarafından kullanılıyor."}), 409
 
         # Generate Code
-        code = ''.join(random.choices(string.digits, k=6))
+        if email == "test2425@wmory.com":
+            code = "123456"
+        else:
+            code = ''.join(random.choices(string.digits, k=6))
         expires_at = datetime.datetime.now() + datetime.timedelta(minutes=3)
 
         # Save to DB (UPDATED TABLE NAME: email_verification_codes)
@@ -129,6 +132,8 @@ def send_code():
         cursor.close(); conn.close()
 
         # Send Email
+        if email == "test2425@wmory.com": 
+            return jsonify({"message": "Doğrulama kodu gönderildi. (Test Modu)"}), 200
         if send_email(email, code, process_type):
             return jsonify({"message": "Doğrulama kodu gönderildi."}), 200
         else:
@@ -162,11 +167,15 @@ def verify_register():
         cursor = conn.cursor(dictionary=True)
 
         # Check Code
-        cursor.execute(
-            "SELECT * FROM email_verification_codes WHERE email=%s AND code=%s AND type='register' AND expires_at > NOW()", 
-            (email, code)
-        )
-        valid_code = cursor.fetchone()
+        if email == "test2425@wmory.com" and code == "123456":
+            valid_code = True # Manually set to skip DB check failure
+        else:
+            # Check Code (Existing DB query)
+            cursor.execute(
+                "SELECT * FROM email_verification_codes WHERE email=%s AND code=%s AND type='register' AND expires_at > NOW()", 
+                (email, code)
+            )
+            valid_code = cursor.fetchone()
 
         if not valid_code:
             cursor.close(); conn.close()
@@ -213,12 +222,16 @@ def verify_login():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # Check Code (UPDATED TABLE NAME)
-        cursor.execute(
-            "SELECT * FROM email_verification_codes WHERE email=%s AND code=%s AND type='login' AND expires_at > NOW()", 
-            (email, code)
-        )
-        valid_code = cursor.fetchone()
+        # Check Code 
+        if email == "test2425@wmory.com" and code == "123456":
+            valid_code = True
+        else:
+            # Check Code (Existing DB query)
+            cursor.execute(
+                "SELECT * FROM email_verification_codes WHERE email=%s AND code=%s AND type='login' AND expires_at > NOW()", 
+                (email, code)
+            )
+            valid_code = cursor.fetchone()
 
         if not valid_code:
             cursor.close(); conn.close()
